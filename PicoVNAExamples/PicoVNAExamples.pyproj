@@ -30,12 +30,6 @@
     <Compile Include="PicoVNAPython Wrapper\9B7C3137-F2BB-4D8E-9FDB-450B6D527E5Ex0x1x0.py" />
   </ItemGroup>
   <ItemGroup>
-    <InterpreterReference Include="CondaEnv|CondaEnv|Anaconda3" />
-    <InterpreterReference Include="Global|ContinuumAnalytics|Anaconda27-32" />
-    <InterpreterReference Include="Global|ContinuumAnalytics|Anaconda36-32" />
-    <InterpreterReference Include="Global|PythonCore|3.8-32" />
-  </ItemGroup>
-  <ItemGroup>
     <Folder Include="PicoVNAPython Wrapper\" />
   </ItemGroup>
   <ItemGroup>

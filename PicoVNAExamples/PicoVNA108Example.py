@@ -8,8 +8,8 @@ import win32com.client
 import numpy as np
 import matplotlib.pyplot as plt
 
-picoVNACOMObj = win32com.client.gencache.EnsureDispatch("PicoControl3.PicoVNA_3")
 
+picoVNACOMObj = win32com.client.gencache.EnsureDispatch("PicoControl3.PicoVNA_3")
 print("Connecting VNA")
 findVNA = picoVNACOMObj.FND()
 print('VNA ' + str(findVNA) + ' Loaded')
