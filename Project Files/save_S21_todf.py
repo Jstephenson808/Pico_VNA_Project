@@ -108,12 +108,13 @@ def graph(df_row):
 def measure_from_vna():
     N_RUNS = 200
 
-    MEASURE = 'S21'
+    MEASURE = 'All'
     picoVNACOMObj = win32com.client.gencache.EnsureDispatch("PicoControl2.PicoVNA_2")
     CALIBRATION_PATH = "C:\\Users\\js637s\\OneDrive - University of Glasgow\\Glasgow\\Summer Project\\VNA\\800MHz_1GHz_201Points_MiniCirc_P1Short_P2Long_m3dBm_Lab103_Mar23_200MHz_6GHz_.cal"
 
-    df = pd.DataFrame(columns=['Time', 'Frequency', 'Magnitude (dB)'])
+    df = pd.DataFrame(columns=['Time', 'Measurement', 'Frequency', 'Magnitude (dB)', 'Phase'])
     # Define a custom function to convert strings back to lists
+    measurement = ["S11", "S21", "S12", "S22"]
 
     print("Connecting VNA")
     findVNA = picoVNACOMObj.FND()
@@ -130,16 +131,30 @@ def measure_from_vna():
 
     print(f'Starting, will record for {run_time} (until {finish_time})')
     while datetime.now() < finish_time:
-        picoVNACOMObj.Measure(MEASURE)
         current_time = datetime.now().strftime("%Y_%m_%d_%H_%M_%S.%f")
-        raw = picoVNACOMObj.GetData(MEASURE, "logmag", 0)
-        split_data = raw.split(',')
-        # converted_data = np.array(split_data)
-        # converted_data = converted_data.astype(np.float)
-        frequency = split_data[:: 2]
-        data = split_data[1:: 2]
+        picoVNACOMObj.Measure(MEASURE)
+        for measure in measurement:
+            raw = picoVNACOMObj.GetData(measure, "logmag", 0)
+            split_data = raw.split(',')
+            # converted_data = np.array(split_data)
+            # converted_data = converted_data.astype(np.float)
+            frequency = split_data[::2]
+            logMagData = split_data[1::2]
 
-        df = df.append({'Time': current_time, 'Frequency': frequency, 'Magnitude (dB)': data}, ignore_index=True)
+            raw = picoVNACOMObj.GetData(measure, "phase", 0)
+            split_data = raw.split(',')
+            # converted_data = np.array(split_data)
+            # converted_data = converted_data.astype(np.float)
+            phase = split_data[::2]
+
+            data = {
+                'Time' : [current_time for _ in range(len(frequency))],
+                ''
+            }
+
+            tempDataFrame = pd.DataFrame()
+
+            df = df.append({'Time': current_time,  'Frequency': frequency, 'Magnitude (dB)': data}, ignore_index=True)
 
         if index % 10 == 0:
             print(f"Saving {MEASURE} LogMag Data Index is {index} running for another {(finish_time - datetime.now())}")
