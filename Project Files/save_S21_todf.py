@@ -124,7 +124,7 @@ def measure_from_vna():
     print("Result " + str(ans))
     start_time_string = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     start_time = datetime.now()
-    run_time = timedelta(minutes=2)
+    run_time = timedelta(minutes=5)
     finish_time = start_time + run_time
     index = 0
 
@@ -142,7 +142,7 @@ def measure_from_vna():
         df = df.append({'Time': current_time, 'Frequency': frequency, 'Magnitude (dB)': data}, ignore_index=True)
 
         if index % 10 == 0:
-            print(f"Saving {MEASURE} LogMag Data Index is {index} running for another {(finish_time - datetime.now()).strftime('%H_%M_%S')}")
+            print(f"Saving {MEASURE} LogMag Data Index is {index} running for another {(finish_time - datetime.now())}")
             df.to_csv(f'{MEASURE}_{N_RUNS}_Runs_{start_time_string}.csv', index=False)
         index += 1
 
@@ -152,8 +152,8 @@ def measure_from_vna():
     print("VNA Closed")
     return f'{MEASURE}_{N_RUNS}_Runs_{start_time_string}.csv'
 
-#csv_path = measure_from_vna()
-csv_path = 'C:\\Users\\js637s\\OneDrive - University of Glasgow\\Glasgow\\Summer Project\\Code\\Pico VNA\\picosdk-picovna-python-examples\\Project Files\\S21_200_Runs_2023-09-05_17-22-26.csv'
+csv_path = measure_from_vna()
+#csv_path = 'C:\\Users\\js637s\\OneDrive - University of Glasgow\\Glasgow\\Summer Project\\Code\\Pico VNA\\picosdk-picovna-python-examples\\Project Files\\S21_200_Runs_2023-09-05_17-22-26.csv'
 # read out df and plot (but what?)
 csv_df = pd.read_csv(csv_path)
 # Apply the custom function to the 'frequency' and 'data' columns
@@ -170,10 +170,10 @@ csv_df['Magnitude (dB)'] = csv_df['Magnitude (dB)'].apply(string_to_list)
 min_index = csv_df['Magnitude (dB)'][5].index(min(csv_df['Magnitude (dB)'][5]))
 
 
-target_frequency = 700
+target_frequency = 800
 zero_ref_time(csv_df)
 date_processed = datetime.now().strftime('%Y_%m_%d')
-while target_frequency < 1300:
+while target_frequency < 1000:
     plot_frequency(MHz_to_VNA_Fq(target_frequency), csv_df, folder=date_processed)
     target_frequency = target_frequency + 10
 
