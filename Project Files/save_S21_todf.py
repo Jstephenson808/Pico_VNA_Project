@@ -14,6 +14,8 @@ from datetime import datetime, timedelta
 from matplotlib import pyplot as plt
 
 #csv_path = 'C:\\Users\\js637s\\OneDrive - University of Glasgow\\Glasgow\\Summer Project\\Code\\Pico VNA\\picosdk-picovna-python-examples\\Project Files\\S11_10_Runs_2023-09-05_13-53-57.csv'
+save_directory = 'C:\\Users\\js637s\\OneDrive\\OneDrive - University of Glasgow\\Glasgow\\Summer Project\\Experiment Files\\VNA_Data'
+
 
 def MHz_to_VNA_Fq(mhz_value:int):
     return mhz_value * 1000000
@@ -105,14 +107,13 @@ def graph(df_row):
     ax.set_xlabel("Frequency")
     plt.show()
 
-def measure_from_vna():
-    N_RUNS = 200
+def measure_from_vna(measureForMins):
 
     MEASURE = 'All'
     picoVNACOMObj = win32com.client.gencache.EnsureDispatch("PicoControl2.PicoVNA_2")
     CALIBRATION_PATH = "C:\\Users\\js637s\\OneDrive - University of Glasgow\\Glasgow\\Summer Project\\VNA\\800MHz_1GHz_201Points_MiniCirc_P1Short_P2Long_m3dBm_Lab103_Mar23_200MHz_6GHz_.cal"
 
-    df = pd.DataFrame(columns=['Time', 'Measurement', 'Frequency', 'Magnitude (dB)', 'Phase'])
+    df = pd.DataFrame(columns=['Time', 'Measurement', 'Frequency', 'Magnitude', 'Phase'])
     # Define a custom function to convert strings back to lists
     measurement = ["S11", "S21", "S12", "S22"]
 
@@ -125,9 +126,10 @@ def measure_from_vna():
     print("Result " + str(ans))
     start_time_string = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     start_time = datetime.now()
-    run_time = timedelta(minutes=5)
+    run_time = timedelta(minutes=measureForMins)
     finish_time = start_time + run_time
     index = 0
+    fileName = f'{MEASURE}_{measureForMins}_mins_{start_time_string}.csv'
 
     print(f'Starting, will record for {run_time} (until {finish_time})')
     while datetime.now() < finish_time:
@@ -149,25 +151,28 @@ def measure_from_vna():
 
             data = {
                 'Time' : [current_time for _ in range(len(frequency))],
-                ''
-            }
+                'Measurement' : [measure for _ in range(len(frequency))],
+                'Frequency' : frequency,
+                'Magnitude' : logMagData,
+                'Phase' : phase
+                }
 
-            tempDataFrame = pd.DataFrame()
+            tempDataFrame = pd.DataFrame(data)
 
-            df = df.append({'Time': current_time,  'Frequency': frequency, 'Magnitude (dB)': data}, ignore_index=True)
+            df = df.append(tempDataFrame)
 
         if index % 10 == 0:
-            print(f"Saving {MEASURE} LogMag Data Index is {index} running for another {(finish_time - datetime.now())}")
-            df.to_csv(f'{MEASURE}_{N_RUNS}_Runs_{start_time_string}.csv', index=False)
+            print(f"Saving {MEASURE} Data Index is {index} running for another {(finish_time - datetime.now())}")
+            df.to_csv(fileName, index=False)
         index += 1
 
-    df.to_csv(f'{MEASURE}_{start_time_string}.csv', index=False)
+    df.to_csv(fileName, index=False)
 
     a = picoVNACOMObj.CloseVNA()
     print("VNA Closed")
-    return f'{MEASURE}_{N_RUNS}_Runs_{start_time_string}.csv'
+    return fileName
 
-csv_path = measure_from_vna()
+csv_path = measure_from_vna(5)
 #csv_path = 'C:\\Users\\js637s\\OneDrive - University of Glasgow\\Glasgow\\Summer Project\\Code\\Pico VNA\\picosdk-picovna-python-examples\\Project Files\\S21_200_Runs_2023-09-05_17-22-26.csv'
 # read out df and plot (but what?)
 csv_df = pd.read_csv(csv_path)
