@@ -66,10 +66,10 @@ def plot_frequency(target_frequency:int, data_frame:pd.DataFrame, folder):
     df_dict = {'time': data_frame['Time'], 'magnitude (dB)': magnitudes}
     df_to_save = pd.DataFrame(data=df_dict)
     try:
-        df_to_save.to_csv(f'C:\\Users\\js637s\\OneDrive - University of Glasgow\\Glasgow\\Summer Project\\Experiment Files\\VNA_Data\\Frequency_Data\\{folder}\\{datetime.now().strftime("%Y_%m_%d_%H_%M_%S")}-{target_frequency_GHz}_GHz.csv')
-    except FileNotFoundError as e:
-        os.mkdir(f'C:\\Users\\js637s\\OneDrive - University of Glasgow\\Glasgow\\Summer Project\\Experiment Files\\VNA_Data\\Frequency_Data\\{folder}')
-        df_to_save.to_csv(f'C:\\Users\\js637s\\OneDrive - University of Glasgow\\Glasgow\\Summer Project\\Experiment Files\\VNA_Data\\Frequency_Data\\{folder}\\{datetime.now().strftime("%Y_%m_%d_%H_%M_%S")}-{target_frequency_GHz}_GHz.csv')
+        df_to_save.to_csv(f'{os.getcwd()}\\{folder}\\{datetime.now().strftime("%Y_%m_%d_%H_%M_%S")}-{target_frequency_GHz}_GHz.csv')
+    except OSError as e:
+        os.mkdir(f'{os.getcwd()}\\{folder}')
+        df_to_save.to_csv(f'{os.getcwd()}\\{folder}\\{datetime.now().strftime("%Y_%m_%d_%H_%M_%S")}-{target_frequency_GHz}_GHz.csv')
 
 
     fig, ax = plt.subplots()
@@ -110,8 +110,7 @@ def measure_from_vna():
 
     MEASURE = 'S21'
     picoVNACOMObj = win32com.client.gencache.EnsureDispatch("PicoControl2.PicoVNA_2")
-    CALIBRATION_PATH = "C:\\Users\\js637s\\OneDrive - University of Glasgow\\Glasgow\\Summer Project\\VNA\\800MHz_1GHz_201Points_MiniCirc_P1Short_P2Long_m3dBm_Lab103_Mar23_200MHz_6GHz_.cal"
-
+    CALIBRATION_PATH = "C:\\Users\\js637s\\OneDrive\\OneDrive - University of Glasgow\\Glasgow\\Summer Project\\VNA\\800MHz_1GHz_201Points_MiniCirc_P1Short_P2Long_m3dBm_Lab103_Mar23_200MHz_6GHz_.cal"
     df = pd.DataFrame(columns=['Time', 'Frequency', 'Magnitude (dB)'])
     # Define a custom function to convert strings back to lists
 
@@ -124,7 +123,7 @@ def measure_from_vna():
     print("Result " + str(ans))
     start_time_string = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     start_time = datetime.now()
-    run_time = timedelta(minutes=2)
+    run_time = timedelta(seconds=10)
     finish_time = start_time + run_time
     index = 0
 
@@ -139,10 +138,10 @@ def measure_from_vna():
         frequency = split_data[:: 2]
         data = split_data[1:: 2]
 
-        df = df.append({'Time': current_time, 'Frequency': frequency, 'Magnitude (dB)': data}, ignore_index=True)
+        df = df._append({'Time': current_time, 'Frequency': frequency, 'Magnitude (dB)': data}, ignore_index=True)
 
         if index % 10 == 0:
-            print(f"Saving {MEASURE} LogMag Data Index is {index} running for another {(finish_time - datetime.now()).strftime('%H_%M_%S')}")
+            print(f"Saving {MEASURE} LogMag Data Index is {index} running for another {(finish_time - datetime.now())}")
             df.to_csv(f'{MEASURE}_{N_RUNS}_Runs_{start_time_string}.csv', index=False)
         index += 1
 
@@ -152,8 +151,11 @@ def measure_from_vna():
     print("VNA Closed")
     return f'{MEASURE}_{N_RUNS}_Runs_{start_time_string}.csv'
 
-#csv_path = measure_from_vna()
-csv_path = 'C:\\Users\\js637s\\OneDrive - University of Glasgow\\Glasgow\\Summer Project\\Code\\Pico VNA\\picosdk-picovna-python-examples\\Project Files\\S21_200_Runs_2023-09-05_17-22-26.csv'
+# zero ref data output
+# get more data
+
+csv_path = measure_from_vna()
+#csv_path = 'C:\\Users\\js637s\\OneDrive - University of Glasgow\\Glasgow\\Summer Project\\Code\\Pico VNA\\picosdk-picovna-python-examples\\Project Files\\S21_200_Runs_2023-09-05_17-22-26.csv'
 # read out df and plot (but what?)
 csv_df = pd.read_csv(csv_path)
 # Apply the custom function to the 'frequency' and 'data' columns
@@ -170,10 +172,10 @@ csv_df['Magnitude (dB)'] = csv_df['Magnitude (dB)'].apply(string_to_list)
 min_index = csv_df['Magnitude (dB)'][5].index(min(csv_df['Magnitude (dB)'][5]))
 
 
-target_frequency = 700
+target_frequency = 800
 zero_ref_time(csv_df)
 date_processed = datetime.now().strftime('%Y_%m_%d')
-while target_frequency < 1300:
+while target_frequency < 1000:
     plot_frequency(MHz_to_VNA_Fq(target_frequency), csv_df, folder=date_processed)
     target_frequency = target_frequency + 10
 
