@@ -19,3 +19,6 @@
 **/Release 
 **/Debug
 **/build
+
+# ignore all data files in git
+*.csv
