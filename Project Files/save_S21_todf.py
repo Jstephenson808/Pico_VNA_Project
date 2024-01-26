@@ -110,7 +110,11 @@ def measure_from_vna():
 
     MEASURE = 'S21'
     picoVNACOMObj = win32com.client.gencache.EnsureDispatch("PicoControl2.PicoVNA_2")
-    CALIBRATION_PATH = "C:\\Users\\js637s\\OneDrive\\OneDrive - University of Glasgow\\Glasgow\\Summer Project\\VNA\\800MHz_1GHz_201Points_MiniCirc_P1Short_P2Long_m3dBm_Lab103_Mar23_200MHz_6GHz_.cal"
+    print(os.getcwd())
+    os.chdir("..")
+    os.chdir("Calibration")
+    CALIBRATION_PATH = os.path.join(os.getcwd(), "800MHz_1GHz_201Points_MiniCirc_P1Short_P2Long_m3dBm_Lab103_Mar23_200MHz_6GHz_.cal")
+    os.chdir("..")
     df = pd.DataFrame(columns=['Time', 'Frequency', 'Magnitude (dB)'])
     # Define a custom function to convert strings back to lists
 
