@@ -10,9 +10,9 @@ import win32com.client
 import numpy as np
 import pandas as pd
 from datetime import datetime, timedelta
-
+import matplotlib
+matplotlib.use('TkAgg')
 from matplotlib import pyplot as plt
-
 #csv_path = 'C:\\Users\\js637s\\OneDrive - University of Glasgow\\Glasgow\\Summer Project\\Code\\Pico VNA\\picosdk-picovna-python-examples\\Project Files\\S11_10_Runs_2023-09-05_13-53-57.csv'
 
 def MHz_to_VNA_Fq(mhz_value:int):
@@ -54,7 +54,7 @@ def zero_ref_time(data_frame:pd.DataFrame):
 
 
 # for a given frequency plot a graph which has the magnitude over time
-def plot_frequency(target_frequency:int, data_frame:pd.DataFrame, folder):
+def plot_frequency(target_frequency:int, data_frame:pd.DataFrame, folder, param):
     # how can I get the time out?
     # data_frame['dt'] = calculate_dt(data_frame)
     # data_frame['dt'][0] = 0.0
@@ -66,25 +66,24 @@ def plot_frequency(target_frequency:int, data_frame:pd.DataFrame, folder):
     df_dict = {'time': data_frame['Time'], 'magnitude (dB)': magnitudes}
     df_to_save = pd.DataFrame(data=df_dict)
     try:
-        df_to_save.to_csv(f'{os.getcwd()}\\{folder}\\{datetime.now().strftime("%Y_%m_%d_%H_%M_%S")}-{target_frequency_GHz}_GHz.csv')
+        df_to_save.to_csv(f'{os.getcwd()}\\results\\data\\{folder}\\{datetime.now().strftime("%Y_%m_%d_%H_%M_%S")}-{target_frequency_GHz}_GHz_{param}.csv')
     except OSError as e:
-        os.mkdir(f'{os.getcwd()}\\{folder}')
-        df_to_save.to_csv(f'{os.getcwd()}\\{folder}\\{datetime.now().strftime("%Y_%m_%d_%H_%M_%S")}-{target_frequency_GHz}_GHz.csv')
+        os.mkdir(os.path.join(os.getcwd(), "results", "data", folder))
+        df_to_save.to_csv(f'{os.getcwd()}\\results\\data\\{folder}\\{datetime.now().strftime("%Y_%m_%d_%H_%M_%S")}-{target_frequency_GHz}_GHz_{param}.csv')
 
 
     fig, ax = plt.subplots()
     ax.plot(data_frame['Time'], magnitudes)
-    ax.set_ylabel("S21 Mag")
+    ax.set_ylabel("|S11|")
     ax.set_xlabel("Time")
     plt.title(f'S21 Over Time at {target_frequency_GHz} GHz')
 
     try:
-        plt.savefig(os.getcwd() + '\\' + folder + f'\\{datetime.now().strftime("%Y_%m_%d_%H_%M_%S")}-{target_frequency_GHz}_GHz.png')
+        plt.savefig(os.path.join(os.getcwd(), "results", "graphs", folder, f'{datetime.now().strftime("%Y_%m_%d_%H_%M_%S")}-{target_frequency_GHz}_GHz_{param}.png'))
     except FileNotFoundError as e:
-        os.mkdir(os.getcwd() + '\\' + folder)
-        plt.savefig(os.getcwd() + '\\' + folder + f'\\{datetime.now().strftime("%Y_%m_%d_%H_%M_%S")}-{target_frequency_GHz}_GHz.png')
-
-    plt.show()
+        os.mkdir(os.path.join(os.getcwd(), "results", "graphs", folder))
+        plt.savefig(os.path.join(os.getcwd(), "results", "graphs", folder, f'{datetime.now().strftime("%Y_%m_%d_%H_%M_%S")}-{target_frequency_GHz}_GHz_{param}.png'))
+    #plt.show()
     return frequency_index
 
 
@@ -105,10 +104,8 @@ def graph(df_row):
     ax.set_xlabel("Frequency")
     plt.show()
 
-def measure_from_vna():
-    N_RUNS = 200
+def measure_from_vna(MEASURE, rec_time):
 
-    MEASURE = 'S21'
     picoVNACOMObj = win32com.client.gencache.EnsureDispatch("PicoControl2.PicoVNA_2")
     print(os.getcwd())
     os.chdir("..")
@@ -127,9 +124,10 @@ def measure_from_vna():
     print("Result " + str(ans))
     start_time_string = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     start_time = datetime.now()
-    run_time = timedelta(seconds=10)
+    run_time = timedelta(seconds=rec_time)
     finish_time = start_time + run_time
     index = 0
+    file_name = f'{MEASURE}_{rec_time}s_{start_time_string}.csv'
 
     print(f'Starting, will record for {run_time} (until {finish_time})')
     while datetime.now() < finish_time:
@@ -146,19 +144,19 @@ def measure_from_vna():
 
         if index % 10 == 0:
             print(f"Saving {MEASURE} LogMag Data Index is {index} running for another {(finish_time - datetime.now())}")
-            df.to_csv(f'{MEASURE}_{N_RUNS}_Runs_{start_time_string}.csv', index=False)
+            df.to_csv(file_name, index=False)
         index += 1
 
-    df.to_csv(f'{MEASURE}_{start_time_string}.csv', index=False)
+    df.to_csv(file_name, index=False)
 
     a = picoVNACOMObj.CloseVNA()
     print("VNA Closed")
-    return f'{MEASURE}_{N_RUNS}_Runs_{start_time_string}.csv'
+    return file_name
 
 # zero ref data output
 # get more data
-
-csv_path = measure_from_vna()
+finger = "little_right_finger_s11"
+csv_path = measure_from_vna('S11', 20)
 #csv_path = 'C:\\Users\\js637s\\OneDrive - University of Glasgow\\Glasgow\\Summer Project\\Code\\Pico VNA\\picosdk-picovna-python-examples\\Project Files\\S21_200_Runs_2023-09-05_17-22-26.csv'
 # read out df and plot (but what?)
 csv_df = pd.read_csv(csv_path)
@@ -180,7 +178,7 @@ target_frequency = 800
 zero_ref_time(csv_df)
 date_processed = datetime.now().strftime('%Y_%m_%d')
 while target_frequency < 1000:
-    plot_frequency(MHz_to_VNA_Fq(target_frequency), csv_df, folder=date_processed)
+    plot_frequency(MHz_to_VNA_Fq(target_frequency), csv_df, folder=finger, param="S11")
     target_frequency = target_frequency + 10
 
 #get index of min
