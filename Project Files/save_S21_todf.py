@@ -111,7 +111,7 @@ def measure_from_vna(measureForMins):
 
     MEASURE = 'All'
     picoVNACOMObj = win32com.client.gencache.EnsureDispatch("PicoControl2.PicoVNA_2")
-    CALIBRATION_PATH = "C:\\Users\\js637s\\OneDrive - University of Glasgow\\Glasgow\\Summer Project\\VNA\\800MHz_1GHz_201Points_MiniCirc_P1Short_P2Long_m3dBm_Lab103_Mar23_200MHz_6GHz_.cal"
+    CALIBRATION_PATH = "C:\\Users\\James\\OneDrive - University of Glasgow\\Glasgow\\Year 2\\Web App Dev 2\\Workspace\\picosdk-picovna-python-examples\\MiniCirc_3dBm_MiniCirc1m_10Mto6G_Rankine506_23Aug23.cal"
 
     df = pd.DataFrame(columns=['Time', 'Measurement', 'Frequency', 'Magnitude', 'Phase'])
     # Define a custom function to convert strings back to lists
