@@ -45,6 +45,12 @@ class DataFrameCols(Enum):
     MAGNITUDE = "magnitude"
     PHASE = "phase"
 
+
+class NotValidCSVException(Exception):
+    def __init__(self, message):
+        super().__init__(message)
+
+
 class VnaCalibration:
 
     def __init__(self, calibration_path: os.path, number_of_points: int, frequncy_range_hz: (int, int)):
@@ -90,9 +96,9 @@ class VnaData:
     def freq_int_from_ghz_string(self, ghz_string: str):
         return int(float((ghz_string).split('_')[0]) * 1_000_000_000)
 
-    def extract_data_from_old_df(self, old_df: pd.DataFrame, filename):
+    def extract_data_from_old_df(self, old_df: pd.DataFrame, path):
         new_df = pd.DataFrame(columns=[cols.value for cols in DataFrameCols])
-
+        filename = os.path.basename(path)
         match_ghz_fq_csv = re.search(r'(.+)-(\d+\.\d+_GHz)_([A-Za-z\d]+)\.csv', filename)
 
         if match_ghz_fq_csv:
@@ -103,9 +109,12 @@ class VnaData:
             new_df[DataFrameCols.TIME] = old_df['time']
             new_df[DataFrameCols.MAGNITUDE] = old_df['magnitude (dB)']
             new_df[DataFrameCols.FREQUENCY] = frequency
+            new_df[DataFrameCols.S_PARAMETER] = s_param
+            return new_df
 
         if all(col in old_df.columns for col in ['Time', 'Frequency', 'Magnitude (dB)']):
             old_df['Time'] = old_df['Time'].apply(self.string_to_datetime)
+            self.date_time = old_df['Time'][0]
             self.zero_ref_time(old_df)
             old_df['Frequency'] = old_df['Frequency'].apply(self.freq_string_to_list)
             old_df['Magnitude (dB)'] = old_df['Magnitude (dB)'].apply(self.mag_string_to_list)
@@ -114,17 +123,33 @@ class VnaData:
                 temp_df[DataFrameCols.FREQUENCY.value] = row['Frequency']
                 temp_df[DataFrameCols.MAGNITUDE.value] = row['Magnitude (dB)']
                 temp_df[DataFrameCols.TIME.value] = row['Time']
+                new_df = pd.concat([new_df, temp_df])
+            return new_df
+        raise NotValidCSVException(f"Incorrect CSV format read in with fname {filename} and columns {old_df.columns}")
 
     def read_df_from_csv(self, path):
         """
-        Read in data frame from .csv
-        :param path:
+        Read in data frame from .csv checks and converts old format files automatically
+        or raises exception if not correctly formatted
+        :param path: path string to .csv
         :return:
         """
-        self.data_frame = pd.read_csv(path)
+        data_frame = pd.read_csv(path)
+        if all(col.value in data_frame for col in DataFrameCols):
+            self.data_frame = data_frame
+        else:
+            self.data_frame = self.extract_data_from_old_df(data_frame, path)
+
         self.csv_path = path
 
     def extract_freq_df(self, target_frequency: int, s_param: SParam = None) -> pd.DataFrame:
+        """
+        Takes in a target frequency and optional sparam, returns a data frame containing only those values and optionally
+        only those sparams
+        :param target_frequency: Frequency to find
+        :param s_param: SParam enum value to search for
+        :return: data frame containing only those values
+        """
         if s_param is None:
             df = self.data_frame.loc[(self.data_frame[DataFrameCols.FREQUENCY.value] == target_frequency)]
         else:
@@ -133,20 +158,39 @@ class VnaData:
         return df
 
     def save_df(self, data_frame: pandas.DataFrame, file_path):
+        """
+        Write data frame to given file path
+        :param data_frame: input data frame
+        :param file_path: path string to write to
+        :return:
+        """
         data_frame.to_csv(file_path)
 
     def plot_freq_on_axis(self, data_frame, axis: plt.Axes, plot_data: DataFrameCols):
+        """
+        Function which plots the targeted plot_data data type on the y of the supplied axis and
+        the value of time on the x axis
+        :param data_frame: input data frame
+        :param axis: matplotlib axis to plot on
+        :param plot_data: The enum datatype to plot
+        :return:
+        """
         axis.plot(data_frame[DataFrameCols.TIME.value], data_frame[plot_data.value])
 
     def single_freq_plotter(self,
                             target_frequency: int,
-                            folder,
+                            output_folder_path = os.path.join(os.path.dirname(__file__), "results", "graphs"),
                             plot_s_param: SParam = None,
-                            output_dir='graphs'):
-        # how can I get the time out?
-        # data_frame['dt'] = calculate_dt(data_frame)
-        # data_frame['dt'][0] = 0.0
-
+                            data_frame_column_to_plot: DataFrameCols = DataFrameCols.MAGNITUDE,
+                            ):
+        """
+        Plots a single frequency from the internal data frame, saves it to the provided folder
+        :param target_frequency: frequency in Hz to be plotted
+        :param output_folder_path: string for the output folder, defaults to /results/graphs
+        :param plot_s_param: optional enum indicating Sparam to be plotted
+        :param data_frame_column_to_plot: 
+        :return:
+        """
         # data is a single frame with:
         #  -
 
@@ -154,17 +198,12 @@ class VnaData:
         target_frequency_GHz = target_frequency / 1000000000
 
         fig, ax = plt.subplots()
-        self.plot_freq_on_axis(data_frame, ax, DataFrameCols.MAGNITUDE)
+        self.plot_freq_on_axis(data_frame, ax, )
         ax.set_ylabel(f"|{plot_s_param.value}|")
         ax.set_xlabel("Time (s)")
         plt.title(f'|{plot_s_param.value}| Over Time at {target_frequency_GHz} GHz')
 
-        change_to_output_dir(os.path.join("results", output_dir))
-
-        plt.savefig(os.path.join(os.getcwd(),
-                                 f"{datetime.now().strftime('%Y_%m_%d_%H_%M_%S')}-{target_frequency_GHz}_GHz.png"))
-
-        plt.show()
+        plt.savefig(os.path.join(output_folder_path, f"{datetime.now().strftime('%Y_%m_%d_%H_%M_%S')}-{target_frequency_GHz}_GHz.png"))
 
 
 class VNA:
@@ -209,27 +248,28 @@ class VNA:
         data = data_list[1::2]
         return frequencies, data
 
-    def data_string_to_df(self,
-                          time: timedelta,
-                          magnitude_data_string: str,
-                          phase_data_string: str,
-                          parameter: SParam
-                          ) -> pandas.DataFrame:
+    def vna_data_string_to_df(self,
+                              elapsed_time: timedelta,
+                              magnitude_data_string: str,
+                              phase_data_string: str,
+                              s_parameter: SParam
+                              ) -> pandas.DataFrame:
         """
-
-        :param time: Time value for the taken measurements
-        :param magnitude_data_string:
-        :param phase_data_string:
-        :param parameter:
-        :return: pd dataframe containing values for that measurement
+        Converts the strings returned by the VNA .get_data method into a data frame 
+        with the elapsed time, measured SParam, frequency, mag and phase
+        :param elapsed_time: timedelta representing elapsed time when the reading was taken
+        :param magnitude_data_string: data string returned by get_data method with magnitude argument
+        :param phase_data_string: phase data string returned by get_data method with phase argument
+        :param s_parameter: SParam enum value represting the measured Sparam
+        :return: pd dataframe formatted correctly to be appended to the data frame in memory
         """
         # todo fix this so you can have phase or mag independently
         frequencies, magnitudes = self.split_data_string(magnitude_data_string)
         frequencies, phase = self.split_data_string(phase_data_string)
 
         data_dict = {
-            DataFrameCols.TIME.value: [time for _ in frequencies],
-            DataFrameCols.S_PARAMETER.value: [parameter for _ in frequencies],
+            DataFrameCols.TIME.value: [elapsed_time for _ in frequencies],
+            DataFrameCols.S_PARAMETER.value: [s_parameter for _ in frequencies],
             DataFrameCols.FREQUENCY.value: frequencies,
             DataFrameCols.MAGNITUDE.value: magnitudes,
             DataFrameCols.PHASE.value: phase
@@ -260,7 +300,7 @@ class VNA:
         :param elapsed_time: The elaspsed time of the current test (ie the time the data was captured, referenced to 0s)
         :return: the data frame concated on to the current output
         """
-        df = self.data_string_to_df(
+        df = self.vna_data_string_to_df(
             elapsed_time,
             self.get_data(s_param, MeasurementFormat.LOGMAG),
             self.get_data(s_param, MeasurementFormat.PHASE),
@@ -288,7 +328,7 @@ class VNA:
                 s_params_measure: MeasureSParam = MeasureSParam.ALL,
                 s_params_output: [SParam] = None,
                 file_name: str = "",
-                output_dir = os.path.join(os.path.dirname(__file__), 'results')) -> VnaData:
+                output_dir=os.path.join(os.path.dirname(__file__), 'results')) -> VnaData:
 
         if s_params_output == None:
             s_params_output = [SParam.S11]
@@ -313,7 +353,8 @@ class VNA:
 
             measurement_number += 1
             if measurement_number % 10 == 0:
-                print(f"Saving df data index is {measurement_number} running for another {(finish_time - datetime.now())}")
+                print(
+                    f"Saving df data index is {measurement_number} running for another {(finish_time - datetime.now())}")
                 self.output_data.data_frame.to_csv(self.output_data.csv_path, index=False)
 
         self.output_data.data_frame.to_csv(self.output_data.csv_path, index=False)
