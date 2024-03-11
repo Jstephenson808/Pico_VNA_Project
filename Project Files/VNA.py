@@ -160,8 +160,8 @@ class VnaData:
         """
         if string.startswith('[') and string.endswith(']'):
             return [int(i) for i in eval(string)]
-        else:
-            return string
+
+        return string
 
     @staticmethod
     def mag_string_to_list(string):
@@ -172,8 +172,7 @@ class VnaData:
         """
         if string.startswith('[') and string.endswith(']'):
             return [float(i) for i in eval(string)]
-        else:
-            return string
+        return string
 
     @staticmethod
     def zero_ref_time(data_frame: pd.DataFrame):
