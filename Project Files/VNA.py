@@ -11,12 +11,19 @@ from datetime import datetime, timedelta
 from matplotlib import pyplot as plt
 from enum import Enum
 
+ROOT_FOLDER = "picosdk-picovna-python-examples"
 
-def mhz_to_hz(mhz):
-    return mhz * 1000000
+class NotValidCSVException(Exception):
+    def __init__(self, message):
+        super().__init__(message)
 
-def get_root_folder_path():
-    return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+class NotValidSParamException(Exception):
+    def __init__(self, message):
+        super().__init__(message)
+
+class FileNotInCorrectFolder(Exception):
+    def __init__(self, message):
+        super().__init__(message)
 
 class DateFormats(Enum):
     CURRENT = "%Y_%m_%d_%H_%M_%S"
@@ -53,14 +60,25 @@ class DataFrameCols(Enum):
     MAGNITUDE = "magnitude"
     PHASE = "phase"
 
+def mhz_to_hz(mhz):
+    """
+    utility function to convert mhz to hz
+    :param mhz: MHz value
+    :return: value in Hz
+    """
+    return mhz * 1000000
 
-class NotValidCSVException(Exception):
-    def __init__(self, message):
-        super().__init__(message)
-
-class NotValidSParamException(Exception):
-    def __init__(self, message):
-        super().__init__(message)
+def get_root_folder_path():
+    """
+    utility function to get the root folder of the project
+    assumes file is running in original folder, this can cause issues
+    if the root folder is moved
+    :return: path to the root folder
+    """
+    path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    if os.path.basename(path) != ROOT_FOLDER:
+        raise FileNotInCorrectFolder(f"File isn't in correct folder for this function to work, move into a folder below root dir, currently in {__file__}")
+    return path
 
 class VnaCalibration:
 
@@ -74,7 +92,12 @@ class VnaCalibration:
 class VnaData:
 
     @staticmethod
-    def test_file_name(filename):
+    def test_file_name(filename) -> bool:
+        """
+        Tests file name to establish if it's in the correct format
+        :param filename: filename from command line
+        :return: bool indicating if the fname is formatted correctly
+        """
         pattern = r'^[\w\-.]+$'
 
         regex = re.compile(pattern)
@@ -83,6 +106,11 @@ class VnaData:
 
     @staticmethod
     def freq_string_to_list(string):
+        """
+
+        :param string:
+        :return:
+        """
         if string.startswith('[') and string.endswith(']'):
             return [int(i) for i in eval(string)]
         else:
@@ -166,16 +194,19 @@ class VnaData:
     def init_df_date_time(self):
         self.data_frame, self.date_time = VnaData.read_df_from_csv(self.csv_path)
 
-    def get_first_index_of_time(self, target_time):
-        filtered_indexes = self.data_frame.index[self.data_frame[DataFrameCols.TIME.value] > target_time]
+    def get_first_index_of_time(self, target_time, target_magnitude=None):
+        if target_magnitude == None:
+            filtered_indexes = self.data_frame.index[self.data_frame[DataFrameCols.TIME.value] > target_time]
+        else:
+            filtered_indexes = self.data_frame.index[(self.data_frame[DataFrameCols.TIME.value] > target_time) & self.data_frame[DataFrameCols.MAGNITUDE.value] > target_magnitude]
 
         if len(filtered_indexes) == 0:
             raise IndexError(f"Target time out of bounds {target_time}")
         else:
             return filtered_indexes[0]
 
-    def divide_data_frame(self, n_slices, start_time=0):
-        start_index = self.get_first_index_of_time(start_time)
+    def divide_data_frame(self, n_slices, start_time=0, start_magnitude=None):
+        start_index = self.get_first_index_of_time(start_time, start_magnitude)
         return np.array_split(self.data_frame[start_index:], n_slices)
 
     def test_df_columns(self, data_frame: pd.DataFrame):
@@ -222,6 +253,7 @@ class VnaData:
                             output_folder_path = os.path.join(get_root_folder_path(), "results", "graph"),
                             plot_s_param: SParam = None,
                             data_frame_column_to_plot: DataFrameCols = DataFrameCols.MAGNITUDE,
+                            save_to_file = True
                             ):
         """
         Plots a single frequency from the internal data frame, saves it to the provided folder
@@ -252,7 +284,8 @@ class VnaData:
         ax.set_xlabel("Time (s)")
         plt.title(f'|{plot_s_param.value}| Over Time at {target_frequency_GHz} GHz')
 
-        plt.savefig(os.path.join(output_folder_path, f"{datetime.now().strftime('%Y_%m_%d_%H_%M_%S')}-{target_frequency_GHz}_GHz.svg"), format='svg')
+        if save_to_file:
+            plt.savefig(os.path.join(output_folder_path, f"{datetime.now().strftime('%Y_%m_%d_%H_%M_%S')}-{target_frequency_GHz}_GHz.svg"), format='svg')
 
 
 class VNA:
@@ -424,4 +457,3 @@ class VNA:
 if __name__ == "__main__":
     # read in data
     data = VnaData(os.path.join(get_root_folder_path(), "S11_10s_2024-01-26_15-25-14.csv"))
-    data.single_freq_plotter(983_000_000, output_folder_path=os.path.join(get_root_folder_path(), "testing", "graph"))
