@@ -6,29 +6,40 @@ import win32com.client
 import numpy as np
 import pandas as pd
 import matplotlib
+
 matplotlib.use('TkAgg')
 from datetime import datetime, timedelta
 from matplotlib import pyplot as plt
 from enum import Enum
+from tsfresh import extract_features
 
 ROOT_FOLDER = "picosdk-picovna-python-examples"
+
 
 class NotValidCSVException(Exception):
     def __init__(self, message):
         super().__init__(message)
 
+
 class NotValidSParamException(Exception):
     def __init__(self, message):
         super().__init__(message)
+
 
 class FileNotInCorrectFolder(Exception):
     def __init__(self, message):
         super().__init__(message)
 
+
+class Movements(Enum):
+    BEND = "bend"
+
+
 class DateFormats(Enum):
     CURRENT = "%Y_%m_%d_%H_%M_%S"
     ORIGINAL = "%Y_%m_%d_%H_%M_%S.%f"
     DATE_FOLDER = "%Y_%m_%d"
+
 
 class MeasureSParam(Enum):
     S11 = "S11"
@@ -61,6 +72,7 @@ class DataFrameCols(Enum):
     MAGNITUDE = "magnitude"
     PHASE = "phase"
 
+
 def mhz_to_hz(mhz):
     """
     utility function to convert mhz to hz
@@ -69,14 +81,33 @@ def mhz_to_hz(mhz):
     """
     return mhz * 1_000_000
 
+
 def hz_to_mhz(hz):
+    """
+    utility function to convert hz to Mhz
+    :param hz: Hz value
+    :return: value in MHz
+    """
     return hz / 1_000_000
 
+
 def ghz_to_hz(ghz):
+    """
+    utility function to convert GHz to Hz
+    :param ghz: GHz value
+    :return: value in Hz
+    """
     return ghz * 1_000_000_000
 
+
 def hz_to_ghz(hz):
+    """
+    utility function to convert Hz to GHz
+    :param hz: Hz value
+    :return: value in GHz
+    """
     return hz / 1_000_000_000
+
 
 def get_root_folder_path():
     """
@@ -87,12 +118,18 @@ def get_root_folder_path():
     """
     path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     if os.path.basename(path) != ROOT_FOLDER:
-        raise FileNotInCorrectFolder(f"File isn't in correct folder for this function to work, move into a folder below root dir, currently in {__file__}")
+        raise FileNotInCorrectFolder(
+            f"File isn't in correct folder for this function to work,"
+            f" move into a folder below root dir, currently in {__file__}")
     return path
+
 
 class VnaCalibration:
 
-    def __init__(self, calibration_path: os.path, number_of_points: int, frequncy_range_hz: (int, int)):
+    def __init__(self,
+                 calibration_path: os.path,
+                 number_of_points: int,
+                 frequncy_range_hz: (int, int)):
         self.calibration_path = calibration_path
         self.number_of_points = number_of_points
         self.low_freq_hz = frequncy_range_hz[0]
@@ -149,13 +186,15 @@ class VnaData:
         data_frame['Time'] = data_frame['Time'].apply(lambda x: (x - start_time).total_seconds())
 
     @staticmethod
-    def string_to_datetime(string, format: DateFormats = DateFormats.ORIGINAL.value):
+    def string_to_datetime(string,
+                           date_format: DateFormats = DateFormats.ORIGINAL.value) -> datetime:
         """
         Converts a string containing a time into a datetime object
         :param string:
+        :param date_format: enum containing the format string for datetime
         :return:
         """
-        return datetime.strptime(string, format)
+        return datetime.strptime(string, date_format)
 
     @staticmethod
     def freq_int_from_ghz_string(ghz_string: str):
@@ -171,15 +210,18 @@ class VnaData:
         """
         data_frame = pd.read_csv(path)
         if all(col.value in data_frame for col in DataFrameCols):
-            return data_frame, datetime.strptime(os.path.basename(path).split('-')[0], DateFormats.CURRENT.value)
+            date_time = os.path.basename(path).split('-')[0]
+            return data_frame, datetime.strptime(date_time, DateFormats.CURRENT.value)
         else:
             return VnaData.extract_data_from_old_df(data_frame, path)
 
     @staticmethod
     def extract_data_from_old_df(old_df: pd.DataFrame, path) -> (pd.DataFrame, datetime):
         """
-        If a dataframe is read in which is not of the current format, this function is called to
-        convert the old format into the new one, if it is not of a known format it will throw a NotValidCsv exception
+        If a dataframe is read in which is not of the current format,
+        this function is called to convert the old format into the new one,
+        if it is not of a known format it will throw a NotValidCsv exception
+
         :param old_df: The old data frame which is not in the current format
         :param path: The path to the read in .csv
         :return: (pd.DataFrame, datetime)
@@ -201,7 +243,6 @@ class VnaData:
 
         if all(col in old_df.columns for col in ['Time', 'Frequency', 'Magnitude (dB)']):
             s_param = re.search(r'(S\d\d)', filename).group(1)
-            print(s_param)
             old_df['Time'] = old_df['Time'].apply(VnaData.string_to_datetime)
             date_time = old_df['Time'][0]
             VnaData.zero_ref_time(old_df)
@@ -215,7 +256,8 @@ class VnaData:
                 temp_df[DataFrameCols.S_PARAMETER.value] = s_param
                 new_df = pd.concat([new_df, temp_df], ignore_index=True)
             return new_df, date_time
-        raise NotValidCSVException(f"Incorrect CSV format read in with fname {filename} and columns {old_df.columns}")
+        raise NotValidCSVException(f"Incorrect CSV format read in with fname {filename} "
+                                   f"and columns {old_df.columns}")
 
     def __init__(self, path=None, data_frame=None, date_time=None):
         self.data_frame: pd.DataFrame = data_frame
@@ -228,10 +270,12 @@ class VnaData:
         self.data_frame, self.date_time = VnaData.read_df_from_csv(self.csv_path)
 
     def get_first_index_of_time(self, target_time, target_magnitude=None):
-        if target_magnitude == None:
+        if target_magnitude is None:
             filtered_indexes = self.data_frame.index[self.data_frame[DataFrameCols.TIME.value] > target_time]
         else:
-            filtered_indexes = self.data_frame.index[(self.data_frame[DataFrameCols.TIME.value] > target_time) & self.data_frame[DataFrameCols.MAGNITUDE.value] > target_magnitude]
+            filtered_indexes = self.data_frame.index[
+                (self.data_frame[DataFrameCols.TIME.value] > target_time) & self.data_frame[
+                    DataFrameCols.MAGNITUDE.value] > target_magnitude]
 
         if len(filtered_indexes) == 0:
             raise IndexError(f"Target time out of bounds {target_time}")
@@ -251,8 +295,10 @@ class VnaData:
 
     def extract_freq_df(self, target_frequency: int, s_param: SParam = None) -> pd.DataFrame:
         """
-        Takes in a target frequency and optional sparam, returns a data frame containing only those values and optionally
-        only those sparams
+        Takes in a target frequency and optional sparam,
+        returns a data frame containing only those values
+        and optionally only those sparams
+
         :param target_frequency: Frequency to find
         :param s_param: SParam enum value to search for
         :return: data frame containing only those values
@@ -264,7 +310,7 @@ class VnaData:
                                      & (self.data_frame[DataFrameCols.S_PARAMETER.value] == s_param.value)]
         return df
 
-    def save_df(self,  file_path=os.path.join("results", "data")):
+    def save_df(self, file_path=os.path.join("results", "data")):
         """
         Write data frame to given file path
         :param data_frame: input data frame
@@ -287,10 +333,12 @@ class VnaData:
 
     def single_freq_plotter(self,
                             target_frequency: int,
-                            output_folder_path = os.path.join(get_root_folder_path(), "results", "graph", datetime.now().date().strftime(DateFormats.DATE_FOLDER.value)),
+                            output_folder_path=os.path.join(get_root_folder_path(), "results", "graph",
+                                                            datetime.now().date().strftime(
+                                                                DateFormats.DATE_FOLDER.value)),
                             plot_s_param: SParam = None,
                             data_frame_column_to_plot: DataFrameCols = DataFrameCols.MAGNITUDE,
-                            save_to_file = True
+                            save_to_file=True
                             ):
         """
         Plots a single frequency from the internal data frame, saves it to the provided folder
@@ -323,13 +371,18 @@ class VnaData:
 
         if save_to_file:
             os.makedirs(output_folder_path, exist_ok=True)
-            plt.savefig(os.path.join(output_folder_path, f"{datetime.now().strftime('%Y_%m_%d_%H_%M_%S')}-{target_frequency_GHz}_GHz.svg"), format='svg')
+            plt.savefig(os.path.join(output_folder_path,
+                                     f"{datetime.now().strftime('%Y_%m_%d_%H_%M_%S')}-{target_frequency_GHz}_GHz.svg"),
+                        format='svg')
+
+    def pivot_data_frame_frequency(self, value: DataFrameCols) -> pd.DataFrame:
+        return self.data_frame.pivot(index=DataFrameCols.TIME, columns=DataFrameCols.FREQUENCY, values=value)
 
 
 class VNA:
 
     @staticmethod
-    def file_label_input()->str:
+    def file_label_input() -> str:
         file_label = input("Input label for file (no spaces) or press enter for no label:")
         while (file_label != "") and not VnaData.test_file_name(file_label):
             file_label = input("Incorrect format try again or enter to skip:")
@@ -491,14 +544,31 @@ class VNA:
         return self.output_data
 
 
+# class ModelProcessing:
+#     class Features(Enum):
+#         MEANS_ABSOLUTE_VALUE = "MAV"
+#         MODIFIED_MEANS_ABS_VAL_1 = "MMAV1"
+#         MODIFIED_MEANS_ABS_VAL_2 = "MMAV2"
+#         MEANS_ABSOLUTE_VALUE_SLOPE = "MAVSLP"
+#         ROOT_MEANS_SQUARE = "RMS"
+#
+#     def __init__(self, segment: pd.DataFrame):
+#         self.segment = segment
+#         self.feature_matrix = None
+#
 
 if __name__ == "__main__":
-    # read in data
     data = VnaData(os.path.join(get_root_folder_path(), "S11_10s_2024-01-26_15-25-14.csv"))
-    new_dfs = data.split_data_frame(10, 1.2, -8.2)
-    vna_datas = []
-    for new_data in new_dfs:
-        new_data = VnaData(data_frame=new_data, date_time=data.date_time)
-        new_data.single_freq_plotter(ghz_to_hz(0.8), save_to_file=False)
-        vna_datas.append(new_data)
-    plt.show()
+    pivoted_df = data.data_frame.pivot(index=DataFrameCols.TIME.value, columns=DataFrameCols.FREQUENCY.value,
+                                       values=DataFrameCols.MAGNITUDE.value)
+    pivoted_df.reset_index(inplace=True)
+    print(pivoted_df.head())
+    pivoted_df['movement'] = 'bend'
+    extracted = extract_features(pivoted_df, column_sort='time', column_id='movement')
+    # new_dfs = data.split_data_frame(10, 1.2, -8.2)
+    # vna_datas = []
+    # for new_data in new_dfs:
+    #     new_data = VnaData(data_frame=new_data, date_time=data.date_time)
+    #     new_data.single_freq_plotter(ghz_to_hz(0.8), save_to_file=False)
+    #     vna_datas.append(new_data)
+    # plt.show()
