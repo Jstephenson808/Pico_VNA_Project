@@ -238,9 +238,13 @@ class VnaData:
         else:
             return filtered_indexes[0]
 
-    def divide_data_frame(self, n_slices, start_time=0, start_magnitude=None):
+    def split_data_frame(self, n_slices, start_time=0, start_magnitude=None):
         start_index = self.get_first_index_of_time(start_time, start_magnitude)
-        return np.array_split(self.data_frame[start_index:], n_slices)
+        split_data_frames = np.array_split(self.data_frame[start_index:], n_slices)
+        index_reset_df = []
+        for data_frame in split_data_frames:
+            index_reset_df.append(data_frame.reset_index())
+        return index_reset_df
 
     def test_df_columns(self, data_frame: pd.DataFrame):
         assert all(col.value in data_frame.columns for col in DataFrameCols)
@@ -399,9 +403,9 @@ class VNA:
         }
         return pd.DataFrame(data_dict)
 
-    def generate_output_filename(self, output_folder: str, s_params_saved: SParam, run_time: timedelta, fname=""):
+    def generate_output_path(self, output_folder: str, s_params_saved: SParam, run_time: timedelta, fname=""):
         """
-        Utility function to generate file names
+        Utility function to generate file name and join it ot path
         :param s_params_measure: measured s parameteres
         :param run_time:
         :param fname:
@@ -457,7 +461,7 @@ class VNA:
             s_params_output = [SParam.S11]
 
         # todo fix paths
-        self.output_data.csv_path = self.generate_output_filename(output_dir, s_params_output, run_time, file_name)
+        self.output_data.csv_path = self.generate_output_path(output_dir, s_params_output, run_time, file_name)
         print(f"Saving to {self.output_data.csv_path}")
 
         self.connect()
@@ -491,10 +495,10 @@ class VNA:
 if __name__ == "__main__":
     # read in data
     data = VnaData(os.path.join(get_root_folder_path(), "S11_10s_2024-01-26_15-25-14.csv"))
-    new_dfs = data.divide_data_frame(20, 1.2, -8.2)
+    new_dfs = data.split_data_frame(10, 1.2, -8.2)
     vna_datas = []
     for new_data in new_dfs:
         new_data = VnaData(data_frame=new_data, date_time=data.date_time)
-        new_data.single_freq_plotter(ghz_to_hz(0.983), save_to_file=False)
+        new_data.single_freq_plotter(ghz_to_hz(0.8), save_to_file=False)
         vna_datas.append(new_data)
     plt.show()
