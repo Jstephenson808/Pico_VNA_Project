@@ -28,6 +28,7 @@ class FileNotInCorrectFolder(Exception):
 class DateFormats(Enum):
     CURRENT = "%Y_%m_%d_%H_%M_%S"
     ORIGINAL = "%Y_%m_%d_%H_%M_%S.%f"
+    DATE_FOLDER = "%Y_%m_%d"
 
 class MeasureSParam(Enum):
     S11 = "S11"
@@ -66,7 +67,16 @@ def mhz_to_hz(mhz):
     :param mhz: MHz value
     :return: value in Hz
     """
-    return mhz * 1000000
+    return mhz * 1_000_000
+
+def hz_to_mhz(hz):
+    return hz / 1_000_000
+
+def ghz_to_hz(ghz):
+    return ghz * 1_000_000_000
+
+def hz_to_ghz(hz):
+    return hz / 1_000_000_000
 
 def get_root_folder_path():
     """
@@ -107,8 +117,8 @@ class VnaData:
     @staticmethod
     def freq_string_to_list(string):
         """
-
-        :param string:
+        converts legacy frequency list string to a list of ints
+        :param string: string read in from .csv
         :return:
         """
         if string.startswith('[') and string.endswith(']'):
@@ -118,6 +128,11 @@ class VnaData:
 
     @staticmethod
     def mag_string_to_list(string):
+        """
+        converts legacy magnitude list string to a list of floats
+        :param string:
+        :return:
+        """
         if string.startswith('[') and string.endswith(']'):
             return [float(i) for i in eval(string)]
         else:
@@ -125,12 +140,22 @@ class VnaData:
 
     @staticmethod
     def zero_ref_time(data_frame: pd.DataFrame):
+        """
+        References the time in data frame to first value
+        :param data_frame: data frame
+        :return: None
+        """
         start_time = data_frame['Time'][0]
         data_frame['Time'] = data_frame['Time'].apply(lambda x: (x - start_time).total_seconds())
 
     @staticmethod
-    def string_to_datetime(string):
-        return datetime.strptime(string, DateFormats.ORIGINAL.value)
+    def string_to_datetime(string, format: DateFormats = DateFormats.ORIGINAL.value):
+        """
+        Converts a string containing a time into a datetime object
+        :param string:
+        :return:
+        """
+        return datetime.strptime(string, format)
 
     @staticmethod
     def freq_int_from_ghz_string(ghz_string: str):
@@ -151,7 +176,14 @@ class VnaData:
             return VnaData.extract_data_from_old_df(data_frame, path)
 
     @staticmethod
-    def extract_data_from_old_df(old_df: pd.DataFrame, path):
+    def extract_data_from_old_df(old_df: pd.DataFrame, path) -> (pd.DataFrame, datetime):
+        """
+        If a dataframe is read in which is not of the current format, this function is called to
+        convert the old format into the new one, if it is not of a known format it will throw a NotValidCsv exception
+        :param old_df: The old data frame which is not in the current format
+        :param path: The path to the read in .csv
+        :return: (pd.DataFrame, datetime)
+        """
         new_df = pd.DataFrame(columns=[cols.value for cols in DataFrameCols])
         filename = os.path.basename(path)
         match_ghz_fq_csv = re.search(r'(.+)-(\d+\.\d+_GHz)_([A-Za-z\d]+)\.csv', filename)
@@ -185,11 +217,12 @@ class VnaData:
             return new_df, date_time
         raise NotValidCSVException(f"Incorrect CSV format read in with fname {filename} and columns {old_df.columns}")
 
-    def __init__(self, path):
-        self.data_frame: pd.DataFrame = None
-        self.date_time: datetime = None
+    def __init__(self, path=None, data_frame=None, date_time=None):
+        self.data_frame: pd.DataFrame = data_frame
+        self.date_time: datetime = date_time
         self.csv_path = path
-        self.init_df_date_time()
+        if path is not None:
+            self.init_df_date_time()
 
     def init_df_date_time(self):
         self.data_frame, self.date_time = VnaData.read_df_from_csv(self.csv_path)
@@ -250,7 +283,7 @@ class VnaData:
 
     def single_freq_plotter(self,
                             target_frequency: int,
-                            output_folder_path = os.path.join(get_root_folder_path(), "results", "graph"),
+                            output_folder_path = os.path.join(get_root_folder_path(), "results", "graph", datetime.now().date().strftime(DateFormats.DATE_FOLDER.value)),
                             plot_s_param: SParam = None,
                             data_frame_column_to_plot: DataFrameCols = DataFrameCols.MAGNITUDE,
                             save_to_file = True
@@ -276,7 +309,7 @@ class VnaData:
             raise NotValidSParamException
 
         data_frame = self.extract_freq_df(target_frequency, plot_s_param)
-        target_frequency_GHz = target_frequency / 1000000000
+        target_frequency_GHz = hz_to_ghz(target_frequency)
 
         fig, ax = plt.subplots()
         self.plot_freq_on_axis(data_frame, ax, data_frame_column_to_plot)
@@ -285,6 +318,7 @@ class VnaData:
         plt.title(f'|{plot_s_param.value}| Over Time at {target_frequency_GHz} GHz')
 
         if save_to_file:
+            os.makedirs(output_folder_path, exist_ok=True)
             plt.savefig(os.path.join(output_folder_path, f"{datetime.now().strftime('%Y_%m_%d_%H_%M_%S')}-{target_frequency_GHz}_GHz.svg"), format='svg')
 
 
@@ -457,3 +491,10 @@ class VNA:
 if __name__ == "__main__":
     # read in data
     data = VnaData(os.path.join(get_root_folder_path(), "S11_10s_2024-01-26_15-25-14.csv"))
+    new_dfs = data.divide_data_frame(20, 1.2, -8.2)
+    vna_datas = []
+    for new_data in new_dfs:
+        new_data = VnaData(data_frame=new_data, date_time=data.date_time)
+        new_data.single_freq_plotter(ghz_to_hz(0.983), save_to_file=False)
+        vna_datas.append(new_data)
+    plt.show()
