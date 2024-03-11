@@ -1,17 +1,17 @@
+import win32com.client
+from tsfresh import extract_features
+from enum import Enum
+from matplotlib import pyplot as plt
+from datetime import datetime, timedelta
+import ast
 import os
 from typing import List
 import re
-import pandas
-import win32com.client
 import numpy as np
 import pandas as pd
 import matplotlib
-
 matplotlib.use('TkAgg')
-from datetime import datetime, timedelta
-from matplotlib import pyplot as plt
-from enum import Enum
-from tsfresh import extract_features
+
 
 ROOT_FOLDER = "picosdk-picovna-python-examples"
 
@@ -159,7 +159,7 @@ class VnaData:
         :return:
         """
         if string.startswith('[') and string.endswith(']'):
-            return [int(i) for i in eval(string)]
+            return [int(i) for i in ast.literal_eval(string)]
 
         return string
 
@@ -171,7 +171,7 @@ class VnaData:
         :return:
         """
         if string.startswith('[') and string.endswith(']'):
-            return [float(i) for i in eval(string)]
+            return [float(i) for i in ast.literal_eval(string)]
         return string
 
     @staticmethod
@@ -182,7 +182,8 @@ class VnaData:
         :return: None
         """
         start_time = data_frame['Time'][0]
-        data_frame['Time'] = data_frame['Time'].apply(lambda x: (x - start_time).total_seconds())
+        data_frame['Time'] = data_frame['Time'].apply(
+            lambda x: (x - start_time).total_seconds())
 
     @staticmethod
     def string_to_datetime(string,
@@ -227,10 +228,12 @@ class VnaData:
         """
         new_df = pd.DataFrame(columns=[cols.value for cols in DataFrameCols])
         filename = os.path.basename(path)
-        match_ghz_fq_csv = re.search(r'(.+)-(\d+\.\d+_GHz)_([A-Za-z\d]+)\.csv', filename)
+        match_ghz_fq_csv = re.search(
+            r'(.+)-(\d+\.\d+_GHz)_([A-Za-z\d]+)\.csv', filename)
 
         if match_ghz_fq_csv:
-            date_time = datetime.strptime(match_ghz_fq_csv.group(1), DateFormats.CURRENT.value)
+            date_time = datetime.strptime(
+                match_ghz_fq_csv.group(1), DateFormats.CURRENT.value)
             frequency_string = match_ghz_fq_csv.group(2)
             frequency = VnaData.freq_int_from_ghz_string(frequency_string)
             s_param = match_ghz_fq_csv.group(3)
@@ -245,10 +248,13 @@ class VnaData:
             old_df['Time'] = old_df['Time'].apply(VnaData.string_to_datetime)
             date_time = old_df['Time'][0]
             VnaData.zero_ref_time(old_df)
-            old_df['Frequency'] = old_df['Frequency'].apply(VnaData.freq_string_to_list)
-            old_df['Magnitude (dB)'] = old_df['Magnitude (dB)'].apply(VnaData.mag_string_to_list)
+            old_df['Frequency'] = old_df['Frequency'].apply(
+                VnaData.freq_string_to_list)
+            old_df['Magnitude (dB)'] = old_df['Magnitude (dB)'].apply(
+                VnaData.mag_string_to_list)
             for index, row in old_df.iterrows():
-                temp_df = pd.DataFrame(columns=[cols.value for cols in DataFrameCols])
+                temp_df = pd.DataFrame(
+                    columns=[cols.value for cols in DataFrameCols])
                 temp_df[DataFrameCols.FREQUENCY.value] = row['Frequency']
                 temp_df[DataFrameCols.MAGNITUDE.value] = row['Magnitude (dB)']
                 temp_df[DataFrameCols.TIME.value] = row['Time']
@@ -266,7 +272,8 @@ class VnaData:
             self.init_df_date_time()
 
     def init_df_date_time(self):
-        self.data_frame, self.date_time = VnaData.read_df_from_csv(self.csv_path)
+        self.data_frame, self.date_time = VnaData.read_df_from_csv(
+            self.csv_path)
 
     def get_first_index_of_time(self, target_time, target_magnitude=None):
         if target_magnitude is None:
@@ -283,7 +290,8 @@ class VnaData:
 
     def split_data_frame(self, n_slices, start_time=0, start_magnitude=None):
         start_index = self.get_first_index_of_time(start_time, start_magnitude)
-        split_data_frames = np.array_split(self.data_frame[start_index:], n_slices)
+        split_data_frames = np.array_split(
+            self.data_frame[start_index:], n_slices)
         index_reset_df = []
         for data_frame in split_data_frames:
             index_reset_df.append(data_frame.reset_index())
@@ -303,7 +311,8 @@ class VnaData:
         :return: data frame containing only those values
         """
         if s_param is None:
-            df = self.data_frame.loc[(self.data_frame[DataFrameCols.FREQUENCY.value] == target_frequency)]
+            df = self.data_frame.loc[(
+                self.data_frame[DataFrameCols.FREQUENCY.value] == target_frequency)]
         else:
             df = self.data_frame.loc[(self.data_frame[DataFrameCols.FREQUENCY.value] == target_frequency)
                                      & (self.data_frame[DataFrameCols.S_PARAMETER.value] == s_param.value)]
@@ -328,7 +337,8 @@ class VnaData:
         :param plot_data: The enum datatype to plot
         :return:
         """
-        axis.plot(data_frame[DataFrameCols.TIME.value], data_frame[plot_data.value])
+        axis.plot(data_frame[DataFrameCols.TIME.value],
+                  data_frame[plot_data.value])
 
     def single_freq_plotter(self,
                             target_frequency: int,
@@ -366,7 +376,8 @@ class VnaData:
         self.plot_freq_on_axis(data_frame, ax, data_frame_column_to_plot)
         ax.set_ylabel(f"|{plot_s_param.value}|")
         ax.set_xlabel("Time (s)")
-        plt.title(f'|{plot_s_param.value}| Over Time at {target_frequency_GHz} GHz')
+        plt.title(
+            f'|{plot_s_param.value}| Over Time at {target_frequency_GHz} GHz')
 
         if save_to_file:
             os.makedirs(output_folder_path, exist_ok=True)
@@ -382,7 +393,8 @@ class VNA:
 
     @staticmethod
     def file_label_input() -> str:
-        file_label = input("Input label for file (no spaces) or press enter for no label:")
+        file_label = input(
+            "Input label for file (no spaces) or press enter for no label:")
         while (file_label != "") and not VnaData.test_file_name(file_label):
             file_label = input("Incorrect format try again or enter to skip:")
         return file_label
@@ -432,9 +444,9 @@ class VNA:
                               magnitude_data_string: str,
                               phase_data_string: str,
                               s_parameter: SParam
-                              ) -> pandas.DataFrame:
+                              ) -> pd.DataFrame:
         """
-        Converts the strings returned by the VNA .get_data method into a data frame 
+        Converts the strings returned by the VNA .get_data method into a data frame
         with the elapsed time, measured SParam, frequency, mag and phase
         :param elapsed_time: timedelta representing elapsed time when the reading was taken
         :param magnitude_data_string: data string returned by get_data method with magnitude argument
@@ -468,13 +480,13 @@ class VNA:
 
         s_params = ("_").join(s_params_saved.value)
         filename = f'{fname}{s_params}_{run_time.seconds}_secs.csv'
-        return os.join(output_folder, 'data', filename)
+        return os.path.join(output_folder, 'data', filename)
 
     # todo what if you only want to measure one of phase or logmag?
     def add_measurement_to_data_frame(self, s_param: SParam, elapsed_time: timedelta):
         """
-        Gets current measurement strings (logmag and phase) for the given S param from VNA and converts it to a pd data frame, appending
-        this data frame to the output data
+        Gets current measurement strings (logmag and phase) for the given S param from VNA and converts it
+        to a pd data frame, appending this data frame to the output data
         :param s_param: SParam to get the data
         :param elapsed_time: The elaspsed time of the current test (ie the time the data was captured, referenced to 0s)
         :return: the data frame concated on to the current output
@@ -500,7 +512,8 @@ class VNA:
 
         # todo check how the measurement formats work, where is phase and logmag defined?
         for s_param in s_params_output:
-            self.output_data.data_frame = self.add_measurement_to_data_frame(s_param, elapsed_time)
+            self.output_data.data_frame = self.add_measurement_to_data_frame(
+                s_param, elapsed_time)
 
     def measure(self,
                 run_time: timedelta,
@@ -512,8 +525,8 @@ class VNA:
         if s_params_output == None:
             s_params_output = [SParam.S11]
 
-        # todo fix paths
-        self.output_data.csv_path = self.generate_output_path(output_dir, s_params_output, run_time, file_name)
+        self.output_data.csv_path = self.generate_output_path(
+            output_dir, s_params_output, run_time, file_name)
         print(f"Saving to {self.output_data.csv_path}")
 
         self.connect()
@@ -528,15 +541,18 @@ class VNA:
             current_time = datetime.now()
             elapsed_time = current_time - start_time
 
-            self.take_measurement(s_params_measure, s_params_output, elapsed_time)
+            self.take_measurement(
+                s_params_measure, s_params_output, elapsed_time)
 
             measurement_number += 1
             if measurement_number % 10 == 0:
                 print(
                     f"Saving df data index is {measurement_number} running for another {(finish_time - datetime.now())}")
-                self.output_data.data_frame.to_csv(self.output_data.csv_path, index=False)
+                self.output_data.data_frame.to_csv(
+                    self.output_data.csv_path, index=False)
 
-        self.output_data.data_frame.to_csv(self.output_data.csv_path, index=False)
+        self.output_data.data_frame.to_csv(
+            self.output_data.csv_path, index=False)
 
         self.vna_object.CloseVNA()
         print("VNA Closed")
@@ -557,13 +573,15 @@ class VNA:
 #
 
 if __name__ == "__main__":
-    data = VnaData(os.path.join(get_root_folder_path(), "S11_10s_2024-01-26_15-25-14.csv"))
+    data = VnaData(os.path.join(get_root_folder_path(),
+                   "S11_10s_2024-01-26_15-25-14.csv"))
     pivoted_df = data.data_frame.pivot(index=DataFrameCols.TIME.value, columns=DataFrameCols.FREQUENCY.value,
                                        values=DataFrameCols.MAGNITUDE.value)
     pivoted_df.reset_index(inplace=True)
     print(pivoted_df.head())
     pivoted_df['movement'] = 'bend'
-    extracted = extract_features(pivoted_df, column_sort='time', column_id='movement')
+    extracted = extract_features(
+        pivoted_df, column_sort='time', column_id='movement')
     # new_dfs = data.split_data_frame(10, 1.2, -8.2)
     # vna_datas = []
     # for new_data in new_dfs:
