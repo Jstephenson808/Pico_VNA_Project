@@ -1,5 +1,5 @@
 import win32com.client
-from tsfresh import extract_features
+from tsfresh import extract_features, select_features
 from enum import Enum
 from matplotlib import pyplot as plt
 from datetime import datetime, timedelta
@@ -10,11 +10,11 @@ import re
 import numpy as np
 import pandas as pd
 import matplotlib
+from tsfresh.utilities.dataframe_functions import impute
 
 matplotlib.use("TkAgg")
 
-
-ROOT_FOLDER = "picosdk-picovna-python-examples"
+ROOT_FOLDER = "code"
 
 
 class NotValidCSVException(Exception):
@@ -254,10 +254,10 @@ class VnaData:
             frequency_string = match_ghz_fq_csv.group(2)
             frequency = VnaData.freq_int_from_ghz_string(frequency_string)
             s_param = match_ghz_fq_csv.group(3)
-            new_df[DataFrameCols.TIME] = old_df["time"]
-            new_df[DataFrameCols.MAGNITUDE] = old_df["magnitude (dB)"]
-            new_df[DataFrameCols.FREQUENCY] = frequency
-            new_df[DataFrameCols.S_PARAMETER] = s_param
+            new_df[DataFrameCols.TIME.value] = old_df["time"]
+            new_df[DataFrameCols.MAGNITUDE.value] = old_df["magnitude (dB)"]
+            new_df[DataFrameCols.FREQUENCY.value] = frequency
+            new_df[DataFrameCols.S_PARAMETER.value] = s_param
             return new_df, date_time
 
         if all(
@@ -624,19 +624,86 @@ class VNA:
 #         self.feature_matrix = None
 #
 
-if __name__ == "__main__":
-    data = VnaData(
-        os.path.join(get_root_folder_path(), "S11_10s_2024-01-26_15-25-14.csv")
+
+def make_feature_df(path):
+    return
+
+
+def make_fq_df(directory: str, movement: str, sample_id) -> pd.DataFrame:
+    # s_param_map = {SParam.S11.value:11, SParam.S21.value:21, SParam.S12.value:12,SParam}
+
+    csvs = os.listdir(
+        os.path.join(get_root_folder_path(), "data", "processed_data", directory)
     )
-    pivoted_df = data.data_frame.pivot(
+
+    data = VnaData(
+        os.path.join(
+            get_root_folder_path(), "data", "processed_data", directory, csvs.pop(0)
+        )
+    )
+    new_df = data.data_frame.pivot(
         index=DataFrameCols.TIME.value,
         columns=DataFrameCols.FREQUENCY.value,
         values=DataFrameCols.MAGNITUDE.value,
     )
-    pivoted_df.reset_index(inplace=True)
-    print(pivoted_df.head())
-    pivoted_df["movement"] = "bend"
-    extracted = extract_features(pivoted_df, column_sort="time", column_id="movement")
+    new_df.reset_index(inplace=True)
+    new_df[DataFrameCols.S_PARAMETER.value] = data.data_frame[
+        DataFrameCols.S_PARAMETER.value
+    ]
+    new_df["movement"] = movement
+    new_df["id"] = sample_id
+    new_df = new_df[
+        [
+            DataFrameCols.TIME.value,
+            "id",
+            DataFrameCols.S_PARAMETER.value,
+            "movement",
+            new_df.columns[1],
+        ]
+    ]
+    for csv in csvs:
+        data = VnaData(
+            os.path.join(
+                get_root_folder_path(), "data", "processed_data", directory, csv
+            )
+        )
+        pivoted_df = data.data_frame.pivot(
+            index=DataFrameCols.TIME.value,
+            columns=DataFrameCols.FREQUENCY.value,
+            values=DataFrameCols.MAGNITUDE.value,
+        )
+        pivoted_df.reset_index(inplace=True)
+        fq = pivoted_df.columns[1]
+        new_df[fq] = pivoted_df[fq]
+    return new_df
+
+
+def combine_dfs_with_labels(directory_list, labels) -> pd.DataFrame:
+    ids = [i for i in range(len(directory_list))]
+    new_df = make_fq_df(directory_list.pop(0), labels.pop(0), ids.pop(0))
+    for dir, label, sample_id in zip(dirs, labels, ids):
+        temp_df = make_fq_df(dir, label, sample_id)
+        new_df = pd.concat((new_df, temp_df), ignore_index=True)
+    return new_df
+
+
+if __name__ == "__main__":
+    dirs = os.listdir(os.path.join(get_root_folder_path(), "data", "processed_data"))
+    labels = [
+        int(dir.split("_")[0][0])
+        for dir in os.listdir(
+            os.path.join(get_root_folder_path(), "data", "processed_data")
+        )
+    ]
+    movement = pd.Series([1, 2, 3, 4], index=[1, 2, 3, 4])
+    combined_df = combine_dfs_with_labels(dirs, labels)
+
+    combined_df = combined_df.ffill()
+    movement_label = combined_df["movement"]
+    dropped_s_param = combined_df.drop(columns=[DataFrameCols.S_PARAMETER.value, 'id'])
+    extracted = extract_features(dropped_s_param, column_sort="time", column_id="movement")
+    impute(extracted)
+    features_filtered = select_features(extracted, movement)
     # new_dfs = data.split_data_frame(10, 1.2, -8.2)
     # vna_datas = []
     # for new_data in new_dfs:
