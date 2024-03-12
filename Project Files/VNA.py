@@ -127,6 +127,10 @@ def get_root_folder_path():
 
 
 class VnaCalibration:
+    """
+    Holds data related to VNA calibration
+
+    """
 
     def __init__(
         self,
@@ -141,6 +145,9 @@ class VnaCalibration:
 
 
 class VnaData:
+    """
+    Class to hold data produced by the VNA
+    """
 
     @staticmethod
     def test_file_name(filename) -> bool:
