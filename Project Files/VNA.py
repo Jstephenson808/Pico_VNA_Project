@@ -12,6 +12,10 @@ import pandas as pd
 import matplotlib
 from tsfresh.utilities.dataframe_functions import impute
 
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import classification_report
+
 matplotlib.use("TkAgg")
 
 ROOT_FOLDER = "code"
@@ -192,10 +196,10 @@ class VnaData:
         :param data_frame: data frame
         :return: None
         """
-        start_time = data_frame["Time"][0]
-        data_frame["Time"] = data_frame["Time"].apply(
-            lambda x: (x - start_time).total_seconds()
-        )
+        start_time = data_frame[DataFrameCols.TIME.value][0]
+        data_frame[DataFrameCols.TIME.value] = data_frame[
+            DataFrameCols.TIME.value
+        ].apply(lambda x: x - start_time)
 
     @staticmethod
     def string_to_datetime(
@@ -687,6 +691,37 @@ def combine_dfs_with_labels(directory_list, labels) -> pd.DataFrame:
     return new_df
 
 
+def calulate_window_size_from_seconds(
+    data_frame: pd.DataFrame, length_window_seconds: float
+):
+    return len(data_frame[data_frame[DataFrameCols.TIME.value] < length_window_seconds])
+
+
+def rolling_window_split(data_frame: pd.DataFrame, rolling_window_seconds: float):
+    new_id_list = [i for i in range(100000)]
+    ids = data_frame["id"].unique()
+    new_df: pd.DataFrame = None
+    id_movement = {}
+    for id in ids:
+        window_size = calulate_window_size_from_seconds(
+            data_frame, rolling_window_seconds
+        )
+        id_frame = combined_df[combined_df["id"] == id]
+        rolling_window = id_frame.rolling(window=window_size)
+        for window_df in rolling_window:
+            if len(window_df) == window_size:
+                window_df = window_df.reset_index(drop=True)
+                new_id = new_id_list.pop(0)
+                window_df["id"] = new_id
+                id_movement[new_id] = window_df["movement"][0]
+                VnaData.zero_ref_time(window_df)
+                if new_df is None:
+                    new_df = window_df
+                else:
+                    new_df = pd.concat((new_df, window_df), ignore_index=True)
+    return new_df, id_movement
+
+
 if __name__ == "__main__":
     dirs = os.listdir(os.path.join(get_root_folder_path(), "data", "processed_data"))
     labels = [
@@ -695,15 +730,28 @@ if __name__ == "__main__":
             os.path.join(get_root_folder_path(), "data", "processed_data")
         )
     ]
-    movement = pd.Series([1, 2, 3, 4], index=[1, 2, 3, 4])
-    combined_df = combine_dfs_with_labels(dirs, labels)
 
-    combined_df = combined_df.ffill()
-    movement_label = combined_df["movement"]
-    dropped_s_param = combined_df.drop(columns=[DataFrameCols.S_PARAMETER.value, 'id'])
-    extracted = extract_features(dropped_s_param, column_sort="time", column_id="movement")
-    impute(extracted)
-    features_filtered = select_features(extracted, movement)
+    movement = pd.Series(labels)
+    combined_df = combine_dfs_with_labels(dirs, labels)
+    rolling_df, id_movement = rolling_window_split(combined_df, 2.0)
+    # combined_df.rolling()
+
+    # combined_df = rolling_df.ffill()
+    # dropped_s_param = combined_df.drop(
+    #     columns=[DataFrameCols.S_PARAMETER.value, "movement"]
+    # )
+    # extracted = extract_features(dropped_s_param, column_sort="time", column_id="id")
+    # impute(extracted)
+    #
+    # X_full_train, X_full_test, y_train, y_test = train_test_split(
+    #     extracted, movement, test_size=0.4
+    # )
+    #
+    # classifier_full = DecisionTreeClassifier()
+    # classifier_full.fit(X_full_train, y_train)
+    # print(classification_report(y_test, classifier_full.predict(X_full_test)))
+
+    # features_filtered = select_features(extracted, movement)
     # new_dfs = data.split_data_frame(10, 1.2, -8.2)
     # vna_datas = []
     # for new_data in new_dfs:
