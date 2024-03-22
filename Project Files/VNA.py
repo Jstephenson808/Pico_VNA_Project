@@ -150,7 +150,9 @@ class VnaCalibration:
 
 class VnaData:
     """
-    Class to hold data produced by the VNA
+    Class to hold data produced by the VNA and methods for plotting, can be initialised
+    with a path to a .csv of just a dataframe value. Provides methods for extracting individual
+    frequencies and plotting them, can save these files and plots.
     """
 
     @staticmethod
@@ -214,16 +216,21 @@ class VnaData:
         return datetime.strptime(string, date_format)
 
     @staticmethod
-    def freq_int_from_ghz_string(ghz_string: str):
-        return int(float((ghz_string).split("_")[0]) * 1_000_000_000)
+    def freq_int_from_ghz_string(ghz_string: str) -> int:
+        """
+        Converts string in the format "_._GHz" to an integer Hz value
+        :param ghz_string: GHz string in format "_._GHz"
+        :return: frequency in Hz
+        """
+        return int(float(ghz_string.split("_")[0]) * 1_000_000_000)
 
     @staticmethod
-    def read_df_from_csv(path):
+    def read_df_from_csv(path) -> (pd.DataFrame, datetime):
         """
         Read in data frame from .csv checks and converts old format files automatically
         or raises exception if not correctly formatted
         :param path: path string to .csv
-        :return:
+        :return: tuple containing data frame and datetime of when data was taken
         """
         data_frame = pd.read_csv(path)
         if all(col.value in data_frame for col in DataFrameCols):
@@ -629,10 +636,6 @@ class VNA:
 #
 
 
-def make_feature_df(path):
-    return
-
-
 def make_fq_df(directory: str, movement: str, sample_id) -> pd.DataFrame:
     # s_param_map = {SParam.S11.value:11, SParam.S21.value:21, SParam.S12.value:12,SParam}
 
@@ -703,55 +706,109 @@ def rolling_window_split(data_frame: pd.DataFrame, rolling_window_seconds: float
     new_df: pd.DataFrame = None
     id_movement = {}
     for id in ids:
-        window_size = calulate_window_size_from_seconds(
-            data_frame, rolling_window_seconds
-        )
         id_frame = combined_df[combined_df["id"] == id]
+        window_size = calulate_window_size_from_seconds(
+            id_frame, rolling_window_seconds
+        )
         rolling_window = id_frame.rolling(window=window_size)
         for window_df in rolling_window:
             if len(window_df) == window_size:
-                window_df = window_df.reset_index(drop=True)
-                new_id = new_id_list.pop(0)
-                window_df["id"] = new_id
-                id_movement[new_id] = window_df["movement"][0]
-                VnaData.zero_ref_time(window_df)
-                if new_df is None:
-                    new_df = window_df
-                else:
-                    new_df = pd.concat((new_df, window_df), ignore_index=True)
+                new_df, id_movement = combine_windowed_df(
+                    new_df, window_df, new_id_list, id_movement
+                )
     return new_df, id_movement
+
+
+def window_split(data_frame: pd.DataFrame, window_seconds: float):
+    new_id_list = [i for i in range(100000)]
+    ids = data_frame["id"].unique()
+    new_df: pd.DataFrame = None
+    movement_dict = {}
+    for id in ids:
+        id_frame = combined_df[combined_df["id"] == id]
+        window_size = calulate_window_size_from_seconds(id_frame, window_seconds)
+        rolling_window = id_frame.rolling(window=window_size)
+        i = 0
+        for window_df in rolling_window:
+            i += 1
+            if len(window_df) == window_size:
+                if i == window_size:
+                    i = 0
+                    new_df, movement_dict = combine_windowed_df(
+                        new_df, window_df, new_id_list, movement_dict
+                    )
+
+    return new_df, movement_dict
+
+
+def combine_windowed_df(
+    new_df: pd.DataFrame, windowed_df: pd.DataFrame, id_list, movement_dict
+) -> pd.DataFrame:
+    windowed_df = windowed_df.reset_index(drop=True)
+    new_id = id_list.pop(0)
+    windowed_df["id"] = new_id
+    movement_dict[new_id] = windowed_df["movement"][0]
+    VnaData.zero_ref_time(windowed_df)
+    if new_df is None:
+        new_df = windowed_df
+    else:
+        new_df = pd.concat((new_df, windowed_df), ignore_index=True)
+    return new_df, movement_dict
+
+
+def extract_features_and_test(full_data_frame, feature_vector):
+    combined_df = full_data_frame.ffill()
+    dropped_s_param = combined_df.drop(
+        columns=[DataFrameCols.S_PARAMETER.value, "movement"]
+    )
+    extracted = extract_features(dropped_s_param, column_sort="time", column_id="id")
+    impute(extracted)
+    features_filtered = select_features(extracted, feature_vector)
+
+    X_full_train, X_full_test, y_train, y_test = train_test_split(
+        extracted, feature_vector, test_size=0.4
+    )
+
+    classifier_full = DecisionTreeClassifier()
+    classifier_full.fit(X_full_train, y_train)
+    print(classification_report(y_test, classifier_full.predict(X_full_test)))
+
+    X_filtered_train, X_filtered_test = (
+        X_full_train[features_filtered.columns],
+        X_full_test[features_filtered.columns],
+    )
+    classifier_filtered = DecisionTreeClassifier()
+    classifier_filtered.fit(X_filtered_train, y_train)
+    print(classification_report(y_test, classifier_filtered.predict(X_filtered_test)))
 
 
 if __name__ == "__main__":
     dirs = os.listdir(os.path.join(get_root_folder_path(), "data", "processed_data"))
-    labels = [
-        int(dir.split("_")[0][0])
-        for dir in os.listdir(
-            os.path.join(get_root_folder_path(), "data", "processed_data")
-        )
-    ]
+    label_dict = {"fist": 5, "star": 6}
+    labels = []
+    for folder in os.listdir(
+        os.path.join(get_root_folder_path(), "data", "processed_data")
+    ):
+        try:
+            labels.append(int(folder.split("_")[0][0]))
+        except ValueError as e:
+            labels.append(label_dict[folder.split("_")[1]])
 
-    movement = pd.Series(labels)
+    print(labels)
     combined_df = combine_dfs_with_labels(dirs, labels)
-    rolling_df, id_movement = rolling_window_split(combined_df, 2.0)
-    # combined_df.rolling()
 
-    # combined_df = rolling_df.ffill()
-    # dropped_s_param = combined_df.drop(
-    #     columns=[DataFrameCols.S_PARAMETER.value, "movement"]
-    # )
-    # extracted = extract_features(dropped_s_param, column_sort="time", column_id="id")
-    # impute(extracted)
-    #
-    # X_full_train, X_full_test, y_train, y_test = train_test_split(
-    #     extracted, movement, test_size=0.4
-    # )
-    #
-    # classifier_full = DecisionTreeClassifier()
-    # classifier_full.fit(X_full_train, y_train)
-    # print(classification_report(y_test, classifier_full.predict(X_full_test)))
+    rolling_df, rolling_movement = rolling_window_split(combined_df, 2.0)
+    rolling_movement_vector = pd.Series(rolling_movement.values())
 
-    # features_filtered = select_features(extracted, movement)
+    windowed_df, windowed_movement_dict = window_split(combined_df, 2.0)
+    windowed_movement_vector = pd.Series(windowed_movement_dict.values())
+
+    print("Rolling")
+    extract_features_and_test(rolling_df, rolling_movement_vector)
+
+    print("Windowed")
+    extract_features_and_test(windowed_df, windowed_movement_vector)
+
     # new_dfs = data.split_data_frame(10, 1.2, -8.2)
     # vna_datas = []
     # for new_data in new_dfs:
