@@ -1,5 +1,5 @@
 import win32com.client
-from tsfresh import extract_features
+from tsfresh import extract_features, select_features
 from enum import Enum
 from matplotlib import pyplot as plt
 from datetime import datetime, timedelta
@@ -10,11 +10,17 @@ import re
 import numpy as np
 import pandas as pd
 import matplotlib
+from tsfresh.utilities.dataframe_functions import impute
+
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import classification_report
+
+matplotlib.use("TkAgg")
 from time import time
 matplotlib.use('TkAgg')
 
-
-ROOT_FOLDER = "picosdk-picovna-python-examples"
+ROOT_FOLDER = "code"
 
 
 class NotValidCSVException(Exception):
@@ -156,7 +162,9 @@ class VnaCalibration:
 
 class VnaData:
     """
-    Class to hold data produced by the VNA
+    Class to hold data produced by the VNA and methods for plotting, can be initialised
+    with a path to a .csv of just a dataframe value. Provides methods for extracting individual
+    frequencies and plotting them, can save these files and plots.
     """
 
     @staticmethod
@@ -202,10 +210,10 @@ class VnaData:
         :param data_frame: data frame
         :return: None
         """
-        start_time = data_frame["Time"][0]
-        data_frame["Time"] = data_frame["Time"].apply(
-            lambda x: (x - start_time).total_seconds()
-        )
+        start_time = data_frame[DataFrameCols.TIME.value][0]
+        data_frame[DataFrameCols.TIME.value] = data_frame[
+            DataFrameCols.TIME.value
+        ].apply(lambda x: x - start_time)
 
     @staticmethod
     def string_to_datetime(
@@ -220,16 +228,21 @@ class VnaData:
         return datetime.strptime(string, date_format)
 
     @staticmethod
-    def freq_int_from_ghz_string(ghz_string: str):
-        return int(float((ghz_string).split("_")[0]) * 1_000_000_000)
+    def freq_int_from_ghz_string(ghz_string: str) -> int:
+        """
+        Converts string in the format "_._GHz" to an integer Hz value
+        :param ghz_string: GHz string in format "_._GHz"
+        :return: frequency in Hz
+        """
+        return int(float(ghz_string.split("_")[0]) * 1_000_000_000)
 
     @staticmethod
-    def read_df_from_csv(path):
+    def read_df_from_csv(path) -> (pd.DataFrame, datetime):
         """
         Read in data frame from .csv checks and converts old format files automatically
         or raises exception if not correctly formatted
         :param path: path string to .csv
-        :return:
+        :return: tuple containing data frame and datetime of when data was taken
         """
         data_frame = pd.read_csv(path)
         if all(col.value in data_frame for col in DataFrameCols):
@@ -264,10 +277,10 @@ class VnaData:
             frequency_string = match_ghz_fq_csv.group(2)
             frequency = VnaData.freq_int_from_ghz_string(frequency_string)
             s_param = match_ghz_fq_csv.group(3)
-            new_df[DataFrameCols.TIME] = old_df["time"]
-            new_df[DataFrameCols.MAGNITUDE] = old_df["magnitude (dB)"]
-            new_df[DataFrameCols.FREQUENCY] = frequency
-            new_df[DataFrameCols.S_PARAMETER] = s_param
+            new_df[DataFrameCols.TIME.value] = old_df["time"]
+            new_df[DataFrameCols.MAGNITUDE.value] = old_df["magnitude (dB)"]
+            new_df[DataFrameCols.FREQUENCY.value] = frequency
+            new_df[DataFrameCols.S_PARAMETER.value] = s_param
             return new_df, date_time
 
         if all(
@@ -297,7 +310,7 @@ class VnaData:
     def __init__(self, path=None, data_frame=None, date_time=None):
         self.data_frame: pd.DataFrame = data_frame
         self.date_time: datetime = date_time
-        self.csv_path: os.PathLike = path
+        self.csv_path = path
         if path is not None:
             self.init_df_date_time()
 
@@ -344,7 +357,6 @@ class VnaData:
         :param s_param: SParam enum value to search for
         :return: data frame containing only those values
         """
-
         if s_param is None:
             df = self.data_frame.loc[
                 (self.data_frame[DataFrameCols.FREQUENCY.value] == target_frequency)
@@ -499,7 +511,6 @@ class VNA:
         data = data_list[1::2]
         return frequencies, data
 
-    @timer_func
     def vna_data_string_to_df(
         self,
         elapsed_time: timedelta,
@@ -547,7 +558,6 @@ class VNA:
         return os.path.join(get_root_folder_path(), output_folder, filename)
 
     # todo what if you only want to measure one of phase or logmag?
-    @timer_func
     def add_measurement_to_data_frame(self, s_param: SParam, elapsed_time: timedelta):
         """
         Gets current measurement strings (logmag and phase) for the given S param from VNA and converts it
@@ -652,14 +662,188 @@ class VNA:
 #         self.feature_matrix = None
 #
 
+
+def make_fq_df(directory: str, movement: str, sample_id) -> pd.DataFrame:
+    # s_param_map = {SParam.S11.value:11, SParam.S21.value:21, SParam.S12.value:12,SParam}
+
+    csvs = os.listdir(
+        os.path.join(get_root_folder_path(), "data", "processed_data", directory)
+    )
+
+    data = VnaData(
+        os.path.join(
+            get_root_folder_path(), "data", "processed_data", directory, csvs.pop(0)
+        )
+    )
+    new_df = data.data_frame.pivot(
+        index=DataFrameCols.TIME.value,
+        columns=DataFrameCols.FREQUENCY.value,
+        values=DataFrameCols.MAGNITUDE.value,
+    )
+    new_df.reset_index(inplace=True)
+    new_df[DataFrameCols.S_PARAMETER.value] = data.data_frame[
+        DataFrameCols.S_PARAMETER.value
+    ]
+    new_df["movement"] = movement
+    new_df["id"] = sample_id
+    new_df = new_df[
+        [
+            DataFrameCols.TIME.value,
+            "id",
+            DataFrameCols.S_PARAMETER.value,
+            "movement",
+            new_df.columns[1],
+        ]
+    ]
+    for csv in csvs:
+        data = VnaData(
+            os.path.join(
+                get_root_folder_path(), "data", "processed_data", directory, csv
+            )
+        )
+        pivoted_df = data.data_frame.pivot(
+            index=DataFrameCols.TIME.value,
+            columns=DataFrameCols.FREQUENCY.value,
+            values=DataFrameCols.MAGNITUDE.value,
+        )
+        pivoted_df.reset_index(inplace=True)
+        fq = pivoted_df.columns[1]
+        new_df[fq] = pivoted_df[fq]
+    return new_df
+
+
+def combine_dfs_with_labels(directory_list, labels) -> pd.DataFrame:
+    ids = [i for i in range(len(directory_list))]
+    new_df = make_fq_df(directory_list.pop(0), labels.pop(0), ids.pop(0))
+    for dir, label, sample_id in zip(dirs, labels, ids):
+        temp_df = make_fq_df(dir, label, sample_id)
+        new_df = pd.concat((new_df, temp_df), ignore_index=True)
+    return new_df
+
+
+def calulate_window_size_from_seconds(
+    data_frame: pd.DataFrame, length_window_seconds: float
+):
+    return len(data_frame[data_frame[DataFrameCols.TIME.value] < length_window_seconds])
+
+
+def rolling_window_split(data_frame: pd.DataFrame, rolling_window_seconds: float):
+    new_id_list = [i for i in range(100000)]
+    ids = data_frame["id"].unique()
+    new_df: pd.DataFrame = None
+    id_movement = {}
+    for id in ids:
+        id_frame = combined_df[combined_df["id"] == id]
+        window_size = calulate_window_size_from_seconds(
+            id_frame, rolling_window_seconds
+        )
+        rolling_window = id_frame.rolling(window=window_size)
+        for window_df in rolling_window:
+            if len(window_df) == window_size:
+                new_df, id_movement = combine_windowed_df(
+                    new_df, window_df, new_id_list, id_movement
+                )
+    return new_df, id_movement
+
+
+def window_split(data_frame: pd.DataFrame, window_seconds: float):
+    new_id_list = [i for i in range(100000)]
+    ids = data_frame["id"].unique()
+    new_df: pd.DataFrame = None
+    movement_dict = {}
+    for id in ids:
+        id_frame = combined_df[combined_df["id"] == id]
+        window_size = calulate_window_size_from_seconds(id_frame, window_seconds)
+        rolling_window = id_frame.rolling(window=window_size)
+        i = 0
+        for window_df in rolling_window:
+            i += 1
+            if len(window_df) == window_size:
+                if i == window_size:
+                    i = 0
+                    new_df, movement_dict = combine_windowed_df(
+                        new_df, window_df, new_id_list, movement_dict
+                    )
+
+    return new_df, movement_dict
+
+
+def combine_windowed_df(
+    new_df: pd.DataFrame, windowed_df: pd.DataFrame, id_list, movement_dict
+) -> pd.DataFrame:
+    windowed_df = windowed_df.reset_index(drop=True)
+    new_id = id_list.pop(0)
+    windowed_df["id"] = new_id
+    movement_dict[new_id] = windowed_df["movement"][0]
+    VnaData.zero_ref_time(windowed_df)
+    if new_df is None:
+        new_df = windowed_df
+    else:
+        new_df = pd.concat((new_df, windowed_df), ignore_index=True)
+    return new_df, movement_dict
+
+
+def extract_features_and_test(full_data_frame, feature_vector):
+    combined_df = full_data_frame.ffill()
+    dropped_s_param = combined_df.drop(
+        columns=[DataFrameCols.S_PARAMETER.value, "movement"]
+    )
+    extracted = extract_features(dropped_s_param, column_sort="time", column_id="id")
+    impute(extracted)
+    features_filtered = select_features(extracted, feature_vector)
+
+    X_full_train, X_full_test, y_train, y_test = train_test_split(
+        extracted, feature_vector, test_size=0.4
+    )
+
+    classifier_full = DecisionTreeClassifier()
+    classifier_full.fit(X_full_train, y_train)
+    print(classification_report(y_test, classifier_full.predict(X_full_test)))
+
+    X_filtered_train, X_filtered_test = (
+        X_full_train[features_filtered.columns],
+        X_full_test[features_filtered.columns],
+    )
+    classifier_filtered = DecisionTreeClassifier()
+    classifier_filtered.fit(X_filtered_train, y_train)
+    print(classification_report(y_test, classifier_filtered.predict(X_filtered_test)))
+
+
 if __name__ == "__main__":
-    #todo make this get the npoints automatically?
-    calibration = VnaCalibration(os.path.join(get_root_folder_path(), "MiniCirc_3dBm_MiniCirc1m_10Mto6G_Rankine506_23Aug23.cal"), 1001, [10_000_000, 6_000_000_000])
-    data = VnaData()
-    vna = VNA(calibration, data)
-    vna.measure(timedelta(seconds=10))
-    data.single_freq_plotter(ghz_to_hz(2.4))
-    # data = VnaData(
+    dirs = os.listdir(os.path.join(get_root_folder_path(), "data", "processed_data"))
+    label_dict = {"fist": 5, "star": 6}
+    labels = []
+    for folder in os.listdir(
+        os.path.join(get_root_folder_path(), "data", "processed_data")
+    ):
+        try:
+            labels.append(int(folder.split("_")[0][0]))
+        except ValueError as e:
+            labels.append(label_dict[folder.split("_")[1]])
+
+    print(labels)
+    combined_df = combine_dfs_with_labels(dirs, labels)
+
+    rolling_df, rolling_movement = rolling_window_split(combined_df, 2.0)
+    rolling_movement_vector = pd.Series(rolling_movement.values())
+
+    windowed_df, windowed_movement_dict = window_split(combined_df, 2.0)
+    windowed_movement_vector = pd.Series(windowed_movement_dict.values())
+
+    print("Rolling")
+    extract_features_and_test(rolling_df, rolling_movement_vector)
+
+    print("Windowed")
+    extract_features_and_test(windowed_df, windowed_movement_vector)
+#
+# if __name__ == "__main__":
+#     #todo make this get the npoints automatically?
+#     calibration = VnaCalibration(os.path.join(get_root_folder_path(), "MiniCirc_3dBm_MiniCirc1m_10Mto6G_Rankine506_23Aug23.cal"), 1001, [10_000_000, 6_000_000_000])
+#     data = VnaData()
+#     vna = VNA(calibration, data)
+#     vna.measure(timedelta(seconds=10))
+#     data.single_freq_plotter(ghz_to_hz(2.4))
+#     # data = VnaData(
     #     os.path.join(get_root_folder_path(), "S11_10s_2024-01-26_15-25-14.csv")
     # )
     # pivoted_df = data.data_frame.pivot(
