@@ -10,8 +10,8 @@ import re
 import numpy as np
 import pandas as pd
 import matplotlib
-
-matplotlib.use("TkAgg")
+from time import time
+matplotlib.use('TkAgg')
 
 
 ROOT_FOLDER = "picosdk-picovna-python-examples"
@@ -73,6 +73,16 @@ class DataFrameCols(Enum):
     MAGNITUDE = "magnitude"
     PHASE = "phase"
 
+def timer_func(func):
+    # This function shows the execution time of
+    # the function object passed
+    def wrap_func(*args, **kwargs):
+        t1 = time()
+        result = func(*args, **kwargs)
+        t2 = time()
+        print(f'Function {func.__name__!r} executed in {(t2-t1):.4f}s')
+        return result
+    return wrap_func
 
 def mhz_to_hz(mhz):
     """
@@ -287,7 +297,7 @@ class VnaData:
     def __init__(self, path=None, data_frame=None, date_time=None):
         self.data_frame: pd.DataFrame = data_frame
         self.date_time: datetime = date_time
-        self.csv_path = path
+        self.csv_path: os.PathLike = path
         if path is not None:
             self.init_df_date_time()
 
@@ -334,6 +344,7 @@ class VnaData:
         :param s_param: SParam enum value to search for
         :return: data frame containing only those values
         """
+
         if s_param is None:
             df = self.data_frame.loc[
                 (self.data_frame[DataFrameCols.FREQUENCY.value] == target_frequency)
@@ -366,6 +377,11 @@ class VnaData:
         """
         axis.plot(data_frame[DataFrameCols.TIME.value], data_frame[plot_data.value])
 
+    def find_nearest_frequency(self, frequency_series: pd.Series, target_frequency):
+        array = np.asarray(frequency_series)
+        idx = (np.abs(array - target_frequency)).argmin()
+        return array[idx]
+
     def single_freq_plotter(
         self,
         target_frequency: int,
@@ -391,14 +407,16 @@ class VnaData:
         #  -
 
         if plot_s_param == None:
-            plot_s_param_string = self.data_frame[DataFrameCols.S_PARAMETER.value][0]
+            plot_s_param_string = self.data_frame[DataFrameCols.S_PARAMETER.value].values[0]
             for param_enum in SParam:
                 if param_enum.value == plot_s_param_string:
                     plot_s_param = param_enum
+                    break
 
         if plot_s_param == None:
             raise NotValidSParamException
 
+        target_frequency = self.find_nearest_frequency(self.data_frame[DataFrameCols.FREQUENCY.value], target_frequency)
         data_frame = self.extract_freq_df(target_frequency, plot_s_param)
         target_frequency_GHz = hz_to_ghz(target_frequency)
 
@@ -407,6 +425,7 @@ class VnaData:
         ax.set_ylabel(f"|{plot_s_param.value}|")
         ax.set_xlabel("Time (s)")
         plt.title(f"|{plot_s_param.value}| Over Time at {target_frequency_GHz} GHz")
+
 
         if save_to_file:
             os.makedirs(output_folder_path, exist_ok=True)
@@ -417,6 +436,7 @@ class VnaData:
                 ),
                 format="svg",
             )
+        plt.show()
 
     def pivot_data_frame_frequency(self, value: DataFrameCols) -> pd.DataFrame:
         return self.data_frame.pivot(
@@ -465,7 +485,7 @@ class VNA:
         :param point:
         :return: data string which is ',' separted in the format "freq, measurement_value_at_freq, freq, measurement_value_at_freq"
         """
-        return self.vna_object.GetData(s_parameter, data_format, point)
+        return self.vna_object.GetData(s_parameter.value, data_format.value, point)
 
     def split_data_string(self, data_string: str):
         """
@@ -479,6 +499,7 @@ class VNA:
         data = data_list[1::2]
         return frequencies, data
 
+    @timer_func
     def vna_data_string_to_df(
         self,
         elapsed_time: timedelta,
@@ -497,14 +518,14 @@ class VNA:
         """
         # todo fix this so you can have phase or mag independently
         frequencies, magnitudes = self.split_data_string(magnitude_data_string)
-        frequencies, phase = self.split_data_string(phase_data_string)
+        frequencies, phases = self.split_data_string(phase_data_string)
 
         data_dict = {
             DataFrameCols.TIME.value: [elapsed_time for _ in frequencies],
             DataFrameCols.S_PARAMETER.value: [s_parameter for _ in frequencies],
-            DataFrameCols.FREQUENCY.value: frequencies,
-            DataFrameCols.MAGNITUDE.value: magnitudes,
-            DataFrameCols.PHASE.value: phase,
+            DataFrameCols.FREQUENCY.value: [int(fq) for fq in frequencies],
+            DataFrameCols.MAGNITUDE.value: [float(mag) for mag in magnitudes],
+            DataFrameCols.PHASE.value: [float(phase) for phase in phases],
         }
         return pd.DataFrame(data_dict)
 
@@ -521,11 +542,12 @@ class VNA:
         if fname != "":
             fname += "_"
 
-        s_params = ("_").join(s_params_saved.value)
-        filename = f"{fname}{s_params}_{run_time.seconds}_secs.csv"
-        return os.path.join(output_folder, "data", filename)
+        s_params = ("_").join([s_param.value for s_param in s_params_saved])
+        filename = f"{fname}{datetime.now().strftime(DateFormats.CURRENT.value)}_{s_params}_{run_time.seconds}_secs.csv"
+        return os.path.join(get_root_folder_path(), output_folder, filename)
 
     # todo what if you only want to measure one of phase or logmag?
+    @timer_func
     def add_measurement_to_data_frame(self, s_param: SParam, elapsed_time: timedelta):
         """
         Gets current measurement strings (logmag and phase) for the given S param from VNA and converts it
@@ -535,13 +557,18 @@ class VNA:
         :return: the data frame concated on to the current output
         """
         df = self.vna_data_string_to_df(
-            elapsed_time,
+            float(f"{elapsed_time.seconds}.{elapsed_time.microseconds}"),
             self.get_data(s_param, MeasurementFormat.LOGMAG),
             self.get_data(s_param, MeasurementFormat.PHASE),
-            s_param,
+            s_param.value,
         )
         return pd.concat([self.output_data.data_frame, df])
 
+    @timer_func
+    def measure_wrapper(self, str):
+        return self.vna_object.Measure(str)
+
+    @timer_func
     def take_measurement(
         self,
         s_params_measure: MeasureSParam,
@@ -556,7 +583,7 @@ class VNA:
         :param elapsed_time:
         """
         # todo what does this return? format?
-        self.vna_object.Measure(s_params_measure)
+        self.measure_wrapper(s_params_measure.value)
 
         # todo check how the measurement formats work, where is phase and logmag defined?
         for s_param in s_params_output:
@@ -579,6 +606,7 @@ class VNA:
         self.output_data.csv_path = self.generate_output_path(
             output_dir, s_params_output, run_time, file_name
         )
+        os.makedirs(os.path.dirname(self.output_data.csv_path), exist_ok=True)
         print(f"Saving to {self.output_data.csv_path}")
 
         self.connect()
@@ -625,18 +653,24 @@ class VNA:
 #
 
 if __name__ == "__main__":
-    data = VnaData(
-        os.path.join(get_root_folder_path(), "S11_10s_2024-01-26_15-25-14.csv")
-    )
-    pivoted_df = data.data_frame.pivot(
-        index=DataFrameCols.TIME.value,
-        columns=DataFrameCols.FREQUENCY.value,
-        values=DataFrameCols.MAGNITUDE.value,
-    )
-    pivoted_df.reset_index(inplace=True)
-    print(pivoted_df.head())
-    pivoted_df["movement"] = "bend"
-    extracted = extract_features(pivoted_df, column_sort="time", column_id="movement")
+    #todo make this get the npoints automatically?
+    calibration = VnaCalibration(os.path.join(get_root_folder_path(), "MiniCirc_3dBm_MiniCirc1m_10Mto6G_Rankine506_23Aug23.cal"), 1001, [10_000_000, 6_000_000_000])
+    data = VnaData()
+    vna = VNA(calibration, data)
+    vna.measure(timedelta(seconds=10))
+    data.single_freq_plotter(ghz_to_hz(2.4))
+    # data = VnaData(
+    #     os.path.join(get_root_folder_path(), "S11_10s_2024-01-26_15-25-14.csv")
+    # )
+    # pivoted_df = data.data_frame.pivot(
+    #     index=DataFrameCols.TIME.value,
+    #     columns=DataFrameCols.FREQUENCY.value,
+    #     values=DataFrameCols.MAGNITUDE.value,
+    # )
+    # pivoted_df.reset_index(inplace=True)
+    # print(pivoted_df.head())
+    # pivoted_df["movement"] = "bend"
+    # extracted = extract_features(pivoted_df, column_sort="time", column_id="movement")
     # new_dfs = data.split_data_frame(10, 1.2, -8.2)
     # vna_datas = []
     # for new_data in new_dfs:
