@@ -378,7 +378,40 @@ class VnaData:
         os.makedirs(file_path, exist_ok=True)
         self.data_frame.to_csv(file_path, index=False)
 
-    def plot_freq_on_axis(self, data_frame, axis: plt.Axes, plot_data: DataFrameCols):
+    def plot_frequencies(self, freq_list: [int], output_folder_path=os.path.join(
+                            get_root_folder_path(),
+                            "results",
+                            "graph",
+                            datetime.now().date().strftime(DateFormats.DATE_FOLDER.value)),
+                            plot_s_param: SParam = None,
+                            data_frame_column_to_plot: DataFrameCols = DataFrameCols.MAGNITUDE,
+                            save_to_file=True,):
+
+        fig, ax = plt.subplots()
+        ax.set_ylabel(f"|{plot_s_param.value}|")
+        ax.set_xlabel("Time (s)")
+        plt.title(f"{plot_s_param.value.title()} Over Time")
+        for target_frequency in freq_list:
+            target_frequency = self.find_nearest_frequency(self.data_frame[DataFrameCols.FREQUENCY.value],
+                                                           target_frequency)
+            data_frame = self.extract_freq_df(target_frequency, plot_s_param)
+            target_frequency_GHz = hz_to_ghz(target_frequency)
+            self.plot_freq_on_axis(data_frame, ax, data_frame_column_to_plot, label=target_frequency_GHz)
+        plt.legend()
+        if save_to_file:
+            os.makedirs(output_folder_path, exist_ok=True)
+            plt.savefig(
+                os.path.join(
+                    output_folder_path,
+                    f"{datetime.now().strftime('%Y_%m_%d_%H_%M_%S')}_{freq_list[0]}-{freq_list[-1]}.svg",
+                ),
+                format="svg",
+            )
+        plt.show()
+
+
+
+    def plot_freq_on_axis(self, data_frame, axis: plt.Axes, plot_data: DataFrameCols, label=None):
         """
         Function which plots the targeted plot_data data type on the y of the supplied axis and
         the value of time on the x axis
@@ -387,12 +420,28 @@ class VnaData:
         :param plot_data: The enum datatype to plot
         :return:
         """
-        axis.plot(data_frame[DataFrameCols.TIME.value], data_frame[plot_data.value])
+        if label:
+            axis.plot(data_frame[DataFrameCols.TIME.value], data_frame[plot_data.value], label=label)
+        else:
+            axis.plot(data_frame[DataFrameCols.TIME.value], data_frame[plot_data.value])
 
     def find_nearest_frequency(self, frequency_series: pd.Series, target_frequency):
         array = np.asarray(frequency_series)
         idx = (np.abs(array - target_frequency)).argmin()
         return array[idx]
+
+    def validate_s_param(self, plot_s_param: SParam) -> bool:
+        if (plot_s_param == None) or (plot_s_param not in SParam):
+            raise NotValidSParamException(f"{plot_s_param} is not valid")
+        return True
+
+    def handle_none_param(self, plot_s_param: None) -> SParam|None:
+        plot_s_param_string = self.data_frame[DataFrameCols.S_PARAMETER.value].values[0]
+        for param_enum in SParam:
+            if param_enum.value == plot_s_param_string:
+                plot_s_param = param_enum
+                break
+        return plot_s_param
 
     def single_freq_plotter(
         self,
@@ -417,16 +466,11 @@ class VnaData:
         """
         # data is a single frame with:
         #  -
+        # if no sparam is given just pick the first value of SParam
+        if (plot_s_param == None):
+            self.handle_none_param(plot_s_param)
 
-        if plot_s_param == None:
-            plot_s_param_string = self.data_frame[DataFrameCols.S_PARAMETER.value].values[0]
-            for param_enum in SParam:
-                if param_enum.value == plot_s_param_string:
-                    plot_s_param = param_enum
-                    break
-
-        if plot_s_param == None:
-            raise NotValidSParamException
+        self.validate_s_param(plot_s_param)
 
         target_frequency = self.find_nearest_frequency(self.data_frame[DataFrameCols.FREQUENCY.value], target_frequency)
         data_frame = self.extract_freq_df(target_frequency, plot_s_param)
