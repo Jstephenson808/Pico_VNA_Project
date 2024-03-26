@@ -20,7 +20,7 @@ matplotlib.use("TkAgg")
 from time import time
 matplotlib.use('TkAgg')
 
-ROOT_FOLDER = "code"
+ROOT_FOLDER = "picosdk-picovna-python-examples"
 
 
 class NotValidCSVException(Exception):
@@ -37,6 +37,9 @@ class FileNotInCorrectFolder(Exception):
     def __init__(self, message):
         super().__init__(message)
 
+class VNAError(Exception):
+    def __init__(self, message):
+        super().__init__(message)
 
 class Movements(Enum):
     BEND = "bend"
@@ -78,6 +81,8 @@ class DataFrameCols(Enum):
     FREQUENCY = "frequency"
     MAGNITUDE = "magnitude"
     PHASE = "phase"
+    LABEL = "label"
+    ID = "id"
 
 def timer_func(func):
     # This function shows the execution time of
@@ -245,8 +250,11 @@ class VnaData:
         :return: tuple containing data frame and datetime of when data was taken
         """
         data_frame = pd.read_csv(path)
+        # if all the columns in this enum are present then .csv was in the right format
         if all(col.value in data_frame for col in DataFrameCols):
-            date_time = os.path.basename(path).split("-")[0]
+            # pattern matches date format in
+            pattern = re.compile(r"(\d\d\d\d_\d\d_\d\d_\d\d_\d\d_\d\d)")
+            date_time = re.search(pattern, os.path.basename(path)).group(1)
             return data_frame, datetime.strptime(date_time, DateFormats.CURRENT.value)
         else:
             return VnaData.extract_data_from_old_df(data_frame, path)
@@ -366,9 +374,9 @@ class VnaData:
                 (self.data_frame[DataFrameCols.FREQUENCY.value] == target_frequency)
                 & (self.data_frame[DataFrameCols.S_PARAMETER.value] == s_param.value)
             ]
-        return df
+        return df.sort_values(by=[DataFrameCols.TIME.value])
 
-    def save_df(self, file_path=os.path.join("results", "data")):
+    def save_df(self, file_path=os.path.join("../Project Files/results", "data")):
         """
         Write data frame to given file path
         :param data_frame: input data frame
@@ -380,7 +388,7 @@ class VnaData:
 
     def plot_frequencies(self, freq_list: [int], output_folder_path=os.path.join(
                             get_root_folder_path(),
-                            "results",
+        "../Project Files/results",
                             "graph",
                             datetime.now().date().strftime(DateFormats.DATE_FOLDER.value)),
                             plot_s_param: SParam = None,
@@ -431,7 +439,7 @@ class VnaData:
         return array[idx]
 
     def validate_s_param(self, plot_s_param: SParam) -> bool:
-        if (plot_s_param == None) or (plot_s_param not in SParam):
+        if (plot_s_param is None) or (plot_s_param not in SParam):
             raise NotValidSParamException(f"{plot_s_param} is not valid")
         return True
 
@@ -448,7 +456,7 @@ class VnaData:
         target_frequency: int,
         output_folder_path=os.path.join(
             get_root_folder_path(),
-            "results",
+            "../Project Files/results",
             "graph",
             datetime.now().date().strftime(DateFormats.DATE_FOLDER.value),
         ),
@@ -468,7 +476,7 @@ class VnaData:
         #  -
         # if no sparam is given just pick the first value of SParam
         if (plot_s_param == None):
-            self.handle_none_param(plot_s_param)
+            plot_s_param = self.handle_none_param(plot_s_param)
 
         self.validate_s_param(plot_s_param)
 
@@ -524,11 +532,15 @@ class VNA:
     def connect(self):
         print("Connecting VNA")
         search_vna = self.vna_object.FND()
+        if search_vna == 0:
+            raise VNAError("Connection Failed, do you have Pico VNA Open?")
         print(f"VNA {str(search_vna)} Loaded")
 
     def load_cal(self):
         print("Loading Calibration")
         ans = self.vna_object.LoadCal(self.calibration.calibration_path)
+        if ans != "OK":
+            raise VNAError(f"Calibration Failure {ans}")
         print(f"Result {ans}")
 
     def get_data(
@@ -561,6 +573,8 @@ class VNA:
         magnitude_data_string: str,
         phase_data_string: str,
         s_parameter: SParam,
+        label: str,
+        id
     ) -> pd.DataFrame:
         """
         Converts the strings returned by the VNA .get_data method into a data frame
@@ -574,9 +588,11 @@ class VNA:
         # todo fix this so you can have phase or mag independently
         frequencies, magnitudes = self.split_data_string(magnitude_data_string)
         frequencies, phases = self.split_data_string(phase_data_string)
-
+        time_float = float(f"{elapsed_time.seconds}.{elapsed_time.microseconds}")
         data_dict = {
-            DataFrameCols.TIME.value: [elapsed_time for _ in frequencies],
+            DataFrameCols.ID.value: id,
+            DataFrameCols.TIME.value: [time_float for _ in frequencies],
+            DataFrameCols.LABEL.value: [label for _ in frequencies],
             DataFrameCols.S_PARAMETER.value: [s_parameter for _ in frequencies],
             DataFrameCols.FREQUENCY.value: [int(fq) for fq in frequencies],
             DataFrameCols.MAGNITUDE.value: [float(mag) for mag in magnitudes],
@@ -585,7 +601,7 @@ class VNA:
         return pd.DataFrame(data_dict)
 
     def generate_output_path(
-        self, output_folder: str, s_params_saved: SParam, run_time: timedelta, fname=""
+        self, output_folder: str, s_params_saved: SParam, run_time: timedelta, fname="", label=""
     ):
         """
         Utility function to generate file name and join it ot path
@@ -594,15 +610,23 @@ class VNA:
         :param fname:
         :return:
         """
-        if fname != "":
-            fname += "_"
+        if fname != "" and label != "":
+            label_fname = ("_").join((fname, label))
+        else:
+            label_fname = ("").join((fname, label))
+
+        if label == "":
+            label = datetime.now().strftime(DateFormats.DATE_FOLDER.value)
+
+        if label_fname != "":
+            label_fname += "_"
 
         s_params = ("_").join([s_param.value for s_param in s_params_saved])
-        filename = f"{fname}{datetime.now().strftime(DateFormats.CURRENT.value)}_{s_params}_{run_time.seconds}_secs.csv"
-        return os.path.join(get_root_folder_path(), output_folder, filename)
+        filename = f"{label_fname}{datetime.now().strftime(DateFormats.CURRENT.value)}_{s_params}_{run_time.seconds}_secs.csv"
+        return os.path.join(get_root_folder_path(), output_folder, label, filename)
 
     # todo what if you only want to measure one of phase or logmag?
-    def add_measurement_to_data_frame(self, s_param: SParam, elapsed_time: timedelta):
+    def add_measurement_to_data_frame(self, s_param: SParam, elapsed_time: timedelta, label: str, id):
         """
         Gets current measurement strings (logmag and phase) for the given S param from VNA and converts it
         to a pd data frame, appending this data frame to the output data
@@ -611,13 +635,16 @@ class VNA:
         :return: the data frame concated on to the current output
         """
         df = self.vna_data_string_to_df(
-            float(f"{elapsed_time.seconds}.{elapsed_time.microseconds}"),
+            elapsed_time,
             self.get_data(s_param, MeasurementFormat.LOGMAG),
             self.get_data(s_param, MeasurementFormat.PHASE),
             s_param.value,
+            label,
+            id
         )
         return pd.concat([self.output_data.data_frame, df])
 
+    #add in timer logging
     @timer_func
     def measure_wrapper(self, str):
         return self.vna_object.Measure(str)
@@ -628,6 +655,8 @@ class VNA:
         s_params_measure: MeasureSParam,
         s_params_output: [SParam],
         elapsed_time: timedelta,
+        label: str,
+        id
     ):
         """
         Takes measurement on the VNA, processes it and appends it to the output_data.data_frame
@@ -642,8 +671,12 @@ class VNA:
         # todo check how the measurement formats work, where is phase and logmag defined?
         for s_param in s_params_output:
             self.output_data.data_frame = self.add_measurement_to_data_frame(
-                s_param, elapsed_time
+                s_param, elapsed_time, label, id
             )
+
+    def input_movement_label(self) -> str:
+        label = input("Provide gesture label or leave blank for none:")
+        return label
 
     def measure(
         self,
@@ -652,13 +685,18 @@ class VNA:
         s_params_output: [SParam] = None,
         file_name: str = "",
         output_dir=os.path.join("results", "data"),
+        label=None
     ) -> VnaData:
+
+        #label = 'test'
+        if label is None:
+            label = self.input_movement_label()
 
         if s_params_output == None:
             s_params_output = [SParam.S11]
 
         self.output_data.csv_path = self.generate_output_path(
-            output_dir, s_params_output, run_time, file_name
+            output_dir, s_params_output, run_time, file_name, label
         )
         os.makedirs(os.path.dirname(self.output_data.csv_path), exist_ok=True)
         print(f"Saving to {self.output_data.csv_path}")
@@ -675,8 +713,7 @@ class VNA:
             current_time = datetime.now()
             elapsed_time = current_time - start_time
 
-            self.take_measurement(s_params_measure, s_params_output, elapsed_time)
-
+            self.take_measurement(s_params_measure, s_params_output, elapsed_time, label, id=start_time.strftime(DateFormats.CURRENT.value))
             measurement_number += 1
             if measurement_number % 10 == 0:
                 print(
@@ -707,16 +744,14 @@ class VNA:
 #
 
 
-def make_fq_df(directory: str, movement: str, sample_id) -> pd.DataFrame:
-    # s_param_map = {SParam.S11.value:11, SParam.S21.value:21, SParam.S12.value:12,SParam}
-
+def make_fq_df(directory: str) -> pd.DataFrame:
     csvs = os.listdir(
-        os.path.join(get_root_folder_path(), "data", "processed_data", directory)
+        os.path.join(get_root_folder_path(), "results", "data", directory)
     )
 
     data = VnaData(
         os.path.join(
-            get_root_folder_path(), "data", "processed_data", directory, csvs.pop(0)
+            get_root_folder_path(), "results", "data", directory, csvs.pop(0)
         )
     )
     new_df = data.data_frame.pivot(
@@ -728,14 +763,14 @@ def make_fq_df(directory: str, movement: str, sample_id) -> pd.DataFrame:
     new_df[DataFrameCols.S_PARAMETER.value] = data.data_frame[
         DataFrameCols.S_PARAMETER.value
     ]
-    new_df["movement"] = movement
-    new_df["id"] = sample_id
+    new_df[DataFrameCols.LABEL.value] = data.data_frame[DataFrameCols.LABEL.value]
+    new_df[DataFrameCols.ID.value] = data.data_frame[DataFrameCols.LABEL.value]
     new_df = new_df[
         [
             DataFrameCols.TIME.value,
-            "id",
+            DataFrameCols.ID.value,
             DataFrameCols.S_PARAMETER.value,
-            "movement",
+            DataFrameCols.LABEL.value,
             new_df.columns[1],
         ]
     ]
@@ -759,7 +794,7 @@ def make_fq_df(directory: str, movement: str, sample_id) -> pd.DataFrame:
 def combine_dfs_with_labels(directory_list, labels) -> pd.DataFrame:
     ids = [i for i in range(len(directory_list))]
     new_df = make_fq_df(directory_list.pop(0), labels.pop(0), ids.pop(0))
-    for dir, label, sample_id in zip(dirs, labels, ids):
+    for dir, label, sample_id in zip(directory_list, labels, ids):
         temp_df = make_fq_df(dir, label, sample_id)
         new_df = pd.concat((new_df, temp_df), ignore_index=True)
     return new_df
@@ -853,40 +888,53 @@ def extract_features_and_test(full_data_frame, feature_vector):
     print(classification_report(y_test, classifier_filtered.predict(X_filtered_test)))
 
 
-if __name__ == "__main__":
-    dirs = os.listdir(os.path.join(get_root_folder_path(), "data", "processed_data"))
-    label_dict = {"fist": 5, "star": 6}
-    labels = []
-    for folder in os.listdir(
-        os.path.join(get_root_folder_path(), "data", "processed_data")
-    ):
-        try:
-            labels.append(int(folder.split("_")[0][0]))
-        except ValueError as e:
-            labels.append(label_dict[folder.split("_")[1]])
-
-    print(labels)
-    combined_df = combine_dfs_with_labels(dirs, labels)
-
-    rolling_df, rolling_movement = rolling_window_split(combined_df, 2.0)
-    rolling_movement_vector = pd.Series(rolling_movement.values())
-
-    windowed_df, windowed_movement_dict = window_split(combined_df, 2.0)
-    windowed_movement_vector = pd.Series(windowed_movement_dict.values())
-
-    print("Rolling")
-    extract_features_and_test(rolling_df, rolling_movement_vector)
-
-    print("Windowed")
-    extract_features_and_test(windowed_df, windowed_movement_vector)
-#
 # if __name__ == "__main__":
-#     #todo make this get the npoints automatically?
-#     calibration = VnaCalibration(os.path.join(get_root_folder_path(), "MiniCirc_3dBm_MiniCirc1m_10Mto6G_Rankine506_23Aug23.cal"), 1001, [10_000_000, 6_000_000_000])
-#     data = VnaData()
-#     vna = VNA(calibration, data)
-#     vna.measure(timedelta(seconds=10))
-#     data.single_freq_plotter(ghz_to_hz(2.4))
+#     dirs = os.listdir(os.path.join(get_root_folder_path(), "data", "processed_data"))
+#     label_dict = {"fist": 5, "star": 6}
+#     labels = []
+#     for folder in os.listdir(
+#         os.path.join(get_root_folder_path(), "data", "processed_data")
+#     ):
+#         try:
+#             labels.append(int(folder.split("_")[0][0]))
+#         except ValueError as e:
+#             labels.append(label_dict[folder.split("_")[1]])
+#
+#     print(labels)
+#     combined_df = combine_dfs_with_labels(dirs, labels)
+#
+#     rolling_df, rolling_movement = rolling_window_split(combined_df, 2.0)
+#     rolling_movement_vector = pd.Series(rolling_movement.values())
+#
+#     windowed_df, windowed_movement_dict = window_split(combined_df, 2.0)
+#     windowed_movement_vector = pd.Series(windowed_movement_dict.values())
+#
+#     print("Rolling")
+#     extract_features_and_test(rolling_df, rolling_movement_vector)
+#
+#     print("Windowed")
+#     extract_features_and_test(windowed_df, windowed_movement_vector)
+#
+if __name__ == "__main__":
+
+    make_fq_df("circle")
+
+    # #todo make this get the npoints automatically?
+    # calibration = VnaCalibration(os.path.join(get_root_folder_path(), "calibrations", "Corrected_MiniCirc_3dBm_MiniCirc1m_10Mto6G_101Points_Rankine506_27Dec23_1kHz3dBm.cal"), 201, [10_000_000, 6_000_000_000])
+    #
+    # #calibration = VnaCalibration(os.path.join(get_root_folder_path(), "MiniCirc_3dBm_MiniCirc1m_10Mto6G_101Points_Rankine506_27Dec23_1kHz3dBm.cal"), 101, [10_000_000, 6_000_000_000])
+    # n=8
+    # label = input("label")
+    # while(n>0):
+    #     print(f"n = {n}")
+    #     n -= 1
+    #     data = VnaData()
+    #
+    #     vna = VNA(calibration, data)
+    #
+    #
+    #     vna.measure(timedelta(seconds=10), s_params_output=[param for param in SParam], label=label)
+    #data.single_freq_plotter(ghz_to_hz(2.4))
 #     # data = VnaData(
     #     os.path.join(get_root_folder_path(), "S11_10s_2024-01-26_15-25-14.csv")
     # )
