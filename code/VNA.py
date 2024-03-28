@@ -933,12 +933,12 @@ def combine_windowed_df(
     return new_df, movement_dict
 
 
-def extract_features_and_test(full_data_frame, feature_vector):
+def extract_features_and_test(full_data_frame, feature_vector, drop_cols=[DataFrameCols.LABEL.value]):
     combined_df = full_data_frame.ffill()
     # s_params_mapping = {s.value:index+1 for index, s in enumerate(SParam)}
     # full_data_frame[DataFrameCols.S_PARAMETER.value].map({s.value: index for index, s in enumerate(SParam)})
     dropped_label = combined_df.drop(
-        columns=[DataFrameCols.LABEL.value]
+        columns=drop_cols
     )
     extracted = extract_features(dropped_label, column_sort=DataFrameCols.TIME.value, column_id=DataFrameCols.ID.value, n_jobs=0)
     impute(extracted)
@@ -1004,9 +1004,44 @@ def make_columns_have_s_param_mag_phase_titles(data_frame: pd.DataFrame)->pd.Dat
 #     print("Windowed")
 #     extract_features_and_test(windowed_df, windowed_movement_vector)
 #
+
+def filter_cols_between_fq_range(df: pd.DataFrame, lower_bound, upper_bound):
+    cols = df.columns.values
+    # Filter out non-integer values
+    filtered_list = [x for x in cols if isinstance(x, int)]
+    # Filter the list based on the provided bounds
+    freq_cols = [x for x in filtered_list if lower_bound <= x <= upper_bound]
+    return filter_columns(df, freq_cols)
+
+def filter_columns(df, frequencies):
+    pattern = fr'^id$|^label$|^mag_or_phase$|^s_parameter$|^time$'
+    if frequencies:
+        pattern += '|' + '|'.join(f'^{num}$' for num in frequencies)
+    return df.filter(regex=pattern, axis=1)
+
+def pickle_object(object_to_pickle, fname):
+    with open(os.path.join(get_pickle_path(), fname), "wb") as f:
+        pickle.dump(object_to_pickle, f)
+
+def open_pickled_object(fname):
+    with open(os.path.join(get_pickle_path(), fname), "wb") as f:
+        unpickled = pickle.load(f)
+    return unpickled
+
+def feature_extract_test_filtered_data_frame(filtered_data_frame, save=True, fname=None):
+    df_fixed =make_columns_have_s_param_mag_phase_titles(filtered_data_frame)
+    classifiers = extract_features_and_test(df_fixed, windowed_movement_vector)
+    if save:
+        if fname is None:
+            fname = f"classifier_{datetime.now().date().strftime(DateFormats.DATE_FOLDER.value)}"
+        else:
+            fname = f"{fname}_{datetime.now().date().strftime(DateFormats.DATE_FOLDER.value)}"
+        pickle_object(classifiers, fname)
+    return classifiers, fname
+
 if __name__ == "__main__":
 
-    os.mkdir(get_pickle_path(), exist_ok=True)
+    os.makedirs(get_pickle_path(), exist_ok=True)
 
     data_folders = os.listdir(get_data_path())
     combined_df: pd.DataFrame = None
@@ -1014,7 +1049,7 @@ if __name__ == "__main__":
         combined_df_for_one_folder = make_fq_df(data_folder)
         combined_df = pd.concat((combined_df, combined_df_for_one_folder), ignore_index=True)
     full_df_path = os.path.join(get_pickle_path(),"full_dfs")
-    os.mkdir(full_df_path, exist_ok=True)
+    os.makedirs(full_df_path, exist_ok=True)
     with open(os.path.join(full_df_path, f"full_combined_df_{datetime.now().date().strftime(DateFormats.DATE_FOLDER.value)}.pkl"), "wb") as f:
         pickle.dump(combined_df, f)
 
@@ -1026,15 +1061,34 @@ if __name__ == "__main__":
     windowed_df, windowed_movement_dict = window_split(combined_df, 2.0)
     windowed_movement_vector = pd.Series(windowed_movement_dict.values())
 
-    windowed_df = make_columns_have_s_param_mag_phase_titles(windowed_df[(windowed_df["mag_or_phase"]=="magnitude") & (windowed_df[DataFrameCols.S_PARAMETER.value]==SParam.S21.value)])
+    windowed_all_Sparams_magnitude = windowed_df[(windowed_df['mag_or_phase'] == "magnitude")]
+    windowed_all_Sparams_magnitude_filtered = filter_cols_between_fq_range(windowed_all_Sparams_magnitude, ghz_to_hz(2), ghz_to_hz(2.6))
+
+    print("Windowed")
+    classifiers, fname = feature_extract_test_filtered_data_frame(windowed_all_Sparams_magnitude_filtered, fname="classifier_windowed_mag_all_s_2_2-6.pkl")
+
+
+
+    # filtered_windowed_df = filter_cols_between_fq_range(windowed_df, ghz_to_hz(2.1), ghz_to_hz(2.6))
+    #
+    # filtered_windowed_df_cols_changed = make_columns_have_s_param_mag_phase_titles(filtered_windowed_df[(filtered_windowed_df["mag_or_phase"] == "magnitude") & (filtered_windowed_df[DataFrameCols.S_PARAMETER.value] == SParam.S11.value)])
+    #
+    # filtered_windowed_df = make_columns_have_s_param_mag_phase_titles(windowed_df[(windowed_df["mag_or_phase"]=="magnitude") & (windowed_df[DataFrameCols.S_PARAMETER.value]==SParam.S21.value)])
 
     # print("Rolling")
     # extract_features_and_test(rolling_df, rolling_movement_vector)
 
-    print("Windowed")
-    classifiers = extract_features_and_test(windowed_df, windowed_movement_vector)
-    with open(os.path.join(get_pickle_path(), "classifier_windowed_mag_s21.pkl"), "wb") as f:
-        pickle.dump(classifiers, f)
+    # print("Windowed")
+    # classifiers = extract_features_and_test(filtered_windowed_df, windowed_movement_vector)
+    # with open(os.path.join(get_pickle_path(), "classifier_windowed_mag_s21.pkl"), "wb") as f:
+    #     pickle.dump(classifiers, f)
+
+
+
+
+
+    # with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "classifier_windowed_mag_s11_2.pkl"), 'rb') as f:
+    #     loaded_classifier = pickle.load(f)
 
     # #todo make this get the npoints automatically?
     # calibration = VnaCalibration(os.path.join(get_root_folder_path(), "calibrations", "Corrected_MiniCirc_3dBm_MiniCirc1m_10Mto6G_101Points_Rankine506_27Dec23_1kHz3dBm.cal"), 201, [10_000_000, 6_000_000_000])
