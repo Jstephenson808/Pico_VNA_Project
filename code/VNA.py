@@ -1,10 +1,15 @@
+import os
+import pickle
+
+os.environ['OMP_NUM_THREADS'] = "1"
+os.environ['MKL_NUM_THREADS'] = "1"
+os.environ['OPENBLAS_NUM_THREADS'] = "1"
 import win32com.client
 from tsfresh import extract_features, select_features
 from enum import Enum
 from matplotlib import pyplot as plt
 from datetime import datetime, timedelta
 import ast
-import os
 from typing import List
 import re
 import numpy as np
@@ -15,11 +20,10 @@ from tsfresh.utilities.dataframe_functions import impute
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import classification_report
-
 matplotlib.use("TkAgg")
 from time import time
+import pickle
 
-matplotlib.use("TkAgg")
 
 ROOT_FOLDER = "Pico_VNA_Project"
 DATA_FOLDER = os.path.join("results", "data")
@@ -88,6 +92,7 @@ class DataFrameCols(Enum):
     ID = "id"
 
 
+
 def timer_func(func):
     # This function shows the execution time of
     # the function object passed
@@ -154,6 +159,9 @@ def get_root_folder_path():
 
 def get_data_path():
     return os.path.join(get_root_folder_path(), DATA_FOLDER)
+
+def get_pickle_path():
+    return os.path.join(get_root_folder_path(), "pickels")
 
 class VnaCalibration:
     """
@@ -837,7 +845,7 @@ def calulate_window_size_from_seconds(
 def rolling_window_split(data_frame: pd.DataFrame, rolling_window_seconds: float):
     new_id_list = [i for i in range(100000)]
     new_df: pd.DataFrame = None
-    id_movement = {}
+    movement_dict = {}
 
     #get each of the ids in turn
     grouped_data_id = data_frame.groupby([DataFrameCols.ID.value])
@@ -852,8 +860,8 @@ def rolling_window_split(data_frame: pd.DataFrame, rolling_window_seconds: float
         while window_end <= group_data[DataFrameCols.TIME.value].max():
             new_id = new_id_list.pop(0)
             windowed_df = group_data[(group_data[DataFrameCols.TIME.value] >= window_start) & (group_data[DataFrameCols.TIME.value] < window_end)]
-            new_df, id_movement = combine_windowed_df(
-                                        new_df, windowed_df, new_id, id_movement
+            new_df, movement_dict = combine_windowed_df(
+                                        new_df, windowed_df, new_id, movement_dict
                                     )
 
             window_start += window_increment
@@ -877,7 +885,7 @@ def rolling_window_split(data_frame: pd.DataFrame, rolling_window_seconds: float
     #                     new_df, id_movement = combine_windowed_df(
     #                         new_df, window_df, new_id, id_movement
     #                     )
-    return new_df, id_movement
+    return new_df, movement_dict
 
 
 def window_split(data_frame: pd.DataFrame, window_seconds: float):
@@ -885,19 +893,26 @@ def window_split(data_frame: pd.DataFrame, window_seconds: float):
     ids = data_frame["id"].unique()
     new_df: pd.DataFrame = None
     movement_dict = {}
-    for id in ids:
-        id_frame = combined_df[combined_df["id"] == id]
-        window_size = calulate_window_size_from_seconds(id_frame, window_seconds)
-        rolling_window = id_frame.rolling(window=window_size)
-        i = 0
-        for window_df in rolling_window:
-            i += 1
-            if len(window_df) == window_size:
-                if i == window_size:
-                    i = 0
-                    new_df, movement_dict = combine_windowed_df(
-                        new_df, window_df, new_id_list, movement_dict
-                    )
+    # get each of the ids in turn
+    grouped_data_id = data_frame.groupby([DataFrameCols.ID.value])
+
+    # Iterate over the groups and store each filtered DataFrame
+    for group_keys, group_data in grouped_data_id:
+        window_size = window_seconds
+        window_start = 0.0
+        window_end = window_start + window_size
+        # get the avg of a single set of time
+        window_increment = window_size
+        while window_end <= group_data[DataFrameCols.TIME.value].max():
+            new_id = new_id_list.pop(0)
+            windowed_df = group_data[(group_data[DataFrameCols.TIME.value] >= window_start) & (
+                        group_data[DataFrameCols.TIME.value] < window_end)]
+            new_df, id_movement = combine_windowed_df(
+                new_df, windowed_df, new_id, movement_dict
+            )
+
+            window_start += window_increment
+            window_end += window_increment
 
     return new_df, movement_dict
 
@@ -906,8 +921,10 @@ def combine_windowed_df(
     new_df: pd.DataFrame, windowed_df: pd.DataFrame, new_id, movement_dict
 ) -> pd.DataFrame:
     windowed_df = windowed_df.reset_index(drop=True)
+
     windowed_df[DataFrameCols.ID.value] = new_id
     movement_dict[new_id] = windowed_df[DataFrameCols.LABEL.value][0]
+
     VnaData.zero_ref_time(windowed_df)
     if new_df is None:
         new_df = windowed_df
@@ -918,10 +935,12 @@ def combine_windowed_df(
 
 def extract_features_and_test(full_data_frame, feature_vector):
     combined_df = full_data_frame.ffill()
-    dropped_s_param = combined_df.drop(
-        columns=[DataFrameCols.S_PARAMETER.value, "movement"]
+    # s_params_mapping = {s.value:index+1 for index, s in enumerate(SParam)}
+    # full_data_frame[DataFrameCols.S_PARAMETER.value].map({s.value: index for index, s in enumerate(SParam)})
+    dropped_label = combined_df.drop(
+        columns=[DataFrameCols.LABEL.value]
     )
-    extracted = extract_features(dropped_s_param, column_sort="time", column_id="id")
+    extracted = extract_features(dropped_label, column_sort=DataFrameCols.TIME.value, column_id=DataFrameCols.ID.value, n_jobs=0)
     impute(extracted)
     features_filtered = select_features(extracted, feature_vector)
 
@@ -940,7 +959,24 @@ def extract_features_and_test(full_data_frame, feature_vector):
     classifier_filtered = DecisionTreeClassifier()
     classifier_filtered.fit(X_filtered_train, y_train)
     print(classification_report(y_test, classifier_filtered.predict(X_filtered_test)))
+    return {"filered_classifier": classifier_filtered, "full_classifier": classifier_full, "full_features": extracted, "filtered_features": features_filtered}
 
+def make_columns_have_s_param_mag_phase_titles(data_frame: pd.DataFrame)->pd.DataFrame:
+    freq_cols = [val for val in data_frame.columns.values if isinstance(val, int)]
+    grouped_data = data_frame.groupby(["mag_or_phase", DataFrameCols.S_PARAMETER.value])
+    new_combined_df = None
+    for keys, df in grouped_data:
+        label_to_add = ("_").join(keys)
+        new_cols = [f"{label_to_add}_{col_title}" for col_title in freq_cols]
+        df.rename(columns=dict(zip(freq_cols, new_cols)), inplace=True)
+        df = df.drop(
+            columns=[DataFrameCols.S_PARAMETER.value, "mag_or_phase"]
+            )
+        if new_combined_df is None:
+            new_combined_df = df
+        else:
+            new_combined_df = pd.merge(new_combined_df, df, on=[DataFrameCols.ID.value, DataFrameCols.TIME.value, DataFrameCols.LABEL.value])
+    return new_combined_df
 
 # if __name__ == "__main__":
 #     dirs = os.listdir(os.path.join(get_root_folder_path(), "data", "processed_data"))
@@ -970,14 +1006,35 @@ def extract_features_and_test(full_data_frame, feature_vector):
 #
 if __name__ == "__main__":
 
+    os.mkdir(get_pickle_path(), exist_ok=True)
+
     data_folders = os.listdir(get_data_path())
     combined_df: pd.DataFrame = None
     for data_folder in data_folders:
         combined_df_for_one_folder = make_fq_df(data_folder)
         combined_df = pd.concat((combined_df, combined_df_for_one_folder), ignore_index=True)
+    full_df_path = os.path.join(get_pickle_path(),"full_dfs")
+    os.mkdir(full_df_path, exist_ok=True)
+    with open(os.path.join(full_df_path, f"full_combined_df_{datetime.now().date().strftime(DateFormats.DATE_FOLDER.value)}.pkl"), "wb") as f:
+        pickle.dump(combined_df, f)
 
-    rolling_df, rolling_movement = rolling_window_split(combined_df, 2.0)
-    rolling_movement_vector = pd.Series(rolling_movement.values())
+    # rolling_df, rolling_movement = rolling_window_split(combined_df, 2.0)
+    # rolling_movement_vector = pd.Series(rolling_movement.values())
+    #
+    # rolling_df = make_columns_have_s_param_mag_phase_titles(rolling_df)
+
+    windowed_df, windowed_movement_dict = window_split(combined_df, 2.0)
+    windowed_movement_vector = pd.Series(windowed_movement_dict.values())
+
+    windowed_df = make_columns_have_s_param_mag_phase_titles(windowed_df[(windowed_df["mag_or_phase"]=="magnitude") & (windowed_df[DataFrameCols.S_PARAMETER.value]==SParam.S21.value)])
+
+    # print("Rolling")
+    # extract_features_and_test(rolling_df, rolling_movement_vector)
+
+    print("Windowed")
+    classifiers = extract_features_and_test(windowed_df, windowed_movement_vector)
+    with open(os.path.join(get_pickle_path(), "classifier_windowed_mag_s21.pkl"), "wb") as f:
+        pickle.dump(classifiers, f)
 
     # #todo make this get the npoints automatically?
     # calibration = VnaCalibration(os.path.join(get_root_folder_path(), "calibrations", "Corrected_MiniCirc_3dBm_MiniCirc1m_10Mto6G_101Points_Rankine506_27Dec23_1kHz3dBm.cal"), 201, [10_000_000, 6_000_000_000])
