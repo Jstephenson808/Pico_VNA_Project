@@ -1,6 +1,9 @@
 import os
 import pickle
 
+from sklearn.preprocessing import StandardScaler
+from sklearn.svm import SVC
+
 os.environ['OMP_NUM_THREADS'] = "1"
 os.environ['MKL_NUM_THREADS'] = "1"
 os.environ['OPENBLAS_NUM_THREADS'] = "1"
@@ -959,7 +962,43 @@ def extract_features_and_test(full_data_frame, feature_vector, drop_cols=[DataFr
     classifier_filtered = DecisionTreeClassifier()
     classifier_filtered.fit(X_filtered_train, y_train)
     print(classification_report(y_test, classifier_filtered.predict(X_filtered_test)))
-    return {"filered_classifier": classifier_filtered, "full_classifier": classifier_full, "full_features": extracted, "filtered_features": features_filtered}
+
+    print("SVM".center(80, "="))
+    # Splitting the data into training and testing sets
+    X_full_train, X_full_test, y_train, y_test = train_test_split(extracted, feature_vector, test_size=0.4)
+
+    # Standardizing the feature vectors
+    scaler = StandardScaler()
+    X_full_train_scaled = scaler.fit_transform(X_full_train)
+    X_full_test_scaled = scaler.transform(X_full_test)
+
+    # Creating an SVM classifier
+    svm_classifier = SVC()
+
+    # Training the SVM classifier
+    svm_classifier.fit(X_full_train_scaled, y_train)
+    print("Full")
+    # Evaluating the SVM classifier
+    print(classification_report(y_test, svm_classifier.predict(X_full_test_scaled)))
+
+    # Splitting the data into training and testing sets
+    X_full_train, X_full_test, y_train, y_test = train_test_split(features_filtered, feature_vector, test_size=0.4)
+
+    # Standardizing the feature vectors
+    scaler = StandardScaler()
+    X_full_train_scaled = scaler.fit_transform(X_full_train)
+    X_full_test_scaled = scaler.transform(X_full_test)
+
+    # Creating an SVM classifier
+    svm_classifier_filtered = SVC()
+
+    # Training the SVM classifier
+    svm_classifier_filtered.fit(X_full_train_scaled, y_train)
+    print("Filtered")
+    # Evaluating the SVM classifier
+    print(classification_report(y_test, svm_classifier_filtered.predict(X_full_test_scaled)))
+
+    return {"filered_classifier": classifier_filtered, "full_classifier": classifier_full, "svm_full": svm_classifier, "svm_filtered": svm_classifier_filtered, "full_features": extracted, "filtered_features": features_filtered}
 
 def make_columns_have_s_param_mag_phase_titles(data_frame: pd.DataFrame)->pd.DataFrame:
     freq_cols = [val for val in data_frame.columns.values if isinstance(val, int)]
@@ -1029,7 +1068,7 @@ def open_pickled_object(fname):
     return unpickled
 
 def feature_extract_test_filtered_data_frame(filtered_data_frame, save=True, fname=None):
-    df_fixed =make_columns_have_s_param_mag_phase_titles(filtered_data_frame)
+    df_fixed = make_columns_have_s_param_mag_phase_titles(filtered_data_frame)
     classifiers = extract_features_and_test(df_fixed, windowed_movement_vector)
     if save:
         if fname is None:
@@ -1041,17 +1080,17 @@ def feature_extract_test_filtered_data_frame(filtered_data_frame, save=True, fna
 
 if __name__ == "__main__":
 
-    os.makedirs(get_pickle_path(), exist_ok=True)
-
-    data_folders = os.listdir(get_data_path())
-    combined_df: pd.DataFrame = None
-    for data_folder in data_folders:
-        combined_df_for_one_folder = make_fq_df(data_folder)
-        combined_df = pd.concat((combined_df, combined_df_for_one_folder), ignore_index=True)
-    full_df_path = os.path.join(get_pickle_path(),"full_dfs")
-    os.makedirs(full_df_path, exist_ok=True)
-    with open(os.path.join(full_df_path, f"full_combined_df_{datetime.now().date().strftime(DateFormats.DATE_FOLDER.value)}.pkl"), "wb") as f:
-        pickle.dump(combined_df, f)
+    # os.makedirs(get_pickle_path(), exist_ok=True)
+    #
+    # data_folders = os.listdir(get_data_path())
+    # combined_df: pd.DataFrame = None
+    # for data_folder in data_folders:
+    #     combined_df_for_one_folder = make_fq_df(data_folder)
+    #     combined_df = pd.concat((combined_df, combined_df_for_one_folder), ignore_index=True)
+    # full_df_path = os.path.join(get_pickle_path(),"full_dfs")
+    # os.makedirs(full_df_path, exist_ok=True)
+    # with open(os.path.join(full_df_path, f"full_combined_df_{datetime.now().date().strftime(DateFormats.DATE_FOLDER.value)}.pkl"), "wb") as f:
+    #     pickle.dump(combined_df, f)
 
     # rolling_df, rolling_movement = rolling_window_split(combined_df, 2.0)
     # rolling_movement_vector = pd.Series(rolling_movement.values())
@@ -1090,38 +1129,4 @@ if __name__ == "__main__":
     # with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "classifier_windowed_mag_s11_2.pkl"), 'rb') as f:
     #     loaded_classifier = pickle.load(f)
 
-    # #todo make this get the npoints automatically?
-    # calibration = VnaCalibration(os.path.join(get_root_folder_path(), "calibrations", "Corrected_MiniCirc_3dBm_MiniCirc1m_10Mto6G_101Points_Rankine506_27Dec23_1kHz3dBm.cal"), 201, [10_000_000, 6_000_000_000])
-    #
-    # #calibration = VnaCalibration(os.path.join(get_root_folder_path(), "MiniCirc_3dBm_MiniCirc1m_10Mto6G_101Points_Rankine506_27Dec23_1kHz3dBm.cal"), 101, [10_000_000, 6_000_000_000])
-    # n=8
-    # label = input("label")
-    # while(n>0):
-    #     print(f"n = {n}")
-    #     n -= 1
-    #     data = VnaData()
-    #
-    #     vna = VNA(calibration, data)
-    #
-    #
-    #     vna.measure(timedelta(seconds=10), s_params_output=[param for param in SParam], label=label)
-    # data.single_freq_plotter(ghz_to_hz(2.4))
-#     # data = VnaData(
-#     os.path.join(get_root_folder_path(), "S11_10s_2024-01-26_15-25-14.csv")
-# )
-# pivoted_df = data.data_frame.pivot(
-#     index=DataFrameCols.TIME.value,
-#     columns=DataFrameCols.FREQUENCY.value,
-#     values=DataFrameCols.MAGNITUDE.value,
-# )
-# pivoted_df.reset_index(inplace=True)
-# print(pivoted_df.head())
-# pivoted_df["movement"] = "bend"
-# extracted = extract_features(pivoted_df, column_sort="time", column_id="movement")
-# new_dfs = data.split_data_frame(10, 1.2, -8.2)
-# vna_datas = []
-# for new_data in new_dfs:
-#     new_data = VnaData(data_frame=new_data, date_time=data.date_time)
-#     new_data.single_freq_plotter(ghz_to_hz(0.8), save_to_file=False)
-#     vna_datas.append(new_data)
-# plt.show()
+
