@@ -1,5 +1,4 @@
 import os
-import pickle
 
 from sklearn.preprocessing import StandardScaler
 from sklearn.svm import SVC
@@ -13,7 +12,6 @@ from enum import Enum
 from matplotlib import pyplot as plt
 from datetime import datetime, timedelta
 import ast
-from typing import List
 import re
 import numpy as np
 import pandas as pd
@@ -161,9 +159,11 @@ def get_root_folder_path():
     return path
 
 def get_data_path():
+    os.makedirs(os.path.join(get_root_folder_path(), DATA_FOLDER), exist_ok=True)
     return os.path.join(get_root_folder_path(), DATA_FOLDER)
 
 def get_pickle_path():
+    os.makedirs(os.path.join(get_root_folder_path(), "pickels"), exist_ok=True)
     return os.path.join(get_root_folder_path(), "pickels")
 
 class VnaCalibration:
@@ -893,7 +893,6 @@ def rolling_window_split(data_frame: pd.DataFrame, rolling_window_seconds: float
 
 def window_split(data_frame: pd.DataFrame, window_seconds: float):
     new_id_list = [i for i in range(100000)]
-    ids = data_frame["id"].unique()
     new_df: pd.DataFrame = None
     movement_dict = {}
     # get each of the ids in turn
@@ -943,7 +942,7 @@ def extract_features_and_test(full_data_frame, feature_vector, drop_cols=[DataFr
     dropped_label = combined_df.drop(
         columns=drop_cols
     )
-    extracted = extract_features(dropped_label, column_sort=DataFrameCols.TIME.value, column_id=DataFrameCols.ID.value, n_jobs=0)
+    extracted = extract_features(dropped_label, column_sort=DataFrameCols.TIME.value, column_id=DataFrameCols.ID.value)
     impute(extracted)
     features_filtered = select_features(extracted, feature_vector)
 
@@ -1017,33 +1016,6 @@ def make_columns_have_s_param_mag_phase_titles(data_frame: pd.DataFrame)->pd.Dat
             new_combined_df = pd.merge(new_combined_df, df, on=[DataFrameCols.ID.value, DataFrameCols.TIME.value, DataFrameCols.LABEL.value])
     return new_combined_df
 
-# if __name__ == "__main__":
-#     dirs = os.listdir(os.path.join(get_root_folder_path(), "data", "processed_data"))
-#     label_dict = {"fist": 5, "star": 6}
-#     labels = []
-#     for folder in os.listdir(
-#         os.path.join(get_root_folder_path(), "data", "processed_data")
-#     ):
-#         try:
-#             labels.append(int(folder.split("_")[0][0]))
-#         except ValueError as e:
-#             labels.append(label_dict[folder.split("_")[1]])
-#
-#     print(labels)
-#     combined_df = combine_dfs_with_labels(dirs, labels)
-#
-
-#
-#     windowed_df, windowed_movement_dict = window_split(combined_df, 2.0)
-#     windowed_movement_vector = pd.Series(windowed_movement_dict.values())
-#
-#     print("Rolling")
-#     extract_features_and_test(rolling_df, rolling_movement_vector)
-#
-#     print("Windowed")
-#     extract_features_and_test(windowed_df, windowed_movement_vector)
-#
-
 def filter_cols_between_fq_range(df: pd.DataFrame, lower_bound, upper_bound):
     cols = df.columns.values
     # Filter out non-integer values
@@ -1058,44 +1030,60 @@ def filter_columns(df, frequencies):
         pattern += '|' + '|'.join(f'^{num}$' for num in frequencies)
     return df.filter(regex=pattern, axis=1)
 
-def pickle_object(object_to_pickle, fname):
-    with open(os.path.join(get_pickle_path(), fname), "wb") as f:
+def pickle_object(object_to_pickle, path):
+    with open(path, "wb") as f:
         pickle.dump(object_to_pickle, f)
 
-def open_pickled_object(fname):
-    with open(os.path.join(get_pickle_path(), fname), "wb") as f:
+def open_pickled_object(path):
+    with open(path, "rb") as f:
         unpickled = pickle.load(f)
     return unpickled
 
-def feature_extract_test_filtered_data_frame(filtered_data_frame, save=True, fname=None):
+def feature_extract_test_filtered_data_frame(filtered_data_frame, movement_vector, save=True, fname=None):
     df_fixed = make_columns_have_s_param_mag_phase_titles(filtered_data_frame)
-    classifiers = extract_features_and_test(df_fixed, windowed_movement_vector)
+    classifiers = extract_features_and_test(df_fixed, movement_vector)
     if save:
         if fname is None:
-            fname = f"classifier_{datetime.now().date().strftime(DateFormats.DATE_FOLDER.value)}"
+            fname = f"classifier_{datetime.now().date().strftime(DateFormats.DATE_FOLDER.value)}.pkl"
         else:
-            fname = f"{fname}_{datetime.now().date().strftime(DateFormats.DATE_FOLDER.value)}"
+            fname = f"{fname}_{datetime.now().date().strftime(DateFormats.DATE_FOLDER.value)}.pkl"
         pickle_object(classifiers, fname)
     return classifiers, fname
 
+def get_classifiers_path():
+    return os.path.join(get_pickle_path(), "classifiers")
+
+def get_full_dfs_path():
+    return os.path.join(get_pickle_path(), "full_dfs")
+
+def combine_data_frames_from_csv_folder(csv_folder_path, save=True):
+
+    data_folders = os.listdir(csv_folder_path)
+    combined_df: pd.DataFrame = None
+    for data_folder in data_folders:
+        combined_df_for_one_folder = make_fq_df(data_folder)
+        combined_df = pd.concat((combined_df, combined_df_for_one_folder), ignore_index=True)
+
+    if save:
+        full_df_path = os.path.join(get_pickle_path(),"full_dfs")
+        os.makedirs(full_df_path, exist_ok=True)
+        with open(os.path.join(full_df_path, f"full_combined_df_{datetime.now().date().strftime(DateFormats.DATE_FOLDER.value)}.pkl"), "wb") as f:
+            pickle.dump(combined_df, f)
+
+    return combined_df
+
 if __name__ == "__main__":
 
-    # os.makedirs(get_pickle_path(), exist_ok=True)
-    #
-    # data_folders = os.listdir(get_data_path())
-    # combined_df: pd.DataFrame = None
-    # for data_folder in data_folders:
-    #     combined_df_for_one_folder = make_fq_df(data_folder)
-    #     combined_df = pd.concat((combined_df, combined_df_for_one_folder), ignore_index=True)
-    # full_df_path = os.path.join(get_pickle_path(),"full_dfs")
-    # os.makedirs(full_df_path, exist_ok=True)
-    # with open(os.path.join(full_df_path, f"full_combined_df_{datetime.now().date().strftime(DateFormats.DATE_FOLDER.value)}.pkl"), "wb") as f:
-    #     pickle.dump(combined_df, f)
+    combined_df = open_pickled_object(os.path.join(get_pickle_path(), "full_dfs", os.listdir(os.path.join(get_pickle_path(), "full_dfs"))[0]))
 
-    # rolling_df, rolling_movement = rolling_window_split(combined_df, 2.0)
-    # rolling_movement_vector = pd.Series(rolling_movement.values())
-    #
-    # rolling_df = make_columns_have_s_param_mag_phase_titles(rolling_df)
+    # classifier_pickles = os.listdir(os.path.join(get_pickle_path(), "classifiers"))
+    # classifiers = {fname.split('.')[0]:open_pickled_object(fname) for fname in classifier_pickles}
+    # os.makedirs(get_pickle_path(), exist_ok=True)
+
+
+    rolling_df, rolling_movement = rolling_window_split(combined_df, 2.0)
+    rolling_movement_vector = pd.Series(rolling_movement.values())
+
 
     windowed_df, windowed_movement_dict = window_split(combined_df, 2.0)
     windowed_movement_vector = pd.Series(windowed_movement_dict.values())
@@ -1119,7 +1107,7 @@ if __name__ == "__main__":
 
     # print("Windowed")
     # classifiers = extract_features_and_test(filtered_windowed_df, windowed_movement_vector)
-    # with open(os.path.join(get_pickle_path(), "classifier_windowed_mag_s21.pkl"), "wb") as f:
+    # with open(os.path.join(get_pickle_path(), "classifier_windowed_mag_s21"), "wb") as f:
     #     pickle.dump(classifiers, f)
 
 
@@ -1128,5 +1116,4 @@ if __name__ == "__main__":
 
     # with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "classifier_windowed_mag_s11_2.pkl"), 'rb') as f:
     #     loaded_classifier = pickle.load(f)
-
 
