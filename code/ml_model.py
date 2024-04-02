@@ -186,11 +186,12 @@ def window_split(data_frame: pd.DataFrame, window_seconds: float):
 
     return new_df, movement_dict
 
-def create_movement_vector_for_single_data_frame(df: pd.DataFrame)-> {}:
+def create_movement_vector_for_single_data_frame(df: pd.DataFrame)-> pd.Series:
     movement_dict = {}
-    for id_value, id_df in df.groupby([DataFrameCols.ID.value]):
-        movement_dict[id_value] = id_df[DataFrameCols.value][0]
-    return movement_dict
+    groups = df.groupby([DataFrameCols.ID.value])
+    for id_value, id_df in groups:
+        movement_dict[id_value[0]] = id_df[DataFrameCols.LABEL.value].values[0]
+    return pd.Series(movement_dict)
 
 def combine_windowed_df(
         new_df: pd.DataFrame, windowed_df: pd.DataFrame, new_id, movement_dict
@@ -218,7 +219,7 @@ def extract_features_and_test(
     extracted = extract_features(
         dropped_label,
         column_sort=DataFrameCols.TIME.value,
-        column_id=DataFrameCols.ID.value,
+        column_id=DataFrameCols.ID.value
     )
     impute(extracted)
     features_filtered = select_features(extracted, feature_vector)
@@ -425,6 +426,7 @@ def filter_columns(df, frequencies):
 
 
 def pickle_object(object_to_pickle, path):
+    os.makedirs(get_classifiers_path(), exist_ok=True)
     with open(path, "wb") as f:
         pickle.dump(object_to_pickle, f)
 
@@ -532,30 +534,30 @@ def extract_gesture_metric_to_df(
 
 # todo make fn to save just report dicts
 if __name__ == "__main__":
-    f1_scores = {}
-    fnames = os.listdir(get_pickle_path())
-    weighted_f1_score_df = extract_gesture_metric_to_df(
-        fnames, gesture="weighted avg", metric="f1-score"
-    )
-    stacked_df = weighted_f1_score_df.stack()
-    stacked_df = stacked_df.sort_values(ascending=False)
+    # f1_scores = {}
+    # fnames = os.listdir(get_pickle_path())
+    # weighted_f1_score_df = extract_gesture_metric_to_df(
+    #     fnames, gesture="weighted avg", metric="f1-score"
+    # )
+    # stacked_df = weighted_f1_score_df.stack()
+    # stacked_df = stacked_df.sort_values(ascending=False)
 
-    # combined_df = open_pickled_object(
-    #     os.path.join(get_pickle_path(), "full_dfs", os.listdir(os.path.join(get_pickle_path(), "full_dfs"))[0]))
-    #
-    # # classifier_pickles = os.listdir(os.path.join(get_pickle_path(), "classifiers"))
-    # # classifiers = {fname.split('.')[0]:open_pickled_object(fname) for fname in classifier_pickles}
-    # # os.makedirs(get_pickle_path(), exist_ok=True)
-    #
-    # rolling_df, rolling_movement = rolling_window_split(combined_df, 2.0)
-    # rolling_movement_vector = pd.Series(rolling_movement.values())
-    #
-    # rolling_all_Sparams_magnitude = rolling_df[(rolling_df['mag_or_phase'] == "magnitude")]
-    #
-    # windowed_df, windowed_movement_dict = window_split(combined_df, 2.0)
-    # windowed_movement_vector = pd.Series(windowed_movement_dict.values())
-    #
-    # windowed_all_Sparams_magnitude = windowed_df[(windowed_df['mag_or_phase'] == "magnitude")]
+    combined_df = open_pickled_object(
+        os.path.join(get_pickle_path(), "full_dfs", os.listdir(os.path.join(get_pickle_path(), "full_dfs"))[0]))
+
+    # classifier_pickles = os.listdir(os.path.join(get_pickle_path(), "classifiers"))
+    # classifiers = {fname.split('.')[0]:open_pickled_object(fname) for fname in classifier_pickles}
+    # os.makedirs(get_pickle_path(), exist_ok=True)
+
+    rolling_df, rolling_movement = rolling_window_split(combined_df, 2.0)
+    rolling_movement_vector = pd.Series(rolling_movement.values())
+
+    rolling_all_Sparams_magnitude = rolling_df[(rolling_df['mag_or_phase'] == "magnitude")]
+
+    windowed_df, windowed_movement_dict = window_split(combined_df, 2.0)
+    windowed_movement_vector = pd.Series(windowed_movement_dict.values())
+
+    windowed_all_Sparams_magnitude = windowed_df[(windowed_df['mag_or_phase'] == "magnitude")]
     # min_frequency, max_frequency = ghz_to_hz(5.81), ghz_to_hz(6)
     # low_frequency, high_frequency = min_frequency, min_frequency + mhz_to_hz(100)
     # while high_frequency <= max_frequency:

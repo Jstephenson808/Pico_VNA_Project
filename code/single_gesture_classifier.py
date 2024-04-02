@@ -16,10 +16,11 @@ if __name__ == "__main__":
         (combined_df["mag_or_phase"] == "phase")
     ]
     test_dfs = {param.value:all_Sparams_magnitude[all_Sparams_magnitude[DataFrameCols.S_PARAMETER.value] == param.value] for param in SParam}
-    movement_vector = create_movement_vector_for_single_data_frame(combined_df)
+    movement_vector = create_movement_vector_for_single_data_frame(all_Sparams_magnitude)
     freq_list = get_frequency_column_headings_list(all_Sparams_magnitude)
-    min_frequency, max_frequency = ghz_to_hz(min(freq_list)), ghz_to_hz(max(freq_list))
+    min_frequency, max_frequency = min(freq_list), max(freq_list)
     low_frequency, high_frequency = min_frequency, min_frequency + mhz_to_hz(100)
+    f1_scores = {}
     while high_frequency <= max_frequency:
         print(f"{hz_to_ghz(low_frequency)}GHz->{hz_to_ghz(high_frequency)}GHz")
 
@@ -27,7 +28,7 @@ if __name__ == "__main__":
             all_Sparams_magnitude, low_frequency, high_frequency
         )
         label = f"all_Sparams_magnitude_{hz_to_ghz(low_frequency)}_{hz_to_ghz(high_frequency)}"
-        result = feature_extract_test_filtered_data_frame(
+        result, fname = feature_extract_test_filtered_data_frame(
             all_Sparams_magnitude_filtered,
             movement_vector,
             fname=label,
