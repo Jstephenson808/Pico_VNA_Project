@@ -1,541 +1,26 @@
+from VNA_calibration import VnaCalibration
+from VNA_data import VnaData
+
 import os
-
-from sklearn.preprocessing import StandardScaler
-from sklearn.svm import SVC
-
-os.environ['OMP_NUM_THREADS'] = "1"
-os.environ['MKL_NUM_THREADS'] = "1"
-os.environ['OPENBLAS_NUM_THREADS'] = "1"
 import win32com.client
-from tsfresh import extract_features, select_features
-from enum import Enum
-from matplotlib import pyplot as plt
+
 from datetime import datetime, timedelta
-import ast
-import re
-import numpy as np
 import pandas as pd
-import matplotlib
-from tsfresh.utilities.dataframe_functions import impute
 
-from sklearn.tree import DecisionTreeClassifier
-from sklearn.model_selection import train_test_split
-from sklearn.metrics import classification_report
-
-matplotlib.use("TkAgg")
-from time import time
-import pickle
-
-ROOT_FOLDER = "Pico_VNA_Project"
-DATA_FOLDER = os.path.join("results", "data")
-
-
-class NotValidCSVException(Exception):
-    def __init__(self, message):
-        super().__init__(message)
-
-
-class NotValidSParamException(Exception):
-    def __init__(self, message):
-        super().__init__(message)
-
-
-class FileNotInCorrectFolder(Exception):
-    def __init__(self, message):
-        super().__init__(message)
-
-
-class VNAError(Exception):
-    def __init__(self, message):
-        super().__init__(message)
-
-
-class Movements(Enum):
-    BEND = "bend"
-
-
-class DateFormats(Enum):
-    CURRENT = "%Y_%m_%d_%H_%M_%S"
-    ORIGINAL = "%Y_%m_%d_%H_%M_%S.%f"
-    DATE_FOLDER = "%Y_%m_%d"
-
-
-class MeasureSParam(Enum):
-    S11 = "S11"
-    S21 = "S21"
-    S11_S21 = "S11+S21"
-    ALL = "All"
-
-
-class SParam(Enum):
-    S11 = "S11"
-    S21 = "S21"
-    S12 = "S12"
-    S22 = "S22"
-
-
-class MeasurementFormat(Enum):
-    LOGMAG = "logmag"
-    PHASE = "phase"
-    REAL = "real"
-    IMAG = "imag"
-    SWR = "swr"
-    GROUP_DELAY = "gd"
-    TIME_DOMAIN = "td"
-
-
-class DataFrameCols(Enum):
-    TIME = "time"
-    S_PARAMETER = "s_parameter"
-    FREQUENCY = "frequency"
-    MAGNITUDE = "magnitude"
-    PHASE = "phase"
-    LABEL = "label"
-    ID = "id"
-
-
-def timer_func(func):
-    # This function shows the execution time of
-    # the function object passed
-    def wrap_func(*args, **kwargs):
-        t1 = time()
-        result = func(*args, **kwargs)
-        t2 = time()
-        print(f"Function {func.__name__!r} executed in {(t2 - t1):.4f}s")
-        return result
-
-    return wrap_func
-
-
-def mhz_to_hz(mhz):
-    """
-    utility function to convert mhz to hz
-    :param mhz: MHz value
-    :return: value in Hz
-    """
-    return mhz * 1_000_000
-
-
-def hz_to_mhz(hz):
-    """
-    utility function to convert hz to Mhz
-    :param hz: Hz value
-    :return: value in MHz
-    """
-    return hz / 1_000_000
-
-
-def ghz_to_hz(ghz):
-    """
-    utility function to convert GHz to Hz
-    :param ghz: GHz value
-    :return: value in Hz
-    """
-    return ghz * 1_000_000_000
-
-
-def hz_to_ghz(hz):
-    """
-    utility function to convert Hz to GHz
-    :param hz: Hz value
-    :return: value in GHz
-    """
-    return hz / 1_000_000_000
-
-
-def get_root_folder_path():
-    """
-    utility function to get the root folder of the project
-    assumes file is running in original folder, this can cause issues
-    if the root folder is moved
-    :return: path to the root folder
-    """
-    path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    if os.path.basename(path) != ROOT_FOLDER:
-        raise FileNotInCorrectFolder(
-            f"File isn't in correct folder for this function to work,"
-            f" move into a folder below root dir, currently in {__file__}"
-        )
-    return path
-
-
-def get_data_path():
-    os.makedirs(os.path.join(get_root_folder_path(), DATA_FOLDER), exist_ok=True)
-    return os.path.join(get_root_folder_path(), DATA_FOLDER)
-
-
-def get_pickle_path():
-    os.makedirs(os.path.join(get_root_folder_path(), "pickels"), exist_ok=True)
-    return os.path.join(get_root_folder_path(), "pickels")
-
-
-class VnaCalibration:
-    """
-    Holds data related to VNA calibration
-
-    """
-
-    def __init__(
-            self,
-            calibration_path: os.path,
-            number_of_points: int,
-            frequncy_range_hz: (int, int),
-    ):
-        self.calibration_path = calibration_path
-        self.number_of_points = number_of_points
-        self.low_freq_hz = frequncy_range_hz[0]
-        self.high_freq_hz = frequncy_range_hz[1]
-
-
-class VnaData:
-    """
-    Class to hold data produced by the VNA and methods for plotting, can be initialised
-    with a path to a .csv of just a dataframe value. Provides methods for extracting individual
-    frequencies and plotting them, can save these files and plots.
-    """
-
-    @staticmethod
-    def test_file_name(filename) -> bool:
-        """
-        Tests file name to establish if it's in the correct format
-        :param filename: filename from command line
-        :return: bool indicating if the fname is formatted correctly
-        """
-        pattern = r"^[\w\-.]+$"
-
-        regex = re.compile(pattern)
-
-        return regex.match(filename) is not None
-
-    @staticmethod
-    def freq_string_to_list(string):
-        """
-        converts legacy frequency list string to a list of ints
-        :param string: string read in from .csv
-        :return:
-        """
-        if string.startswith("[") and string.endswith("]"):
-            return [int(i) for i in ast.literal_eval(string)]
-
-        return string
-
-    @staticmethod
-    def mag_string_to_list(string):
-        """
-        converts legacy magnitude list string to a list of floats
-        :param string:
-        :return:
-        """
-        if string.startswith("[") and string.endswith("]"):
-            return [float(i) for i in ast.literal_eval(string)]
-        return string
-
-    @staticmethod
-    def zero_ref_time(data_frame: pd.DataFrame):
-        """
-        References the time in data frame to first value
-        :param data_frame: data frame
-        :return: None
-        """
-        start_time = data_frame[DataFrameCols.TIME.value][0]
-        data_frame[DataFrameCols.TIME.value] = data_frame[
-            DataFrameCols.TIME.value
-        ].apply(lambda x: x - start_time)
-
-    @staticmethod
-    def string_to_datetime(
-            string, date_format: DateFormats = DateFormats.ORIGINAL.value
-    ) -> datetime:
-        """
-        Converts a string containing a time into a datetime object
-        :param string:
-        :param date_format: enum containing the format string for datetime
-        :return:
-        """
-        return datetime.strptime(string, date_format)
-
-    @staticmethod
-    def freq_int_from_ghz_string(ghz_string: str) -> int:
-        """
-        Converts string in the format "_._GHz" to an integer Hz value
-        :param ghz_string: GHz string in format "_._GHz"
-        :return: frequency in Hz
-        """
-        return int(float(ghz_string.split("_")[0]) * 1_000_000_000)
-
-    @staticmethod
-    def read_df_from_csv(path) -> (pd.DataFrame, datetime):
-        """
-        Read in data frame from .csv checks and converts old format files automatically
-        or raises exception if not correctly formatted
-        :param path: path string to .csv
-        :return: tuple containing data frame and datetime of when data was taken
-        """
-        data_frame = pd.read_csv(path)
-        # if all the columns in this enum are present then .csv was in the right format
-        if all(col.value in data_frame for col in DataFrameCols):
-            # pattern matches date format in
-            pattern = re.compile(r"(\d\d\d\d_\d\d_\d\d_\d\d_\d\d_\d\d)")
-            date_time = re.search(pattern, os.path.basename(path)).group(1)
-            return data_frame, datetime.strptime(date_time, DateFormats.CURRENT.value)
-        else:
-            return VnaData.extract_data_from_old_df(data_frame, path)
-
-    @staticmethod
-    def extract_data_from_old_df(
-            old_df: pd.DataFrame, path
-    ) -> (pd.DataFrame, datetime):
-        """
-        If a dataframe is read in which is not of the current format,
-        this function is called to convert the old format into the new one,
-        if it is not of a known format it will throw a NotValidCsv exception
-
-        :param old_df: The old data frame which is not in the current format
-        :param path: The path to the read in .csv
-        :return: (pd.DataFrame, datetime)
-        """
-        new_df = pd.DataFrame(columns=[cols.value for cols in DataFrameCols])
-        filename = os.path.basename(path)
-        match_ghz_fq_csv = re.search(
-            r"(.+)-(\d+\.\d+_GHz)_([A-Za-z\d]+)\.csv", filename
-        )
-
-        if match_ghz_fq_csv:
-            date_time = datetime.strptime(
-                match_ghz_fq_csv.group(1), DateFormats.CURRENT.value
-            )
-            frequency_string = match_ghz_fq_csv.group(2)
-            frequency = VnaData.freq_int_from_ghz_string(frequency_string)
-            s_param = match_ghz_fq_csv.group(3)
-            new_df[DataFrameCols.TIME.value] = old_df["time"]
-            new_df[DataFrameCols.MAGNITUDE.value] = old_df["magnitude (dB)"]
-            new_df[DataFrameCols.FREQUENCY.value] = frequency
-            new_df[DataFrameCols.S_PARAMETER.value] = s_param
-            return new_df, date_time
-
-        if all(
-                col in old_df.columns for col in ["Time", "Frequency", "Magnitude (dB)"]
-        ):
-            s_param = re.search(r"(S\d\d)", filename).group(1)
-            old_df["Time"] = old_df["Time"].apply(VnaData.string_to_datetime)
-            date_time = old_df["Time"][0]
-            VnaData.zero_ref_time(old_df)
-            old_df["Frequency"] = old_df["Frequency"].apply(VnaData.freq_string_to_list)
-            old_df["Magnitude (dB)"] = old_df["Magnitude (dB)"].apply(
-                VnaData.mag_string_to_list
-            )
-            for index, row in old_df.iterrows():
-                temp_df = pd.DataFrame(columns=[cols.value for cols in DataFrameCols])
-                temp_df[DataFrameCols.FREQUENCY.value] = row["Frequency"]
-                temp_df[DataFrameCols.MAGNITUDE.value] = row["Magnitude (dB)"]
-                temp_df[DataFrameCols.TIME.value] = row["Time"]
-                temp_df[DataFrameCols.S_PARAMETER.value] = s_param
-                new_df = pd.concat([new_df, temp_df], ignore_index=True)
-            return new_df, date_time
-        raise NotValidCSVException(
-            f"Incorrect CSV format read in with fname {filename} "
-            f"and columns {old_df.columns}"
-        )
-
-    def __init__(self, path=None, data_frame=None, date_time=None):
-        self.data_frame: pd.DataFrame = data_frame
-        self.date_time: datetime = date_time
-        self.csv_path = path
-        if path is not None:
-            self.init_df_date_time()
-
-    def init_df_date_time(self):
-        self.data_frame, self.date_time = VnaData.read_df_from_csv(self.csv_path)
-
-    def get_first_index_of_time(self, target_time, target_magnitude=None):
-        if target_magnitude is None:
-            filtered_indexes = self.data_frame.index[
-                self.data_frame[DataFrameCols.TIME.value] > target_time
-                ]
-        else:
-            filtered_indexes = self.data_frame.index[
-                (self.data_frame[DataFrameCols.TIME.value] > target_time)
-                & self.data_frame[DataFrameCols.MAGNITUDE.value]
-                > target_magnitude
-                ]
-
-        if len(filtered_indexes) == 0:
-            raise IndexError(f"Target time out of bounds {target_time}")
-        else:
-            return filtered_indexes[0]
-
-    def split_data_frame(self, n_slices, start_time=0, start_magnitude=None):
-        start_index = self.get_first_index_of_time(start_time, start_magnitude)
-        split_data_frames = np.array_split(self.data_frame[start_index:], n_slices)
-        index_reset_df = []
-        for data_frame in split_data_frames:
-            index_reset_df.append(data_frame.reset_index())
-        return index_reset_df
-
-    def test_df_columns(self, data_frame: pd.DataFrame):
-        assert all(col.value in data_frame.columns for col in DataFrameCols)
-
-    def extract_freq_df(
-            self, target_frequency: int, s_param: SParam = None
-    ) -> pd.DataFrame:
-        """
-        Takes in a target frequency and optional sparam,
-        returns a data frame containing only those values
-        and optionally only those sparams
-
-        :param target_frequency: Frequency to find
-        :param s_param: SParam enum value to search for
-        :return: data frame containing only those values
-        """
-        if s_param is None:
-            df = self.data_frame.loc[
-                (self.data_frame[DataFrameCols.FREQUENCY.value] == target_frequency)
-            ]
-        else:
-            df = self.data_frame.loc[
-                (self.data_frame[DataFrameCols.FREQUENCY.value] == target_frequency)
-                & (self.data_frame[DataFrameCols.S_PARAMETER.value] == s_param.value)
-                ]
-        return df.sort_values(by=[DataFrameCols.TIME.value])
-
-    def save_df(self, file_path=os.path.join("../Project Files/results", "data")):
-        """
-        Write data frame to given file path
-        :param data_frame: input data frame
-        :param file_path: path string to write to
-        :return:
-        """
-        os.makedirs(file_path, exist_ok=True)
-        self.data_frame.to_csv(file_path, index=False)
-
-    def plot_frequencies(self, freq_list: [int], output_folder_path=os.path.join(
-        get_root_folder_path(),
-        "results",
-        "graph",
-        datetime.now().date().strftime(DateFormats.DATE_FOLDER.value)),
-                         plot_s_param: SParam = None,
-                         data_frame_column_to_plot: DataFrameCols = DataFrameCols.MAGNITUDE,
-                         save_to_file=True, ):
-
-        fig, ax = plt.subplots()
-        ax.set_ylabel(f"|{plot_s_param.value}|")
-        ax.set_xlabel("Time (s)")
-        plt.title(f"{plot_s_param.value.title()} Over Time")
-        for target_frequency in freq_list:
-            target_frequency = self.find_nearest_frequency(
-                self.data_frame[DataFrameCols.FREQUENCY.value], target_frequency
-            )
-            data_frame = self.extract_freq_df(target_frequency, plot_s_param)
-            target_frequency_GHz = hz_to_ghz(target_frequency)
-            self.plot_freq_on_axis(
-                data_frame, ax, data_frame_column_to_plot, label=target_frequency_GHz
-            )
-        plt.legend()
-        if save_to_file:
-            os.makedirs(output_folder_path, exist_ok=True)
-            plt.savefig(
-                os.path.join(
-                    output_folder_path,
-                    f"{datetime.now().strftime('%Y_%m_%d_%H_%M_%S')}_{freq_list[0]}-{freq_list[-1]}.svg",
-                ),
-                format="svg",
-            )
-        plt.show()
-
-    def plot_freq_on_axis(
-            self, data_frame, axis: plt.Axes, plot_data: DataFrameCols, label=None
-    ):
-        """
-        Function which plots the targeted plot_data data type on the y of the supplied axis and
-        the value of time on the x axis
-        :param data_frame: input data frame
-        :param axis: matplotlib axis to plot on
-        :param plot_data: The enum datatype to plot
-        :return:
-        """
-        if label:
-            axis.plot(
-                data_frame[DataFrameCols.TIME.value],
-                data_frame[plot_data.value],
-                label=label,
-            )
-        else:
-            axis.plot(data_frame[DataFrameCols.TIME.value], data_frame[plot_data.value])
-
-    def find_nearest_frequency(self, frequency_series: pd.Series, target_frequency):
-        array = np.asarray(frequency_series)
-        idx = (np.abs(array - target_frequency)).argmin()
-        return array[idx]
-
-    def validate_s_param(self, plot_s_param: SParam) -> bool:
-        if (plot_s_param is None) or (plot_s_param not in SParam):
-            raise NotValidSParamException(f"{plot_s_param} is not valid")
-        return True
-
-    def handle_none_param(self, plot_s_param: None) -> SParam | None:
-        plot_s_param_string = self.data_frame[DataFrameCols.S_PARAMETER.value].values[0]
-        for param_enum in SParam:
-            if param_enum.value == plot_s_param_string:
-                plot_s_param = param_enum
-                break
-        return plot_s_param
-
-    def single_freq_plotter(
-            self,
-            target_frequency: int,
-            output_folder_path=os.path.join(
-                get_root_folder_path(),
-                "results",
-                "graph",
-                datetime.now().date().strftime(DateFormats.DATE_FOLDER.value),
-            ),
-            plot_s_param: SParam = None,
-            data_frame_column_to_plot: DataFrameCols = DataFrameCols.MAGNITUDE,
-            save_to_file=True,
-    ):
-        """
-        Plots a single frequency from the internal data frame, saves it to the provided folder
-        :param target_frequency: frequency in Hz to be plotted
-        :param output_folder_path: string for the output folder, defaults to /results/graphs
-        :param plot_s_param: optional enum indicating Sparam to be plotted
-        :param data_frame_column_to_plot:
-        :return:
-        """
-        # data is a single frame with:
-        #  -
-        # if no sparam is given just pick the first value of SParam
-        if plot_s_param == None:
-            plot_s_param = self.handle_none_param(plot_s_param)
-
-        self.validate_s_param(plot_s_param)
-
-        target_frequency = self.find_nearest_frequency(
-            self.data_frame[DataFrameCols.FREQUENCY.value], target_frequency
-        )
-        data_frame = self.extract_freq_df(target_frequency, plot_s_param)
-        target_frequency_GHz = hz_to_ghz(target_frequency)
-
-        fig, ax = plt.subplots()
-        self.plot_freq_on_axis(data_frame, ax, data_frame_column_to_plot)
-        ax.set_ylabel(f"|{plot_s_param.value}|")
-        ax.set_xlabel("Time (s)")
-        plt.title(f"|{plot_s_param.value}| Over Time at {target_frequency_GHz} GHz")
-
-        if save_to_file:
-            os.makedirs(output_folder_path, exist_ok=True)
-            plt.savefig(
-                os.path.join(
-                    output_folder_path,
-                    f"{datetime.now().strftime('%Y_%m_%d_%H_%M_%S')}-{target_frequency_GHz}_GHz.svg",
-                ),
-                format="svg",
-            )
-        plt.show()
-
-    def pivot_data_frame_frequency(self, value: DataFrameCols) -> pd.DataFrame:
-        return self.data_frame.pivot(
-            index=DataFrameCols.TIME, columns=DataFrameCols.FREQUENCY, values=value
-        )
+from VNA_enums import (
+    DataFrameCols,
+    MeasurementFormat,
+    SParam,
+    MeasureSParam,
+    DateFormats,
+)
+from VNA_exceptions import *
+from VNA_utils import (
+    get_pickle_path,
+    get_data_path,
+    get_root_folder_path,
+    timer_func,
+)
 
 
 class VNA:
@@ -550,15 +35,15 @@ class VNA:
         return file_label
 
     def __init__(
-            self,
-            calibration: VnaCalibration,
-            vna_data: VnaData,
-            vna_string="PicoControl2.PicoVNA_2",
+        self,
+        calibration: VnaCalibration,
+        vna_data: VnaData,
+        vna_string="PicoControl2.PicoVNA_2",
     ):
         self.calibration = calibration
         self.vna_object = win32com.client.gencache.EnsureDispatch(vna_string)
         self.output_data = vna_data
-
+    #todo close connection
     def connect(self):
         print("Connecting VNA")
         search_vna = self.vna_object.FND()
@@ -574,7 +59,7 @@ class VNA:
         print(f"Result {ans}")
 
     def get_data(
-            self, s_parameter: SParam, data_format: MeasurementFormat, point=0
+        self, s_parameter: SParam, data_format: MeasurementFormat, point=0
     ) -> str:
         """
 
@@ -598,13 +83,13 @@ class VNA:
         return frequencies, data
 
     def vna_data_string_to_df(
-            self,
-            elapsed_time: timedelta,
-            magnitude_data_string: str,
-            phase_data_string: str,
-            s_parameter: SParam,
-            label: str,
-            id,
+        self,
+        elapsed_time: timedelta,
+        magnitude_data_string: str,
+        phase_data_string: str,
+        s_parameter: SParam,
+        label: str,
+        id,
     ) -> pd.DataFrame:
         """
         Converts the strings returned by the VNA .get_data method into a data frame
@@ -631,12 +116,12 @@ class VNA:
         return pd.DataFrame(data_dict)
 
     def generate_output_path(
-            self,
-            output_folder: str,
-            s_params_saved: SParam,
-            run_time: timedelta,
-            fname="",
-            label="",
+        self,
+        output_folder: str,
+        s_params_saved: SParam,
+        run_time: timedelta,
+        fname="",
+        label="",
     ):
         """
         Utility function to generate file name and join it ot path
@@ -662,7 +147,7 @@ class VNA:
 
     # todo what if you only want to measure one of phase or logmag?
     def add_measurement_to_data_frame(
-            self, s_param: SParam, elapsed_time: timedelta, label: str, id
+        self, s_param: SParam, elapsed_time: timedelta, label: str, id
     ):
         """
         Gets current measurement strings (logmag and phase) for the given S param from VNA and converts it
@@ -682,18 +167,18 @@ class VNA:
         return pd.concat([self.output_data.data_frame, df])
 
     # add in timer logging
-    @timer_func
+    #@timer_func
     def measure_wrapper(self, str):
         return self.vna_object.Measure(str)
 
-    @timer_func
+    #@timer_func
     def take_measurement(
-            self,
-            s_params_measure: MeasureSParam,
-            s_params_output: [SParam],
-            elapsed_time: timedelta,
-            label: str,
-            id,
+        self,
+        s_params_measure: MeasureSParam,
+        s_params_output: [SParam],
+        elapsed_time: timedelta,
+        label: str,
+        id,
     ):
         """
         Takes measurement on the VNA, processes it and appends it to the output_data.data_frame
@@ -716,13 +201,15 @@ class VNA:
         return label
 
     def measure(
-            self,
-            run_time: timedelta,
-            s_params_measure: MeasureSParam = MeasureSParam.ALL,
-            s_params_output: [SParam] = None,
-            file_name: str = "",
-            output_dir=os.path.join("results", "data"),
-            label=None,
+        self,
+        run_time: timedelta,
+        s_params_measure: MeasureSParam = MeasureSParam.ALL,
+        s_params_output: [SParam] = None,
+        file_name: str = "",
+        output_dir=get_data_path(),
+        label=None,
+        *,
+        print_countdown=False,
     ) -> VnaData:
 
         # label = 'test'
@@ -749,7 +236,8 @@ class VNA:
         while current_time < finish_time:
             current_time = datetime.now()
             elapsed_time = current_time - start_time
-
+            if print_countdown:
+                print(f"Running for another {(run_time - elapsed_time)}")
             self.take_measurement(
                 s_params_measure,
                 s_params_output,
@@ -759,9 +247,7 @@ class VNA:
             )
             measurement_number += 1
             if measurement_number % 10 == 0:
-                print(
-                    f"Saving df data index is {measurement_number} running for another {(finish_time - datetime.now())}"
-                )
+
                 self.output_data.data_frame.to_csv(
                     self.output_data.csv_path, index=False
                 )
@@ -771,418 +257,3 @@ class VNA:
         self.vna_object.CloseVNA()
         print("VNA Closed")
         return self.output_data
-
-
-# class ModelProcessing:
-#     class Features(Enum):
-#         MEANS_ABSOLUTE_VALUE = "MAV"
-#         MODIFIED_MEANS_ABS_VAL_1 = "MMAV1"
-#         MODIFIED_MEANS_ABS_VAL_2 = "MMAV2"
-#         MEANS_ABSOLUTE_VALUE_SLOPE = "MAVSLP"
-#         ROOT_MEANS_SQUARE = "RMS"
-#
-#     def __init__(self, segment: pd.DataFrame):
-#         self.segment = segment
-#         self.feature_matrix = None
-#
-
-def pivot_data_frame_for_s_param(s_param: str, data_frame: pd.DataFrame, mag_or_phase: DataFrameCols) -> pd.DataFrame:
-    if (mag_or_phase is not DataFrameCols.MAGNITUDE) and (mag_or_phase is not DataFrameCols.PHASE):
-        raise ValueError(f"mag_or_phase must be one of those, currently is {mag_or_phase}")
-    sparam_df = data_frame[data_frame[DataFrameCols.S_PARAMETER.value] == s_param]
-    new_df = sparam_df.pivot(
-        index=DataFrameCols.TIME.value,
-        columns=DataFrameCols.FREQUENCY.value,
-        values=mag_or_phase.value,
-    )
-    new_df.reset_index(inplace=True)
-    new_df["mag_or_phase"] = mag_or_phase.value
-    new_df[DataFrameCols.S_PARAMETER.value] = s_param
-    new_df[DataFrameCols.ID.value] = data_frame[DataFrameCols.ID.value]
-    new_df[DataFrameCols.LABEL.value] = data_frame[DataFrameCols.LABEL.value]
-    reordered_columns = [
-                            DataFrameCols.ID.value,
-                            DataFrameCols.LABEL.value,
-                            "mag_or_phase",
-                            DataFrameCols.S_PARAMETER.value,
-                            DataFrameCols.TIME.value,
-                        ] + list(new_df.columns[1:-4])
-
-    new_df = new_df[
-        reordered_columns
-    ]
-    return new_df
-
-
-def make_fq_df(directory: str) -> pd.DataFrame:
-    csvs = os.listdir(
-        os.path.join(get_data_path(), directory)
-    )
-    combined_data_frame = None
-    for csv_fname in csvs:
-        data = VnaData(
-            os.path.join(get_data_path(), directory, csv_fname)
-        )
-        # loop over each sparam in the file and make a pivot table then append
-        for sparam in data.data_frame[DataFrameCols.S_PARAMETER.value].unique():
-            pivoted_data_frame = pivot_data_frame_for_s_param(sparam, data.data_frame, DataFrameCols.MAGNITUDE)
-            combined_data_frame = pd.concat((combined_data_frame, pivoted_data_frame), ignore_index=True)
-
-            pivoted_data_frame = pivot_data_frame_for_s_param(sparam, data.data_frame, DataFrameCols.PHASE)
-            combined_data_frame = pd.concat((combined_data_frame, pivoted_data_frame), ignore_index=True)
-
-    return combined_data_frame
-
-
-def combine_dfs_with_labels(directory_list, labels) -> pd.DataFrame:
-    ids = [i for i in range(len(directory_list))]
-    new_df = make_fq_df(directory_list.pop(0), labels.pop(0), ids.pop(0))
-    for dir, label, sample_id in zip(directory_list, labels, ids):
-        temp_df = make_fq_df(dir, label, sample_id)
-        new_df = pd.concat((new_df, temp_df), ignore_index=True)
-    return new_df
-
-
-def calulate_window_size_from_seconds(
-        data_frame: pd.DataFrame, length_window_seconds: float
-):
-    return len(data_frame[(data_frame[DataFrameCols.TIME.value] < length_window_seconds)])
-
-
-def rolling_window_split(data_frame: pd.DataFrame, rolling_window_seconds: float):
-    new_id_list = [i for i in range(100000)]
-    new_df: pd.DataFrame = None
-    movement_dict = {}
-
-    # get each of the ids in turn
-    grouped_data_id = data_frame.groupby([DataFrameCols.ID.value])
-
-    # Iterate over the groups and store each filtered DataFrame
-    for group_keys, group_data in grouped_data_id:
-        window_size = rolling_window_seconds
-        window_start = 0.0
-        window_end = window_start + window_size
-        # get the avg of a single set of time
-        window_increment = group_data[(group_data[DataFrameCols.S_PARAMETER.value] == SParam.S11.value) & (
-                    group_data["mag_or_phase"] == "magnitude")][DataFrameCols.TIME.value].diff().mean()
-        while window_end <= group_data[DataFrameCols.TIME.value].max():
-            new_id = new_id_list.pop(0)
-            windowed_df = group_data[(group_data[DataFrameCols.TIME.value] >= window_start) & (
-                        group_data[DataFrameCols.TIME.value] < window_end)]
-            new_df, movement_dict = combine_windowed_df(
-                new_df, windowed_df, new_id, movement_dict
-            )
-
-            window_start += window_increment
-            window_end += window_increment
-
-    # for measurement_id in ids:
-    #     for mag_phase in data_frame["mag_or_phase"].unique():
-    #         for s_param in data_frame[DataFrameCols.S_PARAMETER.value].unique():
-    #             new_id = new_id_list.pop(0)
-    #             # need to select each sparam in turn and then mag and phase in turn to make sure they are all with the same id
-    #             id_frame = data_frame[(data_frame[DataFrameCols.ID.value] == measurement_id) & (data_frame[DataFrameCols.S_PARAMETER.value] == s_param) & (data_frame["mag_or_phase"] == mag_phase)]
-    #             # number of indexes which map to that many seconds
-    #             window_size = calulate_window_size_from_seconds(
-    #                 id_frame, rolling_window_seconds
-    #             )
-    #             rolling_window = id_frame.rolling(window=window_size)
-    #             for window_df in rolling_window:
-    #                 if len(window_df) == window_size:
-    #                     new_df, id_movement = combine_windowed_df(
-    #                         new_df, window_df, new_id, id_movement
-    #                     )
-    return new_df, movement_dict
-
-
-def window_split(data_frame: pd.DataFrame, window_seconds: float):
-    new_id_list = [i for i in range(100000)]
-    new_df: pd.DataFrame = None
-    movement_dict = {}
-    # get each of the ids in turn
-    grouped_data_id = data_frame.groupby([DataFrameCols.ID.value])
-
-    # Iterate over the groups and store each filtered DataFrame
-    for group_keys, group_data in grouped_data_id:
-        window_size = window_seconds
-        window_start = 0.0
-        window_end = window_start + window_size
-        # get the avg of a single set of time
-        window_increment = window_size
-        while window_end <= group_data[DataFrameCols.TIME.value].max():
-            new_id = new_id_list.pop(0)
-            windowed_df = group_data[(group_data[DataFrameCols.TIME.value] >= window_start) & (
-                    group_data[DataFrameCols.TIME.value] < window_end)]
-            new_df, id_movement = combine_windowed_df(
-                new_df, windowed_df, new_id, movement_dict
-            )
-
-            window_start += window_increment
-            window_end += window_increment
-
-    return new_df, movement_dict
-
-
-def combine_windowed_df(
-        new_df: pd.DataFrame, windowed_df: pd.DataFrame, new_id, movement_dict
-) -> pd.DataFrame:
-    windowed_df = windowed_df.reset_index(drop=True)
-
-    windowed_df[DataFrameCols.ID.value] = new_id
-    movement_dict[new_id] = windowed_df[DataFrameCols.LABEL.value][0]
-
-    VnaData.zero_ref_time(windowed_df)
-    if new_df is None:
-        new_df = windowed_df
-    else:
-        new_df = pd.concat((new_df, windowed_df), ignore_index=True)
-    return new_df, movement_dict
-
-
-def extract_features_and_test(full_data_frame, feature_vector, drop_cols=[DataFrameCols.LABEL.value]):
-    combined_df = full_data_frame.ffill()
-    # s_params_mapping = {s.value:index+1 for index, s in enumerate(SParam)}
-    # full_data_frame[DataFrameCols.S_PARAMETER.value].map({s.value: index for index, s in enumerate(SParam)})
-    dropped_label = combined_df.drop(
-        columns=drop_cols
-    )
-    extracted = extract_features(dropped_label, column_sort=DataFrameCols.TIME.value, column_id=DataFrameCols.ID.value)
-    impute(extracted)
-    features_filtered = select_features(extracted, feature_vector)
-
-    X_full_train, X_full_test, y_train, y_test = train_test_split(
-        extracted, feature_vector, test_size=0.4
-    )
-
-    classifier_full = DecisionTreeClassifier()
-    classifier_full.fit(X_full_train, y_train)
-    decision_tree_full_dict = classification_report(y_test, classifier_full.predict(X_full_test), output_dict=True)
-    print(classification_report(y_test, classifier_full.predict(X_full_test)))
-
-    X_filtered_train, X_filtered_test = (
-        X_full_train[features_filtered.columns],
-        X_full_test[features_filtered.columns],
-    )
-    classifier_filtered = DecisionTreeClassifier()
-    classifier_filtered.fit(X_filtered_train, y_train)
-    decision_tree_filtered_dict = classification_report(y_test, classifier_filtered.predict(X_filtered_test), output_dict=True)
-    print(classification_report(y_test, classifier_filtered.predict(X_filtered_test)))
-
-    #print("SVM".center(80, "="))
-    # Splitting the data into training and testing sets
-    X_full_train, X_full_test, y_train, y_test = train_test_split(extracted, feature_vector, test_size=0.4)
-
-    # Standardizing the feature vectors
-    scaler = StandardScaler()
-    X_full_train_scaled = scaler.fit_transform(X_full_train)
-    X_full_test_scaled = scaler.transform(X_full_test)
-
-    # Creating an SVM classifier
-    svm_classifier = SVC()
-
-    # Training the SVM classifier
-    svm_classifier.fit(X_full_train_scaled, y_train)
-    #print("Full")
-    # Evaluating the SVM classifier
-    full_svm_report = classification_report(y_test, svm_classifier.predict(X_full_test_scaled), output_dict=True)
-    print(classification_report(y_test, svm_classifier.predict(X_full_test_scaled)))
-
-    # Splitting the data into training and testing sets
-    X_full_train, X_full_test, y_train, y_test = train_test_split(features_filtered, feature_vector, test_size=0.4)
-
-    # Standardizing the feature vectors
-    scaler = StandardScaler()
-    X_full_train_scaled = scaler.fit_transform(X_full_train)
-    X_full_test_scaled = scaler.transform(X_full_test)
-
-    # Creating an SVM classifier
-    svm_classifier_filtered = SVC()
-
-    # Training the SVM classifier
-    svm_classifier_filtered.fit(X_full_train_scaled, y_train)
-    #print("Filtered")
-    # Evaluating the SVM classifier
-    dict_svm_filtered = classification_report(y_test, svm_classifier_filtered.predict(X_full_test_scaled), output_dict=True)
-    print(classification_report(y_test, svm_classifier_filtered.predict(X_full_test_scaled)))
-
-
-    # Evaluating the SVM classifier
-    # print("Filtered")
-    # Evaluating the SVM classifier
-
-    return {"filered_classifier": classifier_filtered, "full_classifier": classifier_full, "svm_full": svm_classifier,
-            "svm_filtered": svm_classifier_filtered, "full_features": extracted, "filtered_features": features_filtered, "filtered_svm_report": dict_svm_filtered, "full_svm_report": full_svm_report,
-            "full_dt_report": decision_tree_full_dict, "filtered_dt_report": decision_tree_filtered_dict}
-
-
-def test_features_print(full_features, features_filtered, feature_vector):
-    X_full_train, X_full_test, y_train, y_test = train_test_split(
-        full_features, feature_vector, test_size=0.4
-    )
-
-    classifier_full = DecisionTreeClassifier()
-    classifier_full.fit(X_full_train, y_train)
-    print(classification_report(y_test, classifier_full.predict(X_full_test)))
-
-    X_filtered_train, X_filtered_test = (
-        X_full_train[features_filtered.columns],
-        X_full_test[features_filtered.columns],
-    )
-    classifier_filtered = DecisionTreeClassifier()
-    classifier_filtered.fit(X_filtered_train, y_train)
-    print(classification_report(y_test, classifier_filtered.predict(X_filtered_test)))
-
-    print("SVM".center(80, "="))
-    # Splitting the data into training and testing sets
-    X_full_train, X_full_test, y_train, y_test = train_test_split(full_features, feature_vector, test_size=0.4)
-
-    # Standardizing the feature vectors
-    scaler = StandardScaler()
-    X_full_train_scaled = scaler.fit_transform(X_full_train)
-    X_full_test_scaled = scaler.transform(X_full_test)
-
-    # Creating an SVM classifier
-    svm_classifier = SVC()
-
-    # Training the SVM classifier
-    svm_classifier.fit(X_full_train_scaled, y_train)
-    print("Full")
-    # Evaluating the SVM classifier
-    print(classification_report(y_test, svm_classifier.predict(X_full_test_scaled)))
-
-    # Splitting the data into training and testing sets
-    X_full_train, X_full_test, y_train, y_test = train_test_split(features_filtered, feature_vector, test_size=0.4)
-
-    # Standardizing the feature vectors
-    scaler = StandardScaler()
-    X_full_train_scaled = scaler.fit_transform(X_full_train)
-    X_full_test_scaled = scaler.transform(X_full_test)
-
-    # Creating an SVM classifier
-    svm_classifier_filtered = SVC()
-
-    # Training the SVM classifier
-    svm_classifier_filtered.fit(X_full_train_scaled, y_train)
-    print("Filtered")
-    # Evaluating the SVM classifier
-    print(classification_report(y_test, svm_classifier_filtered.predict(X_full_test_scaled)))
-
-    return {"filered_classifier": classifier_filtered, "full_classifier": classifier_full, "svm_full": svm_classifier,
-            "svm_filtered": svm_classifier_filtered, "full_features": full_features,
-            "filtered_features": features_filtered}
-
-
-def make_columns_have_s_param_mag_phase_titles(data_frame: pd.DataFrame) -> pd.DataFrame:
-    freq_cols = [val for val in data_frame.columns.values if isinstance(val, int)]
-    grouped_data = data_frame.groupby(["mag_or_phase", DataFrameCols.S_PARAMETER.value])
-    new_combined_df = None
-    for keys, df in grouped_data:
-        label_to_add = ("_").join(keys)
-        new_cols = [f"{label_to_add}_{col_title}" for col_title in freq_cols]
-        df.rename(columns=dict(zip(freq_cols, new_cols)), inplace=True)
-        df = df.drop(
-            columns=[DataFrameCols.S_PARAMETER.value, "mag_or_phase"]
-        )
-        if new_combined_df is None:
-            new_combined_df = df
-        else:
-            new_combined_df = pd.merge(new_combined_df, df,
-                                       on=[DataFrameCols.ID.value, DataFrameCols.TIME.value, DataFrameCols.LABEL.value])
-    return new_combined_df
-
-
-def filter_cols_between_fq_range(df: pd.DataFrame, lower_bound, upper_bound):
-    cols = df.columns.values
-    # Filter out non-integer values
-    filtered_list = [x for x in cols if isinstance(x, int)]
-    # Filter the list based on the provided bounds
-    freq_cols = [x for x in filtered_list if lower_bound <= x <= upper_bound]
-    return filter_columns(df, freq_cols)
-
-
-def filter_columns(df, frequencies):
-    pattern = fr'^id$|^label$|^mag_or_phase$|^s_parameter$|^time$'
-    if frequencies:
-        pattern += '|' + '|'.join(f'^{num}$' for num in frequencies)
-    return df.filter(regex=pattern, axis=1)
-
-
-def pickle_object(object_to_pickle, path):
-    with open(path, "wb") as f:
-        pickle.dump(object_to_pickle, f)
-
-
-def open_pickled_object(path):
-    with open(path, "rb") as f:
-        unpickled = pickle.load(f)
-    return unpickled
-
-
-def feature_extract_test_filtered_data_frame(filtered_data_frame, movement_vector, save=True, fname=None):
-    df_fixed = make_columns_have_s_param_mag_phase_titles(filtered_data_frame)
-    classifiers = extract_features_and_test(df_fixed, movement_vector)
-    if save:
-        if fname is None:
-            fname = f"classifier_{datetime.now().date().strftime(DateFormats.DATE_FOLDER.value)}.pkl"
-        else:
-            fname = f"{fname}_{datetime.now().date().strftime(DateFormats.DATE_FOLDER.value)}.pkl"
-        pickle_object(classifiers, os.path.join(get_classifiers_path(), fname))
-    return classifiers, fname
-
-
-def get_classifiers_path():
-    return os.path.join(get_pickle_path(), "classifiers")
-
-
-def get_full_dfs_path():
-    return os.path.join(get_pickle_path(), "full_dfs")
-
-
-def combine_data_frames_from_csv_folder(csv_folder_path, save=True):
-    data_folders = os.listdir(csv_folder_path)
-    combined_df: pd.DataFrame = None
-    for data_folder in data_folders:
-        combined_df_for_one_folder = make_fq_df(data_folder)
-        combined_df = pd.concat((combined_df, combined_df_for_one_folder), ignore_index=True)
-
-    if save:
-        full_df_path = os.path.join(get_pickle_path(), "full_dfs")
-        os.makedirs(full_df_path, exist_ok=True)
-        with open(os.path.join(full_df_path,
-                               f"full_combined_df_{datetime.now().date().strftime(DateFormats.DATE_FOLDER.value)}.pkl"),
-                  "wb") as f:
-            pickle.dump(combined_df, f)
-
-    return combined_df
-
-
-if __name__ == "__main__":
-
-    combined_df = open_pickled_object(
-        os.path.join(get_pickle_path(), "full_dfs", os.listdir(os.path.join(get_pickle_path(), "full_dfs"))[0]))
-
-    # classifier_pickles = os.listdir(os.path.join(get_pickle_path(), "classifiers"))
-    # classifiers = {fname.split('.')[0]:open_pickled_object(fname) for fname in classifier_pickles}
-    # os.makedirs(get_pickle_path(), exist_ok=True)
-
-    rolling_df, rolling_movement = rolling_window_split(combined_df, 2.0)
-    rolling_movement_vector = pd.Series(rolling_movement.values())
-
-    rolling_all_Sparams_magnitude = rolling_df[(rolling_df['mag_or_phase'] == "magnitude")]
-
-    windowed_df, windowed_movement_dict = window_split(combined_df, 2.0)
-    windowed_movement_vector = pd.Series(windowed_movement_dict.values())
-
-    windowed_all_Sparams_magnitude = windowed_df[(windowed_df['mag_or_phase'] == "magnitude")]
-    min_frequency, max_frequency = ghz_to_hz(5.81), ghz_to_hz(6)
-    low_frequency, high_frequency = min_frequency, min_frequency + mhz_to_hz(100)
-    while high_frequency <= max_frequency:
-        print(f"{hz_to_ghz(low_frequency)}GHz->{hz_to_ghz(high_frequency)}GHz")
-        rolling_all_Sparams_magnitude_filtered = filter_cols_between_fq_range(rolling_all_Sparams_magnitude,
-                                                                              low_frequency,
-                                                                              high_frequency)
-        windowed_all_Sparams_magnitude_filtered = filter_cols_between_fq_range(windowed_all_Sparams_magnitude,low_frequency, high_frequency)
-        result = feature_extract_test_filtered_data_frame(rolling_all_Sparams_magnitude_filtered, rolling_movement_vector, fname=f"rolling_all_Sparams_magnitude_{hz_to_ghz(low_frequency)}_{hz_to_ghz(high_frequency)}")
-        result_2 = feature_extract_test_filtered_data_frame(windowed_all_Sparams_magnitude_filtered, windowed_movement_vector, fname=f"windowed_all_Sparams_magnitude_{hz_to_ghz(low_frequency)}_{hz_to_ghz(high_frequency)}")
-        low_frequency += mhz_to_hz(100)
-        high_frequency += mhz_to_hz(100)

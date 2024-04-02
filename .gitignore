@@ -16,9 +16,11 @@
 
 # Folders
 **/.vs
-**/Release 
+**/Release
 **/Debug
 **/build
+pickles/
 
 # ignore all data files in git
 *.csv
+*.pkl
