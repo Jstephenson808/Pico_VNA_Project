@@ -20,7 +20,9 @@
 **/Debug
 **/build
 pickles/
+results/
 
 # ignore all data files in git
 *.csv
 *.pkl
+*.png
