@@ -19,6 +19,7 @@ from sklearn.metrics import classification_report
 
 from tsfresh.utilities.dataframe_functions import impute
 from tsfresh import extract_features, select_features
+from tsfresh import defaults
 
 
 def pivot_data_frame_for_s_param(
@@ -210,7 +211,7 @@ def combine_windowed_df(
 
 
 def extract_features_and_test(
-        full_data_frame, feature_vector, drop_cols=[DataFrameCols.LABEL.value]
+        full_data_frame, feature_vector, drop_cols=[DataFrameCols.LABEL.value], n_jobs=defaults.N_PROCESSES
 ):
     combined_df = full_data_frame.ffill()
     # s_params_mapping = {s.value:index+1 for index, s in enumerate(SParam)}
@@ -219,7 +220,8 @@ def extract_features_and_test(
     extracted = extract_features(
         dropped_label,
         column_sort=DataFrameCols.TIME.value,
-        column_id=DataFrameCols.ID.value
+        column_id=DataFrameCols.ID.value,
+        n_jobs=n_jobs
     )
     impute(extracted)
     features_filtered = select_features(extracted, feature_vector)
@@ -438,10 +440,10 @@ def open_pickled_object(path):
 
 
 def feature_extract_test_filtered_data_frame(
-        filtered_data_frame, movement_vector, save=True, fname=None
+        filtered_data_frame, movement_vector, save=True, fname=None, n_jobs=defaults.N_PROCESSES
 ):
     df_fixed = make_columns_have_s_param_mag_phase_titles(filtered_data_frame)
-    classifiers = extract_features_and_test(df_fixed, movement_vector)
+    classifiers = extract_features_and_test(df_fixed, movement_vector, n_jobs=n_jobs)
     if save:
         if fname is None:
             fname = f"classifier_{datetime.now().date().strftime(DateFormats.DATE_FOLDER.value)}.pkl"
