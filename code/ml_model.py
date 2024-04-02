@@ -186,6 +186,11 @@ def window_split(data_frame: pd.DataFrame, window_seconds: float):
 
     return new_df, movement_dict
 
+def create_movement_vector_for_single_data_frame(df: pd.DataFrame)-> {}:
+    movement_dict = {}
+    for id_value, id_df in df.groupby([DataFrameCols.ID.value]):
+        movement_dict[id_value] = id_df[DataFrameCols.value][0]
+    return movement_dict
 
 def combine_windowed_df(
         new_df: pd.DataFrame, windowed_df: pd.DataFrame, new_id, movement_dict

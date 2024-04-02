@@ -1,4 +1,4 @@
-ROOT_FOLDER = "picosdk-picovna-python-examples"
+ROOT_FOLDER = "Pico_VNA_Project"
 
 # Folder names
 CALIBRATION_FOLDER = "calibrations"

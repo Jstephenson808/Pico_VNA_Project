@@ -1,5 +1,8 @@
 import os
 from time import time
+
+import pandas as pd
+
 import VNA_exceptions
 import VNA_defaults
 
@@ -93,3 +96,6 @@ def get_calibration_path():
     path = os.path.join(get_root_folder_path(), VNA_defaults.CALIBRATION_FOLDER)
     os.makedirs(path, exist_ok=True)
     return path
+
+def get_frequency_column_headings_list(df: pd.DataFrame)->[int]:
+    return [x for x in df.columns if isinstance(x, int)]
