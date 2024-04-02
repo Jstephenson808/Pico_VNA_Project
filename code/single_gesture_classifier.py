@@ -26,10 +26,16 @@ if __name__ == "__main__":
         all_Sparams_magnitude_filtered = filter_cols_between_fq_range(
             all_Sparams_magnitude, low_frequency, high_frequency
         )
+        label = f"all_Sparams_magnitude_{hz_to_ghz(low_frequency)}_{hz_to_ghz(high_frequency)}"
         result = feature_extract_test_filtered_data_frame(
             all_Sparams_magnitude_filtered,
             movement_vector,
-            fname=f"all_Sparams_magnitude_{hz_to_ghz(low_frequency)}_{hz_to_ghz(high_frequency)}",
+            fname=label,
+        )
+        columns = [x for x in result.keys() if "report" in x]
+        f1_scores[label] = extract_gesture_metric_values(
+            result, columns
         )
         low_frequency += mhz_to_hz(100)
         high_frequency += mhz_to_hz(100)
+    full_results_df = pd.DataFrame.from_dict(f1_scores, orient="index", columns=columns)
