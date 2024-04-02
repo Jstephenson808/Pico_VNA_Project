@@ -43,9 +43,12 @@ def test_data_frame_classifier_frequency_window_with_report(
 
 
 def test_classifier_from_df_dict(df_dict: {}) -> pd.DataFrame:
-
+    """
+    This returns a report and save classifier to pkl path
+    """
     full_results_df = None
     for label, data_frame in df_dict.items():
+        print(f"testing {label}")
         result_df = test_data_frame_classifier_frequency_window_with_report(
             data_frame, label, frequency_hop=mhz_to_hz(100)
         )
@@ -54,17 +57,20 @@ def test_classifier_from_df_dict(df_dict: {}) -> pd.DataFrame:
 
 
 def test_classifier_for_all_measured_params(combined_df: pd.DataFrame) -> pd.DataFrame:
+    """
+    return report
+    """
     all_Sparams_magnitude = combined_df[(combined_df["mag_or_phase"] == "magnitude")]
     all_Sparams_phase = combined_df[(combined_df["mag_or_phase"] == "phase")]
-    test_dfs = {
+    filtered_df_dict = {
         f"{param.value}_magnitude": all_Sparams_magnitude[
             all_Sparams_magnitude[DataFrameCols.S_PARAMETER.value] == param.value
         ]
         for param in SParam
     }
-    test_dfs["all_Sparams_magnitude"] = all_Sparams_magnitude
-    test_dfs["all_Sparams_phase"] = all_Sparams_phase
-    test_dfs.update(
+    filtered_df_dict["all_Sparams_magnitude"] = all_Sparams_magnitude
+    filtered_df_dict["all_Sparams_phase"] = all_Sparams_phase
+    filtered_df_dict.update(
         {
             f"{param.value}_phase": all_Sparams_phase[
                 all_Sparams_phase[DataFrameCols.S_PARAMETER.value] == param.value
@@ -72,8 +78,7 @@ def test_classifier_for_all_measured_params(combined_df: pd.DataFrame) -> pd.Dat
             for param in SParam
         }
     )
-    test_classifier_from_df_dict(test_dfs)
-    return full_results_df
+    return test_classifier_from_df_dict(filtered_df_dict)
 
 
 if __name__ == "__main__":
