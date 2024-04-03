@@ -549,7 +549,7 @@ def get_results_from_classifier_pkls(folder_path):
     stacked_df = weighted_f1_score_df.stack()
     return stacked_df.sort_values(ascending=False)
 
-# todo make fn to save just report dicts
+
 if __name__ == "__main__":
     pass
 

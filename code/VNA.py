@@ -20,6 +20,7 @@ from VNA_utils import (
     get_data_path,
     get_root_folder_path,
     timer_func,
+countdown_timer
 )
 
 
@@ -167,7 +168,7 @@ class VNA:
         return pd.concat([self.output_data.data_frame, df])
 
     # add in timer logging
-    #@timer_func
+    @timer_func
     def measure_wrapper(self, str):
         return self.vna_object.Measure(str)
 
@@ -187,7 +188,8 @@ class VNA:
         :param s_params_output:
         :param elapsed_time:
         """
-        # todo what does this return? format?
+        # todo timer for sampling freq
+
         self.measure_wrapper(s_params_measure.value)
 
         # todo check how the measurement formats work, where is phase and logmag defined?
@@ -228,11 +230,11 @@ class VNA:
         self.connect()
         self.load_cal()
 
+        countdown_timer(2)
         start_time = datetime.now()
         finish_time = start_time + run_time
         current_time = datetime.now()
         measurement_number = 0
-
         while current_time < finish_time:
             current_time = datetime.now()
             elapsed_time = current_time - start_time

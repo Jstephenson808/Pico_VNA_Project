@@ -1,11 +1,20 @@
 import os
-from time import time
+from time import time, sleep
 
 import pandas as pd
 
 import VNA_exceptions
 import VNA_defaults
 
+
+def countdown_timer(seconds):
+    while seconds > 0:
+        print(f"{seconds}..")
+        sleep(1)
+        seconds -= 1
+    print("Start")
+
+#todo return execution time
 def timer_func(func):
     # This function shows the execution time of
     # the function object passed
@@ -13,7 +22,8 @@ def timer_func(func):
         t1 = time()
         result = func(*args, **kwargs)
         t2 = time()
-        print(f"Function {func.__name__!r} executed in {(t2 - t1):.4f}s")
+        execution_time = t2-t1
+        print(f"Function {func.__name__!r} executed in {execution_time:.4f}s")
         return result
 
     return wrap_func

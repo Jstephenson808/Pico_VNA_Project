@@ -63,16 +63,14 @@ def filter_sparam_combinations(data: pd.DataFrame, *, mag_or_phase) -> {}:
     for s_param_1, s_param_2 in s_param_combs:
         s_param_dict[f"{s_param_1}_{s_param_2}_{mag_or_phase}"] = data[((data[DataFrameCols.S_PARAMETER.value]==s_param_1)&(data["mag_or_phase"]==mag_or_phase))|((data[DataFrameCols.S_PARAMETER.value]==s_param_2)&(data["mag_or_phase"]==mag_or_phase))]
     return s_param_dict
-def test_classifier_for_all_measured_params(combined_df: pd.DataFrame) -> pd.DataFrame:
-    """
-    return report
-    """
+
+def create_test_dict(combined_df: pd.DataFrame, *, test_permuations='ALL')->{}:
     all_Sparams_magnitude = combined_df[(combined_df["mag_or_phase"] == "magnitude")]
     all_Sparams_phase = combined_df[(combined_df["mag_or_phase"] == "phase")]
     filtered_df_dict = {
         f"{param.value}_magnitude": all_Sparams_magnitude[
             all_Sparams_magnitude[DataFrameCols.S_PARAMETER.value] == param.value
-        ]
+            ]
         for param in SParam
     }
     filtered_df_dict["all_Sparams_magnitude"] = all_Sparams_magnitude
@@ -81,7 +79,7 @@ def test_classifier_for_all_measured_params(combined_df: pd.DataFrame) -> pd.Dat
         {
             f"{param.value}_phase": all_Sparams_phase[
                 all_Sparams_phase[DataFrameCols.S_PARAMETER.value] == param.value
-            ]
+                ]
             for param in SParam
         }
     )
@@ -91,6 +89,13 @@ def test_classifier_for_all_measured_params(combined_df: pd.DataFrame) -> pd.Dat
     filtered_df_dict.update(
         filter_sparam_combinations(combined_df, mag_or_phase='phase')
     )
+    return filtered_df_dict
+
+def test_classifier_for_all_measured_params(combined_df: pd.DataFrame) -> pd.DataFrame:
+    """
+    return report
+    """
+    filtered_df_dict = create_test_dict(combined_df, test_permuations='ALL')
     return test_classifier_from_df_dict(filtered_df_dict)
 
 def combine_results_and_test(full_df_path):
@@ -108,13 +113,14 @@ def combine_results_and_test(full_df_path):
     return test_classifier_for_all_measured_params(combined_df)
 
 if __name__ == "__main__":
-    # results = get_results_from_classifier_pkls(os.path.join(get_classifiers_path(), "watch_L_ant"))
+    results = get_results_from_classifier_pkls(os.path.join(get_pickle_path(), "classifier_results"))
     # pickle_object(
     #     results, path=os.path.join(get_pickle_path(), "classifier_results"), file_name="full_results_single-watch-large-ant.pkl"
     # )
     results = open_pickled_object(os.path.join(get_pickle_path(), "classifier_results", "full_results_single-watch-large-ant_2.pkl"))
+    #todo need to add svm or dtree label to output dict
 
-    # combine dfs
+    # # combine dfs
     # full_df_fname = os.listdir(os.path.join(get_pickle_path(), "full_dfs"))[0]
     # full_results_df = combine_results_and_test(os.path.join(get_pickle_path(), "full_dfs", full_df_fname))
     #
