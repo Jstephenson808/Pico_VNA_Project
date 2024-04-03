@@ -427,8 +427,10 @@ def filter_columns(df, frequencies):
     return df.filter(regex=pattern, axis=1)
 
 
-def pickle_object(object_to_pickle, path):
-    os.makedirs(get_classifiers_path(), exist_ok=True)
+def pickle_object(object_to_pickle,*, path, file_name):
+    os.makedirs(path, exist_ok=True)
+    file_name = f"{file_name}.pkl"
+    path = os.path.join(path, file_name)
     with open(path, "wb") as f:
         pickle.dump(object_to_pickle, f)
 
@@ -449,7 +451,7 @@ def feature_extract_test_filtered_data_frame(
             fname = f"classifier_{datetime.now().date().strftime(DateFormats.DATE_FOLDER.value)}.pkl"
         else:
             fname = f"{fname}_{datetime.now().date().strftime(DateFormats.DATE_FOLDER.value)}.pkl"
-        pickle_object(classifiers, os.path.join(get_classifiers_path(), fname))
+        pickle_object(classifiers, path=get_classifiers_path(), file_name=fname)
     return classifiers, fname
 
 

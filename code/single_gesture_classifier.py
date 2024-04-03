@@ -1,3 +1,5 @@
+from itertools import permutations, combinations
+
 import pandas as pd
 
 from ml_model import *
@@ -25,14 +27,14 @@ def test_data_frame_classifier_frequency_window_with_report(
     low_frequency, high_frequency = min_frequency, min_frequency + frequency_hop
     f1_scores = {}
     while high_frequency <= max_frequency:
-        print(f"{hz_to_ghz(low_frequency)}GHz->{hz_to_ghz(high_frequency)}GHz")
+        print(f"{label}\n\r{hz_to_ghz(low_frequency)}GHz->{hz_to_ghz(high_frequency)}GHz")
 
         data_frame_magnitude_filtered = filter_cols_between_fq_range(
             data_frame, low_frequency, high_frequency
         )
         fq_label = f"{label}_{hz_to_ghz(low_frequency)}_{hz_to_ghz(high_frequency)}"
         result, fname = feature_extract_test_filtered_data_frame(
-            data_frame_magnitude_filtered, movement_vector, fname=fq_label, n_jobs=0
+            data_frame_magnitude_filtered, movement_vector, fname=fq_label
         )
         f1_scores[label] = extract_report_dictionary_from_test_results(result)
         low_frequency += frequency_hop
@@ -55,7 +57,12 @@ def test_classifier_from_df_dict(df_dict: {}) -> pd.DataFrame:
         full_results_df = pd.concat((full_results_df, result_df))
     return full_results_df
 
-
+def filter_sparam_combinations(data: pd.DataFrame, *, mag_or_phase) -> {}:
+    s_param_dict = {}
+    s_param_combs = combinations([param.value for param in SParam], 2)
+    for s_param_1, s_param_2 in s_param_combs:
+        s_param_dict[f"{s_param_1}_{s_param_2}_{mag_or_phase}"] = data[((data[DataFrameCols.S_PARAMETER.value]==s_param_1)&(data["mag_or_phase"]==mag_or_phase))|((data[DataFrameCols.S_PARAMETER.value]==s_param_2)&(data["mag_or_phase"]==mag_or_phase))]
+    return s_param_dict
 def test_classifier_for_all_measured_params(combined_df: pd.DataFrame) -> pd.DataFrame:
     """
     return report
@@ -78,6 +85,12 @@ def test_classifier_for_all_measured_params(combined_df: pd.DataFrame) -> pd.Dat
             for param in SParam
         }
     )
+    filtered_df_dict.update(
+        filter_sparam_combinations(combined_df, mag_or_phase='magnitude')
+    )
+    filtered_df_dict.update(
+        filter_sparam_combinations(combined_df, mag_or_phase='phase')
+    )
     return test_classifier_from_df_dict(filtered_df_dict)
 
 
@@ -85,11 +98,12 @@ if __name__ == "__main__":
     # results = open_pickled_object(os.path.join(get_pickle_path(), "classifier_results"))
     # stacked = results.stack()
     # combine dfs
+    full_df_fname = os.listdir(os.path.join(get_pickle_path(), "full_dfs"))[0]
     combined_df: pd.DataFrame = open_pickled_object(
         os.path.join(
             get_pickle_path(),
             "full_dfs",
-            os.listdir(os.path.join(get_pickle_path(), "full_dfs"))[0],
+            full_df_fname
         )
     )
     # combined_df = combine_data_frames_from_csv_folder(
@@ -98,5 +112,6 @@ if __name__ == "__main__":
 
     full_results_df = test_classifier_for_all_measured_params(combined_df)
     pickle_object(
-        full_results_df, os.path.join(get_pickle_path(), "classifier_results")
+        full_results_df, path=os.path.join(get_pickle_path(), "classifier_results"), file_name=f"full_results_{full_df_fname.split('_')[0]}"
     )
+
