@@ -427,9 +427,10 @@ def filter_columns(df, frequencies):
     return df.filter(regex=pattern, axis=1)
 
 
-def pickle_object(object_to_pickle,*, path, file_name):
+def pickle_object(object_to_pickle,*, path:str, file_name:str):
     os.makedirs(path, exist_ok=True)
-    file_name = f"{file_name}.pkl"
+    if ".pkl" not in file_name[-4:]:
+        file_name = f"{file_name}.pkl"
     path = os.path.join(path, file_name)
     with open(path, "wb") as f:
         pickle.dump(object_to_pickle, f)
@@ -448,9 +449,9 @@ def feature_extract_test_filtered_data_frame(
     classifiers = extract_features_and_test(df_fixed, movement_vector, n_jobs=n_jobs)
     if save:
         if fname is None:
-            fname = f"classifier_{datetime.now().date().strftime(DateFormats.DATE_FOLDER.value)}.pkl"
+            fname = f"classifier_{datetime.now().date().strftime(DateFormats.DATE_FOLDER.value)}"
         else:
-            fname = f"{fname}_{datetime.now().date().strftime(DateFormats.DATE_FOLDER.value)}.pkl"
+            fname = f"{fname}_{datetime.now().date().strftime(DateFormats.DATE_FOLDER.value)}"
         pickle_object(classifiers, path=get_classifiers_path(), file_name=fname)
     return classifiers, fname
 
@@ -493,7 +494,11 @@ def combine_data_frames_from_csv_folder(csv_folder_path, *, save=True, label="")
 
 
 def get_label_from_pkl_path(path):
-    return os.path.basename(path)[::-1].split(".", maxsplit=1)[1][::-1]
+    """
+    removes .pkl and then date from fname format
+    "all_Sparams_magnitude_0.01_0.11_2024_04_02.pkl"
+    """
+    return os.path.basename(path)[::-1].split("_", maxsplit=3)[-1][::-1]
 
 
 def extract_gesture_metric_values(
@@ -521,11 +526,12 @@ def extract_gesture_metric_values(
 
 
 def extract_gesture_metric_to_df(
-        pickle_fnames, *, gesture="weighted avg", metric="f1-score"
+        pickle_fnames, *, gesture="weighted avg", metric="f1-score", folder_path=get_pickle_path()
 ) -> pd.DataFrame:
     f1_scores = {}
     for fname in pickle_fnames:
-        path = os.path.join(get_pickle_path(), fname)
+        path = os.path.join(folder_path, fname)
+        print(os.path.basename(path))
         classifier_dict = open_pickled_object(path)
         label = get_label_from_pkl_path(path)
         columns = [x for x in classifier_dict.keys() if "report" in x]
@@ -535,33 +541,34 @@ def extract_gesture_metric_to_df(
 
     return pd.DataFrame.from_dict(f1_scores, orient="index", columns=columns)
 
+def get_results_from_classifier_pkls(folder_path):
+    fnames = os.listdir(folder_path)
+    weighted_f1_score_df = extract_gesture_metric_to_df(
+        fnames, gesture="weighted avg", metric="f1-score", folder_path=folder_path
+    )
+    stacked_df = weighted_f1_score_df.stack()
+    return stacked_df.sort_values(ascending=False)
 
 # todo make fn to save just report dicts
 if __name__ == "__main__":
-    # f1_scores = {}
-    # fnames = os.listdir(get_pickle_path())
-    # weighted_f1_score_df = extract_gesture_metric_to_df(
-    #     fnames, gesture="weighted avg", metric="f1-score"
-    # )
-    # stacked_df = weighted_f1_score_df.stack()
-    # stacked_df = stacked_df.sort_values(ascending=False)
+    pass
 
-    combined_df = open_pickled_object(
-        os.path.join(get_pickle_path(), "full_dfs", os.listdir(os.path.join(get_pickle_path(), "full_dfs"))[0]))
+    # combined_df = open_pickled_object(
+    #     os.path.join(get_pickle_path(), "full_dfs", os.listdir(os.path.join(get_pickle_path(), "full_dfs"))[0]))
 
     # classifier_pickles = os.listdir(os.path.join(get_pickle_path(), "classifiers"))
     # classifiers = {fname.split('.')[0]:open_pickled_object(fname) for fname in classifier_pickles}
     # os.makedirs(get_pickle_path(), exist_ok=True)
 
-    rolling_df, rolling_movement = rolling_window_split(combined_df, 2.0)
-    rolling_movement_vector = pd.Series(rolling_movement.values())
-
-    rolling_all_Sparams_magnitude = rolling_df[(rolling_df['mag_or_phase'] == "magnitude")]
-
-    windowed_df, windowed_movement_dict = window_split(combined_df, 2.0)
-    windowed_movement_vector = pd.Series(windowed_movement_dict.values())
-
-    windowed_all_Sparams_magnitude = windowed_df[(windowed_df['mag_or_phase'] == "magnitude")]
+    # rolling_df, rolling_movement = rolling_window_split(combined_df, 2.0)
+    # rolling_movement_vector = pd.Series(rolling_movement.values())
+    #
+    # rolling_all_Sparams_magnitude = rolling_df[(rolling_df['mag_or_phase'] == "magnitude")]
+    #
+    # windowed_df, windowed_movement_dict = window_split(combined_df, 2.0)
+    # windowed_movement_vector = pd.Series(windowed_movement_dict.values())
+    #
+    # windowed_all_Sparams_magnitude = windowed_df[(windowed_df['mag_or_phase'] == "magnitude")]
     # min_frequency, max_frequency = ghz_to_hz(5.81), ghz_to_hz(6)
     # low_frequency, high_frequency = min_frequency, min_frequency + mhz_to_hz(100)
     # while high_frequency <= max_frequency:

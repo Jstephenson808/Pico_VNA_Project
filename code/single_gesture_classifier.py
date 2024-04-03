@@ -36,7 +36,7 @@ def test_data_frame_classifier_frequency_window_with_report(
         result, fname = feature_extract_test_filtered_data_frame(
             data_frame_magnitude_filtered, movement_vector, fname=fq_label
         )
-        f1_scores[label] = extract_report_dictionary_from_test_results(result)
+        f1_scores[fq_label] = extract_report_dictionary_from_test_results(result)
         low_frequency += frequency_hop
         high_frequency += frequency_hop
     return pd.DataFrame.from_dict(
@@ -95,8 +95,12 @@ def test_classifier_for_all_measured_params(combined_df: pd.DataFrame) -> pd.Dat
 
 
 if __name__ == "__main__":
-    # results = open_pickled_object(os.path.join(get_pickle_path(), "classifier_results"))
-    # stacked = results.stack()
+    results = get_results_from_classifier_pkls(os.path.join(get_classifiers_path(), "watch_L_ant"))
+    pickle_object(
+        results, path=os.path.join(get_pickle_path(), "classifier_results"), file_name="full_results_single-watch-large-ant.pkl"
+    )
+
+
     # combine dfs
     full_df_fname = os.listdir(os.path.join(get_pickle_path(), "full_dfs"))[0]
     combined_df: pd.DataFrame = open_pickled_object(
@@ -114,4 +118,3 @@ if __name__ == "__main__":
     pickle_object(
         full_results_df, path=os.path.join(get_pickle_path(), "classifier_results"), file_name=f"full_results_{full_df_fname.split('_')[0]}"
     )
-
