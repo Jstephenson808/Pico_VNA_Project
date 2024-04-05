@@ -107,5 +107,17 @@ def get_calibration_path():
     os.makedirs(path, exist_ok=True)
     return path
 
+def get_classifiers_path():
+    return os.path.join(get_pickle_path(), "classifiers")
+
+
+def get_full_dfs_path():
+    return os.path.join(get_pickle_path(), "full_dfs")
+
 def get_frequency_column_headings_list(df: pd.DataFrame)->[int]:
     return [x for x in df.columns if isinstance(x, int)]
+
+def reorder_data_frame_columns(df:pd.DataFrame, new_order_indexes:[int])->pd.DataFrame:
+    columns = list(df.columns())
+    new_columns = sorted(columns, key=lambda x: new_order_indexes.index(columns.index(x)))
+    return df[new_columns]

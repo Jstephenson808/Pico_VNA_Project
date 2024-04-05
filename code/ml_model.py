@@ -4,7 +4,7 @@ os.environ["MKL_NUM_THREADS"] = "1"
 os.environ["OPENBLAS_NUM_THREADS"] = "1"
 
 from VNA_enums import DataFrameCols, SParam, DateFormats
-from VNA_utils import get_data_path, get_pickle_path, get_classifier_path
+from VNA_utils import get_data_path, get_pickle_path, get_classifiers_path
 from VNA_data import VnaData
 
 import pickle
@@ -456,12 +456,7 @@ def feature_extract_test_filtered_data_frame(
     return classifiers, fname
 
 
-def get_classifiers_path():
-    return os.path.join(get_pickle_path(), "classifiers")
 
-
-def get_full_dfs_path():
-    return os.path.join(get_pickle_path(), "full_dfs")
 
 
 def combine_data_frames_from_csv_folder(csv_folder_path, *, save=True, label=""):
@@ -541,6 +536,47 @@ def extract_gesture_metric_to_df(
 
     return pd.DataFrame.from_dict(f1_scores, orient="index", columns=columns)
 
+def extract_full_results_to_df(
+        pickle_fnames, folder_path=get_pickle_path()
+) -> pd.DataFrame:
+    full_results_data_frame = None
+    for fname in pickle_fnames:
+        path = os.path.join(folder_path, fname)
+        print(os.path.basename(path))
+        classifier_dict = open_pickled_object(path)
+        label = get_label_from_pkl_path(path)
+        report_keys = [x for x in classifier_dict.keys() if "report" in x]
+        partial_results_df = extract_all_metrics_to_df(classifier_dict, report_keys, label)
+        full_results_data_frame = pd.concat((full_results_data_frame,partial_results_df), ignore_index=True)
+
+    return full_results_data_frame
+
+def extract_all_metrics_to_df(classifier_dict: dict,
+                              report_keys: [str],
+                              label
+                              ) -> pd.DataFrame:
+    data_frame = None
+    for report_key in report_keys:
+        new_data_frame = pd.DataFrame.from_dict(classifier_dict[report_key]).T.reset_index()
+        split_column = new_data_frame['index'].str.rsplit('_', n=1, expand=True)
+        # need to fix these rows as they don't have correct label
+        rows_to_copy = (split_column[0] == 'accuracy') | (split_column[0] == 'macro avg') | (split_column[0] == 'weighted avg')
+        # copy over
+        split_column.loc[rows_to_copy, 1] = split_column.loc[rows_to_copy, 0]
+        #relabel whole column to fix this
+        split_column[0] = split_column[0][0]
+        split_column.columns = ['label', 'gesture']
+        new_data_frame = pd.concat([new_data_frame.drop('index', axis=1), split_column], axis=1)
+
+        new_data_frame['classifier'] = label
+        new_data_frame['full or filtered'] = report_key.split('_')[0]
+        new_column_order = list(new_data_frame.columns)[4:] + list(new_data_frame.columns)[:4]
+        new_data_frame = new_data_frame[new_column_order]
+        data_frame = pd.concat((data_frame, new_data_frame), ignore_index=True)
+    return data_frame
+
+
+
 def get_results_from_classifier_pkls(folder_path):
     fnames = os.listdir(folder_path)
     weighted_f1_score_df = extract_gesture_metric_to_df(
@@ -549,6 +585,9 @@ def get_results_from_classifier_pkls(folder_path):
     stacked_df = weighted_f1_score_df.stack()
     return stacked_df.sort_values(ascending=False)
 
+def get_full_results_df_from_classifier_pkls(folder_path):
+    fnames = os.listdir(folder_path)
+    return extract_full_results_to_df(fnames, folder_path)
 
 if __name__ == "__main__":
     pass

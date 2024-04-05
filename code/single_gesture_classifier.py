@@ -113,11 +113,13 @@ def combine_results_and_test(full_df_path):
     return test_classifier_for_all_measured_params(combined_df)
 
 if __name__ == "__main__":
-    results = get_results_from_classifier_pkls(os.path.join(get_pickle_path(), "classifier_results"))
+
+
+    results = get_full_results_df_from_classifier_pkls(os.path.join(get_classifiers_path(), 'watch_L_ant'))
     # pickle_object(
     #     results, path=os.path.join(get_pickle_path(), "classifier_results"), file_name="full_results_single-watch-large-ant.pkl"
     # )
-    results = open_pickled_object(os.path.join(get_pickle_path(), "classifier_results", "full_results_single-watch-large-ant_2.pkl"))
+    # results = open_pickled_object(os.path.join(get_pickle_path(), "classifier_results", "full_results_single-watch-large-ant_2.pkl"))
     #todo need to add svm or dtree label to output dict
 
     # # combine dfs
@@ -127,3 +129,4 @@ if __name__ == "__main__":
     # pickle_object(
     #     full_results_df, path=os.path.join(get_pickle_path(), "classifier_results"), file_name=f"full_results_{full_df_fname.split('_')[0]}"
     # )
+
