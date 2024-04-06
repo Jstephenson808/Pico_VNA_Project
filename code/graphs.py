@@ -86,16 +86,50 @@ def freq_band_line_plot(results_df:pd.DataFrame):
 def fix_uscore_title_case(value):
     return (' ').join(value.split('_')).title()
 
-def best_parameter_measurement_violin():
+def max_accuracy_for_mag_sparam_categories(results_df:pd.DataFrame, n_to_plot=6, include_all=False):
     accuracy_df = results_df[results_df['gesture'] == 'accuracy']
-    accuracy_df.loc[:,'type'] = accuracy_df['type'] + '_' + accuracy_df['s_param']
+    melted = melt_and_filter_mag_sparam(accuracy_df, include_all)
+
+    top_n_groups = melted.groupby('type')['value'].max().nlargest(n_to_plot).index
+
+    melted_df = melted[melted['type'].isin(top_n_groups)]
+    fig, ax = plt.subplots()
+    sns.despine(bottom=True, left=True)
+    sns.stripplot(data=melted_df, x="type", y="value", hue='label', dodge=True, alpha=.25, zorder=1, legend=False)
+    # sns.move_legend(
+    #     ax, loc="lower right", ncol=2, frameon=True, columnspacing=1, handletextpad=0, title="Classifier",
+    #     labels=['SVM', 'D Tree']
+    # )
+    ax.set(xlabel='Experiment', ylabel='Classifier Accuracy',
+           title="SVM vs Decision Tree Classification Accuracy \n For Each Experiment")
+
+    legend = plt.legend(loc='lower right')
+
+    # Show plot
+    plt.show()
+
+
+def melt_and_filter_mag_sparam(accuracy_df, include_all):
+    # combine mag or phase and sparam
+    accuracy_df.loc[:, 'type'] = accuracy_df['type'] + '_' + accuracy_df['s_param']
     melted = pd.melt(accuracy_df, id_vars=['label', 'type'], value_vars=['precision'])
     # melted[["type", "s_param"]].apply(tuple, axis=1)
-    filtered_melted = melted[~melted['type'].isin(['magnitude_all_Sparams', 'phase_all_Sparams'])]
+    if not include_all:
+        # inverting returned boolean df to remove these ~ is NOT
+        # removes the "all" category
+        melted = melted[~melted['type'].isin(['magnitude_all_Sparams', 'phase_all_Sparams'])]
     # fix the titles of the graph
-    filtered_melted.loc[:, 'type'] = filtered_melted['type'].apply(fix_uscore_title_case)
-    top_n_groups = filtered_melted.groupby('type')['value'].mean().nlargest(6).index
-    melted_df = filtered_melted[filtered_melted['type'].isin(top_n_groups)]
+    melted.loc[:, 'type'] = melted['type'].apply(fix_uscore_title_case)
+    return melted
+
+
+def best_parameter_measurement_violin(results_df, n_to_plot=6, include_all=False):
+    accuracy_df = results_df[results_df['gesture'] == 'accuracy']
+    accuracy_df.loc[:, 'type'] = accuracy_df['type'] + '_' + accuracy_df['s_param']
+    melted = melt_and_filter_mag_sparam(accuracy_df, include_all)
+    top_n_groups = melted.groupby('type')['value'].mean().nlargest(n_to_plot).index
+
+    melted_df = melted[melted['type'].isin(top_n_groups)]
     fig, ax = plt.subplots()
     sns.violinplot(data=melted_df, x="type", y="value", hue='label')
     # sns.move_legend(
@@ -105,7 +139,10 @@ def best_parameter_measurement_violin():
     ax.set(xlabel='Experiment', ylabel='Classifier Accuracy',
            title="SVM vs Decision Tree Classification Accuracy \n For Each Experiment")
 
-    legend = plt.legend()
+    legend = plt.legend(loc='lower right')
+
+    # Show plot
+    plt.show()
 
 if __name__ == '__main__':
    # sns.set(rc={"xtick.bottom": True, "ytick.left": True})
@@ -120,26 +157,7 @@ if __name__ == '__main__':
     replace_dict = {'single_watchLargeAntennaL': 'Experiment 1', 'test': 'Experiment 2', 'filtered':'Filtered Features', 'full':'Full Feature Set'}
     results_df = results_df.replace(replace_dict)
 
-    accuracy_df = results_df[results_df['gesture'] == 'accuracy']
-    accuracy_df['type'] = accuracy_df['type'] + '_' + accuracy_df['s_param']
-    melted = pd.melt(accuracy_df, id_vars=['label', 'type'], value_vars=['precision'])
-    # melted[["type", "s_param"]].apply(tuple, axis=1)
-    filtered_melted = melted[~melted['type'].isin(['magnitude_all_Sparams', 'phase_all_Sparams'])]
-    # fix the titles of the graph
-    filtered_melted['type'] = filtered_melted['type'].apply(fix_uscore_title_case)
-    top_n_groups = filtered_melted.groupby('type')['value'].mean().nlargest(6).index
-    melted_df = filtered_melted[filtered_melted['type'].isin(top_n_groups)]
-    fig, ax = plt.subplots()
-    sns.violinplot(data=melted_df, x="type", y="value", hue='label')
-    # sns.move_legend(
-    #     ax, loc="lower right", ncol=2, frameon=True, columnspacing=1, handletextpad=0, title="Classifier",
-    #     labels=['SVM', 'D Tree']
-    # )
-    ax.set(xlabel='Experiment', ylabel='Classifier Accuracy',
-           title="SVM vs Decision Tree Classification Accuracy \n For Each Experiment")
-
-    legend = plt.legend()
-
+    max_accuracy_for_mag_sparam_categories(results_df)
 
     # Show plot
     plt.show()
