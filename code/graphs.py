@@ -1,3 +1,4 @@
+import numpy as np
 import pandas as pd
 
 from VNA_utils import get_full_results_df_path, reorder_data_frame_columns
@@ -5,6 +6,7 @@ from ml_model import open_pickled_object, pickle_object
 import os
 import seaborn as sns
 import matplotlib.pyplot as plt
+import matplotlib.ticker as mticker
 
 sns.set_theme(style="whitegrid")
 #sns.set(font_scale=2)
@@ -62,24 +64,89 @@ def full_vs_filtered_features_plot(results_df:pd.DataFrame):
     ax.set(xlabel='Classifier Accuracy', ylabel='Feature Set',
            title="Full vs Filtered Features Classification Accuracy")
 
+def freq_band_line_plot(results_df:pd.DataFrame):
+    accuracy_df = results_df[results_df['gesture'] == 'accuracy']
+    melted = pd.melt(accuracy_df, id_vars=['label', 'low_frequency', 'high_frequency'], value_vars=['precision'])
+    melted['mid_freq'] = round((melted['high_frequency'].astype(float) - 0.05), 2)
+    fig, ax = plt.subplots()
+    # Create a stripplot
+    sns.lineplot(data=melted, x='mid_freq', y='value', hue='label',style="label", markers=True, dashes=False, sort=False)
+    ax.set(ylabel='Classifier Accuracy', xlabel='Frequency Bands (GHz)',
+           title='Classifier Accuracy For Each Tested Frequency Band')
+    # ax.xaxis.set_major_locator(mticker.AutoMajorLocator(13))
+
+    major_ticks = np.arange(0, 6, 0.5)  # Set major ticks every 2 units
+    plt.xlim(0, 6)
+    plt.xticks(major_ticks)
+    ax.xaxis.set_minor_locator(mticker.AutoMinorLocator())
+    ax.tick_params(which="both", bottom=True)
+    #plt.gca().xaxis.set_minor_locator(mticker.AutoMinorLocator())
+    # Set plot title
+
+def fix_uscore_title_case(value):
+    return (' ').join(value.split('_')).title()
+
+def best_parameter_measurement_violin():
+    accuracy_df = results_df[results_df['gesture'] == 'accuracy']
+    accuracy_df.loc[:,'type'] = accuracy_df['type'] + '_' + accuracy_df['s_param']
+    melted = pd.melt(accuracy_df, id_vars=['label', 'type'], value_vars=['precision'])
+    # melted[["type", "s_param"]].apply(tuple, axis=1)
+    filtered_melted = melted[~melted['type'].isin(['magnitude_all_Sparams', 'phase_all_Sparams'])]
+    # fix the titles of the graph
+    filtered_melted.loc[:, 'type'] = filtered_melted['type'].apply(fix_uscore_title_case)
+    top_n_groups = filtered_melted.groupby('type')['value'].mean().nlargest(6).index
+    melted_df = filtered_melted[filtered_melted['type'].isin(top_n_groups)]
+    fig, ax = plt.subplots()
+    sns.violinplot(data=melted_df, x="type", y="value", hue='label')
+    # sns.move_legend(
+    #     ax, loc="lower right", ncol=2, frameon=True, columnspacing=1, handletextpad=0, title="Classifier",
+    #     labels=['SVM', 'D Tree']
+    # )
+    ax.set(xlabel='Experiment', ylabel='Classifier Accuracy',
+           title="SVM vs Decision Tree Classification Accuracy \n For Each Experiment")
+
+    legend = plt.legend()
+
 if __name__ == '__main__':
+   # sns.set(rc={"xtick.bottom": True, "ytick.left": True})
     results_df = open_pickled_object(os.path.join(get_full_results_df_path(), "watch_L_ant_2.pkl"))
 
     # just adding an extra experiment for testing
     results2 = results_df.copy()
     results2['label'] = 'test'
-    #results_df = pd.concat((results_df, results2), ignore_index=True)
+    results_df = pd.concat((results_df, results2), ignore_index=True)
 
     # replace experiment names for graphing
     replace_dict = {'single_watchLargeAntennaL': 'Experiment 1', 'test': 'Experiment 2', 'filtered':'Filtered Features', 'full':'Full Feature Set'}
     results_df = results_df.replace(replace_dict)
 
+    accuracy_df = results_df[results_df['gesture'] == 'accuracy']
+    accuracy_df['type'] = accuracy_df['type'] + '_' + accuracy_df['s_param']
+    melted = pd.melt(accuracy_df, id_vars=['label', 'type'], value_vars=['precision'])
+    # melted[["type", "s_param"]].apply(tuple, axis=1)
+    filtered_melted = melted[~melted['type'].isin(['magnitude_all_Sparams', 'phase_all_Sparams'])]
+    # fix the titles of the graph
+    filtered_melted['type'] = filtered_melted['type'].apply(fix_uscore_title_case)
+    top_n_groups = filtered_melted.groupby('type')['value'].mean().nlargest(6).index
+    melted_df = filtered_melted[filtered_melted['type'].isin(top_n_groups)]
+    fig, ax = plt.subplots()
+    sns.violinplot(data=melted_df, x="type", y="value", hue='label')
+    # sns.move_legend(
+    #     ax, loc="lower right", ncol=2, frameon=True, columnspacing=1, handletextpad=0, title="Classifier",
+    #     labels=['SVM', 'D Tree']
+    # )
+    ax.set(xlabel='Experiment', ylabel='Classifier Accuracy',
+           title="SVM vs Decision Tree Classification Accuracy \n For Each Experiment")
 
-    # pickle_object(results_df, path=get_full_results_df_path(), file_name="watch_L_ant_2.pkl")
+    legend = plt.legend()
+
+
+    # Show plot
+    plt.show()
+    #freq_band_line_plot(results_df)
     # svm_vs_dt_strip_plot(results_df)
     # svm_vs_dtree_violin_plot(results_df)
     # full_vs_filtered_features_plot(results_df)
-
 
     #ax.legend(title='Classifier', labels=['SVM', 'D Tree'])
     #svm_vs_dt_strip_plot(results_df, replace_dict)
