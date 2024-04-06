@@ -4,7 +4,7 @@ os.environ["MKL_NUM_THREADS"] = "1"
 os.environ["OPENBLAS_NUM_THREADS"] = "1"
 
 from VNA_enums import DataFrameCols, SParam, DateFormats
-from VNA_utils import get_data_path, get_pickle_path, get_classifiers_path
+from VNA_utils import get_data_path, get_pickle_path, get_classifiers_path, reorder_data_frame_columns
 from VNA_data import VnaData
 
 import pickle
@@ -549,6 +549,7 @@ def extract_full_results_to_df(
         partial_results_df = extract_all_metrics_to_df(classifier_dict, report_keys, label)
         full_results_data_frame = pd.concat((full_results_data_frame,partial_results_df), ignore_index=True)
 
+    full_results_data_frame = fix_measurement_column(full_results_data_frame)
     return full_results_data_frame
 
 def extract_all_metrics_to_df(classifier_dict: dict,
@@ -586,8 +587,17 @@ def get_results_from_classifier_pkls(folder_path):
     stacked_df = weighted_f1_score_df.stack()
     return stacked_df.sort_values(ascending=False)
 
+def fix_measurement_column(results_df:pd.DataFrame)->pd.DataFrame:
+    pattern = r'(S?\d?\d?_?S?\d?\d?\w+)_(\w+)_(\d+\.\d+)_(\d+\.\d+)'
+    results_df[['s_param', 'type', 'low_frequency', 'high_frequency']] = results_df['parameters'].str.extractall(
+        pattern).reset_index(drop=True)
+    results_df.drop(columns=['parameters'], inplace=True)
+    results_df = reorder_data_frame_columns(results_df, [0,2,3,9,8,10,11,1,4,5,6,7])
+    return results_df
+
 def get_full_results_df_from_classifier_pkls(folder_path):
     fnames = os.listdir(folder_path)
+
     return extract_full_results_to_df(fnames, folder_path)
 
 if __name__ == "__main__":
