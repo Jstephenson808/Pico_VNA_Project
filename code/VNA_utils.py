@@ -117,6 +117,9 @@ def get_full_dfs_path():
 def get_frequency_column_headings_list(df: pd.DataFrame)->[int]:
     return [x for x in df.columns if isinstance(x, int)]
 
+def get_full_results_df_path():
+    return os.path.join(get_pickle_path(), "full_results_dfs")
+
 def reorder_data_frame_columns(df:pd.DataFrame, new_order_indexes:[int])->pd.DataFrame:
     columns = list(df.columns())
     new_columns = sorted(columns, key=lambda x: new_order_indexes.index(columns.index(x)))

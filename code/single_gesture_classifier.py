@@ -9,6 +9,7 @@ from VNA_utils import (
     mhz_to_hz,
     hz_to_ghz,
     get_frequency_column_headings_list,
+    get_full_results_df_path
 )
 
 
@@ -116,6 +117,8 @@ if __name__ == "__main__":
 
 
     results = get_full_results_df_from_classifier_pkls(os.path.join(get_classifiers_path(), 'watch_L_ant'))
+    pickle_object(results, path=get_full_results_df_path(), file_name="watch_L_ant_2")
+    #results = open_pickled_object(os.path.join(get_full_results_df_path(), "watch_L_ant.pkl"))
     # pickle_object(
     #     results, path=os.path.join(get_pickle_path(), "classifier_results"), file_name="full_results_single-watch-large-ant.pkl"
     # )

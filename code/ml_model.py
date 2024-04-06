@@ -555,10 +555,10 @@ def extract_all_metrics_to_df(classifier_dict: dict,
                               report_keys: [str],
                               label
                               ) -> pd.DataFrame:
-    data_frame = None
+    combined_data_frame = None
     for report_key in report_keys:
-        new_data_frame = pd.DataFrame.from_dict(classifier_dict[report_key]).T.reset_index()
-        split_column = new_data_frame['index'].str.rsplit('_', n=1, expand=True)
+        report_key_data_frame = pd.DataFrame.from_dict(classifier_dict[report_key]).T.reset_index()
+        split_column = report_key_data_frame['index'].str.rsplit('_', n=1, expand=True)
         # need to fix these rows as they don't have correct label
         rows_to_copy = (split_column[0] == 'accuracy') | (split_column[0] == 'macro avg') | (split_column[0] == 'weighted avg')
         # copy over
@@ -566,14 +566,15 @@ def extract_all_metrics_to_df(classifier_dict: dict,
         #relabel whole column to fix this
         split_column[0] = split_column[0][0]
         split_column.columns = ['label', 'gesture']
-        new_data_frame = pd.concat([new_data_frame.drop('index', axis=1), split_column], axis=1)
+        report_key_data_frame = pd.concat([report_key_data_frame.drop('index', axis=1), split_column], axis=1)
 
-        new_data_frame['classifier'] = label
-        new_data_frame['full or filtered'] = report_key.split('_')[0]
-        new_column_order = list(new_data_frame.columns)[4:] + list(new_data_frame.columns)[:4]
-        new_data_frame = new_data_frame[new_column_order]
-        data_frame = pd.concat((data_frame, new_data_frame), ignore_index=True)
-    return data_frame
+        report_key_data_frame['parameters'] = label
+        report_key_data_frame['classifier'] = report_key.split('_')[1]
+        report_key_data_frame['full or filtered'] = report_key.split('_')[0]
+        new_column_order = list(report_key_data_frame.columns)[4:] + list(report_key_data_frame.columns)[:4]
+        report_key_data_frame = report_key_data_frame[new_column_order]
+        combined_data_frame = pd.concat((combined_data_frame, report_key_data_frame), ignore_index=True)
+    return combined_data_frame
 
 
 
