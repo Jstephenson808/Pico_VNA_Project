@@ -1,7 +1,7 @@
 import pandas as pd
 
-from VNA_utils import get_full_results_df_path
-from ml_model import open_pickled_object
+from VNA_utils import get_full_results_df_path, reorder_data_frame_columns
+from ml_model import open_pickled_object, pickle_object
 import os
 import seaborn as sns
 import matplotlib.pyplot as plt
@@ -54,19 +54,33 @@ def svm_vs_dtree_violin_plot(results_df: pd.DataFrame):
         text.set_text(label)
     return
 
+def full_vs_filtered_features_plot(results_df:pd.DataFrame):
+    accuracy_df = results_df[results_df['gesture'] == 'accuracy']
+    melted = pd.melt(accuracy_df, id_vars=['full or filtered'], value_vars=['f1-score'])
+    fig, ax = plt.subplots()
+    sns.violinplot(data=melted, y="full or filtered", x="value", hue="full or filtered", legend=False)
+    ax.set(xlabel='Classifier Accuracy', ylabel='Feature Set',
+           title="Full vs Filtered Features Classification Accuracy")
+
 if __name__ == '__main__':
     results_df = open_pickled_object(os.path.join(get_full_results_df_path(), "watch_L_ant_2.pkl"))
+
+    # just adding an extra experiment for testing
     results2 = results_df.copy()
     results2['label'] = 'test'
-    results_df = pd.concat((results_df, results2))
+    #results_df = pd.concat((results_df, results2), ignore_index=True)
 
-    replace_dict = {'single_watchLargeAntennaL': 'Experiment 1', 'test': 'Experiment 2'}
+    # replace experiment names for graphing
+    replace_dict = {'single_watchLargeAntennaL': 'Experiment 1', 'test': 'Experiment 2', 'filtered':'Filtered Features', 'full':'Full Feature Set'}
     results_df = results_df.replace(replace_dict)
 
-    svm_vs_dt_strip_plot(results_df)
-    svm_vs_dtree_violin_plot(results_df)
+
+    # pickle_object(results_df, path=get_full_results_df_path(), file_name="watch_L_ant_2.pkl")
+    # svm_vs_dt_strip_plot(results_df)
+    # svm_vs_dtree_violin_plot(results_df)
+    # full_vs_filtered_features_plot(results_df)
 
 
     #ax.legend(title='Classifier', labels=['SVM', 'D Tree'])
     #svm_vs_dt_strip_plot(results_df, replace_dict)
-    plt.show()
+    #plt.show()
