@@ -100,7 +100,8 @@ def top_classifier_for_each_band(results_df: pd.DataFrame, include_ALL_sparams=F
     if not include_ALL_sparams:
         melted = melted[~melted['s_param'].isin(['all_Sparams'])]
         title = 'The Top Performing Classifier Accuracy For Each Frequency Band \n With All S Parameter Measurements Removed'
-    top_values = melted.groupby(['label', 'mid_freq']).apply(select_top_value)
+    grouped = melted.groupby(['label', 'mid_freq'], as_index=False)
+    top_values = grouped.apply(select_top_value)
     top_values.reset_index(drop=True, inplace=True)
     fig, ax = plt.subplots()
 
@@ -143,7 +144,7 @@ def max_accuracy_for_mag_sparam_categories(results_df:pd.DataFrame, n_to_plot=6,
     #     labels=['SVM', 'D Tree']
     # )
     ax.set(xlabel='Experiment', ylabel='Classifier Accuracy',
-           title="SVM vs Decision Tree Classification Accuracy \n For Each Experiment")
+           title=f"SVM vs Decision Tree Classification Accuracy \n Showing The Top {n_to_plot} S Parameter Combinations By Max Accuracy")
 
     legend = plt.legend(loc='lower right')
 
@@ -177,7 +178,7 @@ def best_parameter_measurement_violin(results_df, n_to_plot=6, include_all=False
     #     labels=['SVM', 'D Tree']
     # )
     ax.set(xlabel='Experiment', ylabel='Classifier Accuracy',
-           title="SVM vs Decision Tree Classification Accuracy \n For Each Experiment")
+           title=f"SVM vs Decision Tree Classification Accuracy \n Showing The Top {n_to_plot} S Parameter Combinations By Mean Accuracy")
 
     legend = plt.legend(loc='lower right')
 
@@ -185,12 +186,14 @@ def plot_s_param_mag_phase_from_touchstone(touchstone_path, name):
     network = touchstone.hfss_touchstone_2_network(touchstone_path)
     network.name = name
     # network.plot_it_all()
-    plt.title(f"S Parameters For {name} Test \n Showing LogMag And Phase")
+    plt.subplots(1,2)
     plt.subplot(1, 2, 1)
+    plt.title(f"LogMag")
 
     network.plot_s_db()
 
     ax = plt.subplot(1, 2, 2)
+    plt.title("Phase")
     network.plot_s_deg()
     ax.legend([])
 
@@ -210,12 +213,12 @@ if __name__ == '__main__':
 
 
     # Show plot
-    #top_classifier_for_each_band(results_df)
-    #max_accuracy_for_mag_sparam_categories(results_df)
-    #freq_band_line_plot(results_df)
-    # svm_vs_dt_strip_plot(results_df)
-    # svm_vs_dtree_violin_plot(results_df)
-    # full_vs_filtered_features_plot(results_df)
+    top_classifier_for_each_band(results_df)
+    max_accuracy_for_mag_sparam_categories(results_df)
+    freq_band_line_plot(results_df)
+    svm_vs_dt_strip_plot(results_df)
+    svm_vs_dtree_violin_plot(results_df)
+    full_vs_filtered_features_plot(results_df)
     plot_s_param_mag_phase_from_touchstone(os.path.join(get_touchstones_path(), 'watch_L_short_band_short_longer_wires.s2p'), 'Watch Short Antenna')
     plt.show()
     #ax.legend(title='Classifier', labels=['SVM', 'D Tree'])

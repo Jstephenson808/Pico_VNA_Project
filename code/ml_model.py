@@ -64,7 +64,7 @@ def pivot_data_frame_for_s_param(
 
 
 def make_fq_df(directory: str) -> pd.DataFrame:
-    csvs = os.listdir(os.path.join(get_data_path(), directory))
+    csvs = os.listdir(directory)
     combined_data_frame = None
     for csv_fname in csvs:
         data = VnaData(os.path.join(get_data_path(), directory, csv_fname))
@@ -476,7 +476,7 @@ def combine_data_frames_from_csv_folder(csv_folder_path, *, save=True, label="")
     data_folders = os.listdir(csv_folder_path)
     combined_df: pd.DataFrame = None
     for data_folder in data_folders:
-        combined_df_for_one_folder = make_fq_df(data_folder)
+        combined_df_for_one_folder = make_fq_df(os.path.join(csv_folder_path, data_folder))
         combined_df = pd.concat(
             (combined_df, combined_df_for_one_folder), ignore_index=True
         )

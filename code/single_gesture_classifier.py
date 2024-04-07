@@ -99,16 +99,16 @@ def test_classifier_for_all_measured_params(combined_df: pd.DataFrame) -> pd.Dat
     filtered_df_dict = create_test_dict(combined_df, test_permuations='ALL')
     return test_classifier_from_df_dict(filtered_df_dict)
 
-def combine_results_and_test(full_df_path):
+#todo refactor this mess
+def combine_results_and_test(full_df_path, csv_label=""):
     file_name = os.path.basename(full_df_path)
     if file_name.endswith(".pkl"):
         combined_df: pd.DataFrame = open_pickled_object(
             full_df_path
         )
-    elif file_name.endswith(".csv"):
-        #not sure here???
+    else:
         combined_df = combine_data_frames_from_csv_folder(
-            get_data_path(), label="single-watch-large-ant"
+            full_df_path, label=csv_label
         )
 
     return test_classifier_for_all_measured_params(combined_df)
@@ -118,20 +118,27 @@ def combine_results_and_test(full_df_path):
 if __name__ == "__main__":
 
 
-    results = get_full_results_df_from_classifier_pkls(os.path.join(get_classifiers_path(), 'watch_L_ant'))
-    pickle_object(results, path=get_full_results_df_path(), file_name="watch_L_ant_2")
-    #results = open_pickled_object(os.path.join(get_full_results_df_path(), "watch_L_ant.pkl"))
+    # results = get_full_results_df_from_classifier_pkls(os.path.join(get_classifiers_path(), 'watch_L_ant'))
+    # pickle_object(results, path=get_full_results_df_path(), file_name="watch_L_ant_2")
+    # results = open_pickled_object(os.path.join(get_full_results_df_path(), "watch_L_ant.pkl"))
     # pickle_object(
     #     results, path=os.path.join(get_pickle_path(), "classifier_results"), file_name="full_results_single-watch-large-ant.pkl"
     # )
     # results = open_pickled_object(os.path.join(get_pickle_path(), "classifier_results", "full_results_single-watch-large-ant_2.pkl"))
     #todo need to add svm or dtree label to output dict
 
-    # # combine dfs
+    # combine dfs
     # full_df_fname = os.listdir(os.path.join(get_pickle_path(), "full_dfs"))[0]
-    # full_results_df = combine_results_and_test(os.path.join(get_pickle_path(), "full_dfs", full_df_fname))
-    #
-    # pickle_object(
-    #     full_results_df, path=os.path.join(get_pickle_path(), "classifier_results"), file_name=f"full_results_{full_df_fname.split('_')[0]}"
-    # )
+    experiment = "watch_small_antenna_1001_140KHz"
+    full_results_df = combine_results_and_test(os.path.join(get_data_path(), experiment))
 
+    pickle_object(
+        full_results_df, path=os.path.join(get_pickle_path(), "classifier_results"), file_name=f"full_results_{experiment}"
+    )
+    experiment = "watch_small_antenna_2001_140KHz"
+    full_results_df = combine_results_and_test(os.path.join(get_data_path(), experiment))
+
+    pickle_object(
+        full_results_df, path=os.path.join(get_pickle_path(), "classifier_results"),
+        file_name=f"full_results_{experiment}"
+    )
