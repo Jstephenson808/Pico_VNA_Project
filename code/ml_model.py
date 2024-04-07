@@ -15,7 +15,7 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.svm import SVC
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import classification_report
+from sklearn.metrics import classification_report, confusion_matrix, ConfusionMatrixDisplay
 
 from tsfresh.utilities.dataframe_functions import impute
 from tsfresh import extract_features, select_features
@@ -232,21 +232,26 @@ def extract_features_and_test(
 
     classifier_full = DecisionTreeClassifier()
     classifier_full.fit(X_full_train, y_train)
+    classifier_full_y_pred = classifier_full.predict(X_full_test)
     decision_tree_full_dict = classification_report(
-        y_test, classifier_full.predict(X_full_test), output_dict=True
+        y_test, classifier_full_y_pred, output_dict=True
     )
-    print(classification_report(y_test, classifier_full.predict(X_full_test)))
+    decision_tree_full_confusion_matrix = confusion_matrix(y_test, classifier_full_y_pred)
+    ConfusionMatrixDisplay(decision_tree_full_confusion_matrix).plot()
+    print(classification_report(y_test, classifier_full_y_pred))
 
     X_filtered_train, X_filtered_test = (
         X_full_train[features_filtered.columns],
         X_full_test[features_filtered.columns],
     )
-    classifier_filtered = DecisionTreeClassifier()
-    classifier_filtered.fit(X_filtered_train, y_train)
+    dt_classifier_filtered = DecisionTreeClassifier()
+    dt_classifier_filtered.fit(X_filtered_train, y_train)
+    dt_classifier_filtered_y_pred = dt_classifier_filtered.predict(X_filtered_test)
     decision_tree_filtered_dict = classification_report(
-        y_test, classifier_filtered.predict(X_filtered_test), output_dict=True
+        y_test, dt_classifier_filtered_y_pred, output_dict=True
     )
-    print(classification_report(y_test, classifier_filtered.predict(X_filtered_test)))
+    decision_tree_filterd_confusion_matrix = confusion_matrix(y_test, dt_classifier_filtered_y_pred)
+    print(classification_report(y_test, dt_classifier_filtered_y_pred))
 
     # print("SVM".center(80, "="))
     # Splitting the data into training and testing sets
@@ -266,10 +271,12 @@ def extract_features_and_test(
     svm_classifier.fit(X_full_train_scaled, y_train)
     # print("Full")
     # Evaluating the SVM classifier
+    full_svm_y_pred = svm_classifier.predict(X_full_test_scaled)
+    full_svm_confusion_matrix= confusion_matrix(y_test, full_svm_y_pred)
     full_svm_report = classification_report(
-        y_test, svm_classifier.predict(X_full_test_scaled), output_dict=True
+        y_test, full_svm_y_pred, output_dict=True
     )
-    print(classification_report(y_test, svm_classifier.predict(X_full_test_scaled)))
+    print(classification_report(y_test, full_svm_y_pred))
 
     # Splitting the data into training and testing sets
     X_full_train, X_full_test, y_train, y_test = train_test_split(
@@ -288,12 +295,14 @@ def extract_features_and_test(
     svm_classifier_filtered.fit(X_full_train_scaled, y_train)
     # print("Filtered")
     # Evaluating the SVM classifier
+    svm_filtered_y_pred = svm_classifier_filtered.predict(X_full_test_scaled)
     dict_svm_filtered = classification_report(
-        y_test, svm_classifier_filtered.predict(X_full_test_scaled), output_dict=True
+        y_test, svm_filtered_y_pred, output_dict=True
     )
+    svm_filtered_confusion_matrix = confusion_matrix(y_test, svm_filtered_y_pred)
     print(
         classification_report(
-            y_test, svm_classifier_filtered.predict(X_full_test_scaled)
+            y_test, svm_filtered_y_pred
         )
     )
 
@@ -302,16 +311,20 @@ def extract_features_and_test(
     # Evaluating the SVM classifier
 
     return {
-        "filered_classifier": classifier_filtered,
-        "full_classifier": classifier_full,
-        "svm_full": svm_classifier,
-        "svm_filtered": svm_classifier_filtered,
+        "dt_filtered_classifier": dt_classifier_filtered,
+        "dt_full_classifier": classifier_full,
+        "svm_full_classifier": svm_classifier,
+        "svm_filtered_classifier": svm_classifier_filtered,
         "full_features": extracted,
         "filtered_features": features_filtered,
         "filtered_svm_report": dict_svm_filtered,
         "full_svm_report": full_svm_report,
         "full_dt_report": decision_tree_full_dict,
         "filtered_dt_report": decision_tree_filtered_dict,
+        "filtered_dt_confusion_matrix": decision_tree_filterd_confusion_matrix,
+        "full_dt_confusion_matrix": decision_tree_full_confusion_matrix,
+        "full_svm_confusion_matrix": full_svm_confusion_matrix,
+        "filtered_svm_confusion_matrix": svm_filtered_confusion_matrix
     }
 
 
