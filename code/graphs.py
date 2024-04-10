@@ -1,6 +1,9 @@
+import random
+
 import numpy as np
 import pandas as pd
-
+import matplotlib
+matplotlib.use('TkAgg')
 from VNA_utils import get_full_results_df_path, reorder_data_frame_columns, get_touchstones_path
 from ml_model import open_pickled_object, pickle_object
 import os
@@ -197,28 +200,37 @@ def plot_s_param_mag_phase_from_touchstone(touchstone_path, name):
     network.plot_s_deg()
     ax.legend([])
 
+def plot_sampling_freq(sampling_freq_results):
+    fig, ax = plt.subplots()
+
+    sns.lineplot(data=sampling_freq_results, x='npoints', y='sampling_fq', hue='bw', style="bw", markers=True,
+                 dashes=False
+                 )
+
 if __name__ == '__main__':
-   # sns.set(rc={"xtick.bottom": True, "ytick.left": True})
-    results_df = open_pickled_object(os.path.join(get_full_results_df_path(), "watch_L_ant_2.pkl"))
+    sns.set(rc={"xtick.bottom": True, "ytick.left": True})
+    # results_df = open_pickled_object(os.path.join(get_full_results_df_path(), "watch_L_ant_2.pkl"))
+    #
+    # # just adding an extra experiment for testing
+    # results2 = results_df.copy()
+    # results2['label'] = 'test'
+    # results_df = pd.concat((results_df, results2), ignore_index=True)
+    #
+    # # replace experiment names for graphing
+    # replace_dict = {'single_watchLargeAntennaL': 'Experiment 1', 'test': 'Experiment 2', 'filtered':'Filtered Features', 'full':'Full Feature Set'}
+    # results_df = results_df.replace(replace_dict)
+    # accuracy_df = results_df[results_df['gesture'] == 'accuracy']
 
-    # just adding an extra experiment for testing
-    results2 = results_df.copy()
-    results2['label'] = 'test'
-    results_df = pd.concat((results_df, results2), ignore_index=True)
-
-    # replace experiment names for graphing
-    replace_dict = {'single_watchLargeAntennaL': 'Experiment 1', 'test': 'Experiment 2', 'filtered':'Filtered Features', 'full':'Full Feature Set'}
-    results_df = results_df.replace(replace_dict)
-    accuracy_df = results_df[results_df['gesture'] == 'accuracy']
+    sampling_freq_restults = pd.DataFrame(data={'npoints':[i for i in range(100)], 'bw':[i%3 for i in range(100)], 'sampling_fq':[random.randint(i-10,i) for i in range(100,200,1)]})
 
 
     # Show plot
-    top_classifier_for_each_band(results_df)
-    max_accuracy_for_mag_sparam_categories(results_df)
-    freq_band_line_plot(results_df)
-    svm_vs_dt_strip_plot(results_df)
-    svm_vs_dtree_violin_plot(results_df)
-    full_vs_filtered_features_plot(results_df)
-    plot_s_param_mag_phase_from_touchstone(os.path.join(get_touchstones_path(), 'watch_L_short_band_short_longer_wires.s2p'), 'Watch Short Antenna')
+    # top_classifier_for_each_band(results_df)
+    # max_accuracy_for_mag_sparam_categories(results_df)
+    # freq_band_line_plot(results_df)
+    # svm_vs_dt_strip_plot(results_df)
+    # svm_vs_dtree_violin_plot(results_df)
+    # full_vs_filtered_features_plot(results_df)
+    # plot_s_param_mag_phase_from_touchstone(os.path.join(get_touchstones_path(), 'watch_L_short_band_short_longer_wires.s2p'), 'Watch Short Antenna')
     plt.show()
     #ax.legend(title='Classifier', labels=['SVM', 'D Tree'])
