@@ -1,4 +1,5 @@
 import random
+from itertools import product
 
 import numpy as np
 import pandas as pd
@@ -201,11 +202,32 @@ def plot_s_param_mag_phase_from_touchstone(touchstone_path, name):
     ax.legend([])
 
 def plot_sampling_freq(sampling_freq_results):
+
     fig, ax = plt.subplots()
 
-    sns.lineplot(data=sampling_freq_results, x='npoints', y='sampling_fq', hue='bw', style="bw", markers=True,
-                 dashes=False
+    ax.set(yscale='log', xscale='log', title='The Calculated Sweep Period For Each Of The Possible \n Bandwidth and Number Of Points Settings On The Pico VNA 6')
+    sns.lineplot(data=sampling_freq_results, x='Number of Points', y='Calculated Sweep Time', hue='Bandwidth', style="Bandwidth", markers=True,
+                 dashes=False, palette='tab10'
                  )
+
+def calulate_sweep_time(bandwidth, n_points, time_per_point=167e-6, bandwidth_settle_factor=1.91, rearm_time=6.5e-3):
+    return n_points * (time_per_point + bandwidth_settle_factor / bandwidth) + rearm_time
+
+def gen_sweep_time_df(n_points=None, bandwidths:[int] = None, time_per_point=167e-6, bandwidth_settle_factor=1.91, rearm_time=6.5e-3):
+    if n_points is None:
+        n_points = [101, 201, 301, 501, 1001, 2001]
+    if bandwidths is None:
+        bandwidths = [10, 100,1000,10_000,75_000,140_000]
+    combinations = product(n_points, bandwidths)
+    output_dict = {}
+    output_dict['Number of Points'] = []
+    output_dict['Bandwidth'] = []
+    output_dict['Calculated Sweep Time'] = []
+    for n_point, bandwidth in combinations:
+        output_dict['Number of Points'].append(n_point)
+        output_dict['Bandwidth'].append(bandwidth)
+        output_dict['Calculated Sweep Time'].append(calulate_sweep_time(bandwidth, n_point, time_per_point, bandwidth_settle_factor, rearm_time))
+    return pd.DataFrame.from_dict(output_dict)
 
 if __name__ == '__main__':
     sns.set(rc={"xtick.bottom": True, "ytick.left": True})
@@ -221,8 +243,9 @@ if __name__ == '__main__':
     # results_df = results_df.replace(replace_dict)
     # accuracy_df = results_df[results_df['gesture'] == 'accuracy']
 
-    sampling_freq_restults = pd.DataFrame(data={'npoints':[i for i in range(100)], 'bw':[i%3 for i in range(100)], 'sampling_fq':[random.randint(i-10,i) for i in range(100,200,1)]})
 
+    sampling_freq_results = gen_sweep_time_df()
+    plot_sampling_freq(sampling_freq_results)
 
     # Show plot
     # top_classifier_for_each_band(results_df)
