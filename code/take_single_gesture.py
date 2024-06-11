@@ -16,8 +16,6 @@ if __name__ == "__main__":
 
     antenna = ANTENNA_LABEL
     gestures = TEST_GESTURES
-
-    # calibration = VnaCalibration(os.path.join(get_root_folder_path(), "MiniCirc_3dBm_MiniCirc1m_10Mto6G_101Points_Rankine506_27Dec23_1kHz3dBm.cal"), 101, [10_000_000, 6_000_000_000])
     for gesture in gestures:
         n = NUMBER_OF_TESTS
         label = f"single_{antenna}_{gesture}"
