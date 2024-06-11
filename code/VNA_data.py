@@ -371,3 +371,11 @@ class VnaData:
         return self.data_frame.pivot(
             index=DataFrameCols.TIME, columns=DataFrameCols.FREQUENCY, values=value
         )
+
+
+if __name__ == '__main__':
+    # targets = []
+    # data = VnaData(r'D:\James\documents\OneDrive - University of Glasgow\Glasgow\Year 2\Web App Dev 2\Workspace\picosdk-picovna-python-examples\results\data\wfa-140KHz-1001pts-10Mto4G_2\single_flex-antenna-watch-140KHz-1001pts-10Mto4G_2_2024_04_12_16_55_49_S11_S21_S12_S22_2_secs.csv')
+    # data.single_freq_plotter(ghz_to_hz(0.4), plot_s_param=SParam.S11, data_frame_column_to_plot=DataFrameCols.PHASE)
+    combined_df = combine_data_frames_from_csv_folder(r'D:\James\documents\OneDrive - University of Glasgow\Glasgow\Year 2\Web App Dev 2\Workspace\picosdk-picovna-python-examples\results\data\flex')
+    combined_df['label'] = combined_df['label'].map(lambda x: x.split('_')[2])

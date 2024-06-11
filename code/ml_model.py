@@ -550,7 +550,7 @@ def extract_gesture_metric_to_df(
     return pd.DataFrame.from_dict(f1_scores, orient="index", columns=columns)
 
 def extract_full_results_to_df(
-        pickle_fnames, folder_path=get_pickle_path()
+        pickle_fnames, folder_path=get_pickle_path(), extract='report'
 ) -> pd.DataFrame:
     full_results_data_frame = None
     for fname in pickle_fnames:
@@ -558,12 +558,30 @@ def extract_full_results_to_df(
         print(os.path.basename(path))
         classifier_dict = open_pickled_object(path)
         label = get_label_from_pkl_path(path)
-        report_keys = [x for x in classifier_dict.keys() if "report" in x]
-        partial_results_df = extract_all_metrics_to_df(classifier_dict, report_keys, label)
+        report_keys = [x for x in classifier_dict.keys() if extract in x]
+        if extract == 'report':
+            partial_results_df = extract_all_metrics_to_df(classifier_dict, report_keys, label)
+        if extract == 'features':
+            partial_results_df = extract_feature_number(classifier_dict, report_keys, label)
         full_results_data_frame = pd.concat((full_results_data_frame,partial_results_df), ignore_index=True)
 
-    full_results_data_frame = fix_measurement_column(full_results_data_frame)
+    if extract == 'report':
+        full_results_data_frame = fix_measurement_column(full_results_data_frame)
     return full_results_data_frame
+
+def extract_feature_number(classifier_dict: dict,
+                              report_keys: [str],
+                              label
+                              ) -> pd.DataFrame:
+    combined_data_frame = None
+    for report_key in report_keys:
+        report_key_dict = {}
+        report_key_dict['Experiment'] = label.split('-')[0]
+        report_key_dict['Feature Set'] = report_key
+        report_key_dict['Number of Features'] = len(classifier_dict[report_key].columns)
+        report_key_data_frame = pd.DataFrame.from_dict([report_key_dict])
+        combined_data_frame = pd.concat((combined_data_frame, report_key_data_frame), ignore_index=True)
+    return combined_data_frame
 
 def extract_all_metrics_to_df(classifier_dict: dict,
                               report_keys: [str],
@@ -608,10 +626,10 @@ def fix_measurement_column(results_df:pd.DataFrame)->pd.DataFrame:
     results_df = reorder_data_frame_columns(results_df, [0,2,3,9,8,10,11,1,4,5,6,7])
     return results_df
 
-def get_full_results_df_from_classifier_pkls(folder_path):
+def get_full_results_df_from_classifier_pkls(folder_path, extract='report'):
     fnames = os.listdir(folder_path)
 
-    return extract_full_results_to_df(fnames, folder_path)
+    return extract_full_results_to_df(fnames, folder_path, extract)
 
 if __name__ == "__main__":
     pass
