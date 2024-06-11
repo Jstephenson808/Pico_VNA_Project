@@ -11,10 +11,10 @@ import pandas as pd
 import matplotlib
 matplotlib.use("TkAgg")
 from matplotlib import pyplot as plt
-
+from single_gesture_classifier import *
 from VNA_enums import DataFrameCols, DateFormats, SParam
 from VNA_exceptions import NotValidCSVException, NotValidSParamException
-from VNA_utils import get_root_folder_path, hz_to_ghz
+from VNA_utils import get_root_folder_path, hz_to_ghz, ghz_to_hz
 
 
 class VnaData:

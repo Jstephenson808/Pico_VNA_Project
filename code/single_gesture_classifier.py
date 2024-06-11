@@ -115,12 +115,13 @@ def combine_results_and_test(full_df_path, csv_label=""):
 
 
 
+# function to run tests on a series of folders which contain results .csvs
+
 if __name__ == "__main__":
 
-
-    # results = get_full_results_df_from_classifier_pkls(os.path.join(get_classifiers_path(), 'watch_L_ant'))
-    # pickle_object(results, path=get_full_results_df_path(), file_name="watch_L_ant_2")
-    # results = open_pickled_object(os.path.join(get_full_results_df_path(), "watch_L_ant.pkl"))
+    results = get_full_results_df_from_classifier_pkls(r"H:\James\Classifiers", extract='features')
+    # pickle_object(results, path=get_full_results_df_path(), file_name="watch_small_ant")
+    #results = pd.concat((open_pickled_object(os.path.join(get_full_results_df_path(), "watch_small_ant.pkl")), open_pickled_object(os.path.join(get_full_results_df_path(), "wfa_full_ex_2.pkl"))), ignore_index=True)
     # pickle_object(
     #     results, path=os.path.join(get_pickle_path(), "classifier_results"), file_name="full_results_single-watch-large-ant.pkl"
     # )
@@ -129,16 +130,16 @@ if __name__ == "__main__":
 
     # combine dfs
     # full_df_fname = os.listdir(os.path.join(get_pickle_path(), "full_dfs"))[0]
-    experiment = "watch_small_antenna_1001_140KHz"
-    full_results_df = combine_results_and_test(os.path.join(get_data_path(), experiment))
-
-    pickle_object(
-        full_results_df, path=os.path.join(get_pickle_path(), "classifier_results"), file_name=f"full_results_{experiment}"
-    )
-    experiment = "watch_small_antenna_2001_140KHz"
-    full_results_df = combine_results_and_test(os.path.join(get_data_path(), experiment))
-
-    pickle_object(
-        full_results_df, path=os.path.join(get_pickle_path(), "classifier_results"),
-        file_name=f"full_results_{experiment}"
-    )
+    # experiment = "watch_small_antenna_1001_140KHz"
+    # full_results_df = combine_results_and_test(os.path.join(get_data_path(), experiment))
+    #
+    # pickle_object(
+    #     full_results_df, path=os.path.join(get_pickle_path(), "classifier_results"), file_name=f"full_results_{experiment}"
+    # )
+    # experiment = "watch_small_antenna_2001_140KHz"
+    # full_results_df = combine_results_and_test(os.path.join(get_data_path(), experiment))
+    #
+    # pickle_object(
+    #     full_results_df, path=os.path.join(get_pickle_path(), "classifier_results"),
+    #     file_name=f"full_results_{experiment}"
+    # )
