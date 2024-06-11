@@ -44,6 +44,7 @@ class VNA:
         self.calibration = calibration
         self.vna_object = win32com.client.gencache.EnsureDispatch(vna_string)
         self.output_data = vna_data
+
     #todo close connection
     def connect(self):
         print("Connecting VNA")
@@ -67,7 +68,7 @@ class VNA:
         :param s_parameter: S Param data to be returned
         :param data_format: measurement requested
         :param point:
-        :return: data string which is ',' separted in the format "freq, measurement_value_at_freq, freq, measurement_value_at_freq"
+        :return: data string which is ',' separted in the format "freq, measurement_value_at_freq, freq, measurement_value_at_freq,..."
         """
         return self.vna_object.GetData(s_parameter.value, data_format.value, point)
 
@@ -223,8 +224,6 @@ class VNA:
 
         self.connect()
         self.load_cal()
-
-        # need to reset df
 
         self.output_data.csv_path = self.generate_output_path(output_dir, s_params_output, run_time, file_name, label)
         os.makedirs(os.path.dirname(self.output_data.csv_path), exist_ok=True)

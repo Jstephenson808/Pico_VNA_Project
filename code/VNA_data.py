@@ -11,7 +11,6 @@ import pandas as pd
 import matplotlib
 matplotlib.use("TkAgg")
 from matplotlib import pyplot as plt
-from single_gesture_classifier import *
 from VNA_enums import DataFrameCols, DateFormats, SParam
 from VNA_exceptions import NotValidCSVException, NotValidSParamException
 from VNA_utils import get_root_folder_path, hz_to_ghz, ghz_to_hz
@@ -104,7 +103,7 @@ class VnaData:
         data_frame = pd.read_csv(path)
         # if all the columns in this enum are present then .csv was in the right format
         if all(col.value in data_frame for col in DataFrameCols):
-            # pattern matches date format in
+            # pattern matches date format in file name
             pattern = re.compile(r"(\d\d\d\d_\d\d_\d\d_\d\d_\d\d_\d\d)")
             date_time = re.search(pattern, os.path.basename(path)).group(1)
             return data_frame, datetime.strptime(date_time, DateFormats.CURRENT.value)
@@ -175,9 +174,22 @@ class VnaData:
             self.init_df_date_time()
 
     def init_df_date_time(self):
+        """
+        called if there is a path to a .csv file passed to initalize the df and the datetime of the object
+        :return:
+        """
         self.data_frame, self.date_time = VnaData.read_df_from_csv(self.csv_path)
 
+
     def get_first_index_of_time(self, target_time, target_magnitude=None):
+        """
+        This function will return the index which is after the target time, it can additionally be passed
+        a target magnitude and this will return the first index which is above the target magnitude
+        but also after the given time
+        :param target_time:
+        :param target_magnitude:
+        :return:
+        """
         if target_magnitude is None:
             filtered_indexes = self.data_frame.index[
                 self.data_frame[DataFrameCols.TIME.value] > target_time
@@ -374,8 +386,9 @@ class VnaData:
 
 
 if __name__ == '__main__':
+    pass
     # targets = []
     # data = VnaData(r'D:\James\documents\OneDrive - University of Glasgow\Glasgow\Year 2\Web App Dev 2\Workspace\picosdk-picovna-python-examples\results\data\wfa-140KHz-1001pts-10Mto4G_2\single_flex-antenna-watch-140KHz-1001pts-10Mto4G_2_2024_04_12_16_55_49_S11_S21_S12_S22_2_secs.csv')
     # data.single_freq_plotter(ghz_to_hz(0.4), plot_s_param=SParam.S11, data_frame_column_to_plot=DataFrameCols.PHASE)
-    combined_df = combine_data_frames_from_csv_folder(r'D:\James\documents\OneDrive - University of Glasgow\Glasgow\Year 2\Web App Dev 2\Workspace\picosdk-picovna-python-examples\results\data\flex')
-    combined_df['label'] = combined_df['label'].map(lambda x: x.split('_')[2])
+    # combined_df = combine_data_frames_from_csv_folder(r'D:\James\documents\OneDrive - University of Glasgow\Glasgow\Year 2\Web App Dev 2\Workspace\picosdk-picovna-python-examples\results\data\flex')
+    # combined_df['label'] = combined_df['label'].map(lambda x: x.split('_')[2])
