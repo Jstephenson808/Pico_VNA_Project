@@ -1,3 +1,8 @@
+class NotValidCalibrationFileException(Exception):
+    def __init__(self, message):
+        super().__init__(message)
+
+
 class NotValidCSVException(Exception):
     def __init__(self, message):
         super().__init__(message)
