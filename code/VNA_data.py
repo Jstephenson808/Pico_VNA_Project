@@ -29,6 +29,7 @@ class VnaData:
     def test_file_name(filename) -> bool:
         """
         Tests file name to establish if it's in the correct format
+        correct format which is one that contains only words, "-" characters and "." characters
         :param filename: filename from command line
         :return: bool indicating if the fname is formatted correctly
         """

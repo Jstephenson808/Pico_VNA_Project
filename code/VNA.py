@@ -31,6 +31,10 @@ class VNA:
 
     @staticmethod
     def file_label_input() -> str:
+        """
+        gets file input labeland tests that it is in the correct format for the file name
+        :return:
+        """
         file_label = input(
             "Input label for file (no spaces) or press enter for no label:"
         )
@@ -50,6 +54,10 @@ class VNA:
 
 
     def connect(self):
+        """
+        wrapper to connect to the VNA
+        :return:
+        """
         print("Connecting VNA")
         search_vna = self.vna_object.FND()
         if search_vna == 0:
@@ -57,6 +65,10 @@ class VNA:
         print(f"VNA {str(search_vna)} Loaded,\n\rif you stop the program without closing the connection you will need to restart the VNA")
 
     def close_connection(self):
+        """
+        wrapper to close connection
+        :return:
+        """
         self.vna_object.CloseVNA()
         print("VNA Closed")
 
