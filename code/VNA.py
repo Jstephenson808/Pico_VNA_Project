@@ -8,7 +8,6 @@ from datetime import datetime, timedelta
 import pandas as pd
 
 from VNA_enums import (
-    DataFrameCols,
     MeasurementFormat,
     SParam,
     MeasureSParam,
@@ -16,11 +15,9 @@ from VNA_enums import (
 )
 from VNA_exceptions import *
 from VNA_utils import (
-    get_pickle_path,
     get_data_path,
     get_root_folder_path,
-    timer_func,
-countdown_timer
+    countdown_timer
 )
 
 
@@ -54,6 +51,10 @@ class VNA:
         print(f"VNA {str(search_vna)} Loaded")
 
     def load_cal(self):
+        """
+        loads the calibration which is stored in object
+        :return:
+        """
         print("Loading Calibration")
         ans = self.vna_object.LoadCal(self.calibration.calibration_path)
         if ans != "OK":
@@ -64,7 +65,7 @@ class VNA:
         self, s_parameter: SParam, data_format: MeasurementFormat, point=0
     ) -> str:
         """
-
+        wrapper for getting data from the VNA after measurement
         :param s_parameter: S Param data to be returned
         :param data_format: measurement requested
         :param point:
@@ -126,7 +127,7 @@ class VNA:
         label="",
     ):
         """
-        Utility function to generate file name and join it ot path
+        Utility function to generate file name and join it to path
         :param s_params_measure: measured s parameteres
         :param run_time:
         :param fname:
@@ -188,11 +189,9 @@ class VNA:
         :param s_params_output:
         :param elapsed_time:
         """
-        # todo timer for sampling freq
 
         self.measure_wrapper(s_params_measure.value)
 
-        # todo check how the measurement formats work, where is phase and logmag defined?
         for s_param in s_params_output:
             self.output_data.data_frame = self.add_measurement_to_data_frame(
                 s_param, elapsed_time, label, id
