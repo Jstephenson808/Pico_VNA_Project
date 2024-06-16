@@ -146,62 +146,6 @@ class VNA:
         label = input("Provide gesture label or leave blank for none:")
         return label
 
-    def measure(
-        self,
-        run_time: timedelta,
-        s_params_measure: MeasureSParam = MeasureSParam.ALL,
-        s_params_output: [SParam] = None,
-        file_name: str = "",
-        output_dir=get_data_path(),
-        label=None,
-        *,
-        print_countdown=False,
-    ) -> VnaData:
-
-        # label = 'test'
-        if label is None:
-            label = self.input_movement_label()
-
-        if s_params_output == None:
-            s_params_output = [SParam.S11]
-
-
-        self.connect()
-        self.load_cal()
-
-        self.output_data.csv_path = self.generate_output_path(output_dir, s_params_output, run_time, file_name, label)
-        os.makedirs(os.path.dirname(self.output_data.csv_path), exist_ok=True)
-        print(f"Saving to {self.output_data.csv_path}")
-        countdown_timer(2)
-        start_time = datetime.now()
-        finish_time = start_time + run_time
-        current_time = datetime.now()
-        measurement_number = 0
-        while current_time < finish_time:
-            current_time = datetime.now()
-            elapsed_time = current_time - start_time
-            if print_countdown:
-                print(f"Running for another {(run_time - elapsed_time)}")
-            self.take_measurement(
-                s_params_measure,
-                s_params_output,
-                elapsed_time,
-                label,
-                id=start_time.strftime(DateFormats.CURRENT.value),
-            )
-            measurement_number += 1
-            if measurement_number % 10 == 0:
-
-                self.output_data.data_frame.to_csv(
-                    self.output_data.csv_path, index=False
-                )
-
-        self.output_data.data_frame.to_csv(self.output_data.csv_path, index=False)
-
-        self.vna_object.CloseVNA()
-        print("VNA Closed")
-        return self.output_data
-
     def measure_n_times(
             self,
             *,
