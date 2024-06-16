@@ -21,6 +21,7 @@ from VNA_utils import (
 )
 
 
+
 class VNA:
 
     @staticmethod
@@ -73,50 +74,7 @@ class VNA:
         """
         return self.vna_object.GetData(s_parameter.value, data_format.value, point)
 
-    def split_data_string(self, data_string: str):
-        """
 
-        :param data_string: Data string which is ',' separted in the format "freq, measurement_value_at_freq, freq,
-                            measurement_value_at_freq" output from self.get_data()
-        :return: tuple containing list of frequencies and list of data values
-        """
-        data_list: list[str] = data_string.split(",")
-        frequencies = data_list[::2]
-        data = data_list[1::2]
-        return frequencies, data
-
-    def vna_data_string_to_df(
-        self,
-        elapsed_time: timedelta,
-        magnitude_data_string: str,
-        phase_data_string: str,
-        s_parameter: SParam,
-        label: str,
-        id,
-    ) -> pd.DataFrame:
-        """
-        Converts the strings returned by the VNA .get_data method into a data frame
-        with the elapsed time, measured SParam, frequency, mag and phase
-        :param elapsed_time: timedelta representing elapsed time when the reading was taken
-        :param magnitude_data_string: data string returned by get_data method with magnitude argument
-        :param phase_data_string: phase data string returned by get_data method with phase argument
-        :param s_parameter: SParam enum value represting the measured Sparam
-        :return: pd dataframe formatted correctly to be appended to the data frame in memory
-        """
-        # todo fix this so you can have phase or mag independently
-        frequencies, magnitudes = self.split_data_string(magnitude_data_string)
-        frequencies, phases = self.split_data_string(phase_data_string)
-        time_float = float(f"{elapsed_time.seconds}.{elapsed_time.microseconds}")
-        data_dict = {
-            DataFrameCols.ID.value: id,
-            DataFrameCols.TIME.value: [time_float for _ in frequencies],
-            DataFrameCols.LABEL.value: [label for _ in frequencies],
-            DataFrameCols.S_PARAMETER.value: [s_parameter for _ in frequencies],
-            DataFrameCols.FREQUENCY.value: [int(fq) for fq in frequencies],
-            DataFrameCols.MAGNITUDE.value: [float(mag) for mag in magnitudes],
-            DataFrameCols.PHASE.value: [float(phase) for phase in phases],
-        }
-        return pd.DataFrame(data_dict)
 
     def generate_output_path(
         self,
@@ -148,26 +106,7 @@ class VNA:
         filename = f"{label_fname}{datetime.now().strftime(DateFormats.CURRENT.value)}_{s_params}_{run_time.seconds}_secs.csv"
         return os.path.join(get_root_folder_path(), output_folder, label, filename)
 
-    # todo what if you only want to measure one of phase or logmag?
-    def add_measurement_to_data_frame(
-        self, s_param: SParam, elapsed_time: timedelta, label: str, id
-    ):
-        """
-        Gets current measurement strings (logmag and phase) for the given S param from VNA and converts it
-        to a pd data frame, appending this data frame to the output data
-        :param s_param: SParam to get the data
-        :param elapsed_time: The elaspsed time of the current test (ie the time the data was captured, referenced to 0s)
-        :return: the data frame concated on to the current output
-        """
-        df = self.vna_data_string_to_df(
-            elapsed_time,
-            self.get_data(s_param, MeasurementFormat.LOGMAG),
-            self.get_data(s_param, MeasurementFormat.PHASE),
-            s_param.value,
-            label,
-            id,
-        )
-        return pd.concat([self.output_data.data_frame, df])
+
 
     # add in timer logging
     def measure_wrapper(self, str):
@@ -193,6 +132,8 @@ class VNA:
         self.measure_wrapper(s_params_measure.value)
 
         for s_param in s_params_output:
+            self.get_data(s_param, MeasurementFormat.LOGMAG)
+            self.get_data(s_param, MeasurementFormat.PHASE)
             self.output_data.data_frame = self.add_measurement_to_data_frame(
                 s_param, elapsed_time, label, id
             )

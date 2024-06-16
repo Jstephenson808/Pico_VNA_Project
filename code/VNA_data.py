@@ -1,17 +1,19 @@
 import ast
 import os
 import re
-from datetime import datetime
-
-
+from datetime import datetime, timedelta
 
 import numpy as np
+import pandas
 import pandas as pd
 
 import matplotlib
+
+from VNA_enums import DataFrameCols
+
 matplotlib.use("TkAgg")
 from matplotlib import pyplot as plt
-from VNA_enums import DataFrameCols, DateFormats, SParam
+from VNA_enums import DataFrameCols, DateFormats, SParam, MeasurementFormat
 from VNA_exceptions import NotValidCSVException, NotValidSParamException
 from VNA_utils import get_root_folder_path, hz_to_ghz, ghz_to_hz
 
@@ -384,6 +386,72 @@ class VnaData:
             index=DataFrameCols.TIME, columns=DataFrameCols.FREQUENCY, values=value
         )
 
+    def split_data_string(self, data_string: str):
+        """
+
+        :param data_string: Data string which is ',' separted in the format "freq, measurement_value_at_freq, freq,
+                            measurement_value_at_freq" output from self.get_data()
+        :return: tuple containing list of frequencies and list of data values
+        """
+        data_list: list[str] = data_string.split(",")
+        frequencies = data_list[::2]
+        data = data_list[1::2]
+        return frequencies, data
+
+    def vna_data_string_to_df(
+            self,
+            elapsed_time: timedelta,
+            magnitude_data_string: str,
+            phase_data_string: str,
+            s_parameter: SParam,
+            label: str,
+            id,
+    ) -> pd.DataFrame:
+        """
+        Converts the strings returned by the VNA .get_data method into a data frame
+        with the elapsed time, measured SParam, frequency, mag and phase
+        :param elapsed_time: timedelta representing elapsed time when the reading was taken
+        :param magnitude_data_string: data string returned by get_data method with magnitude argument
+        :param phase_data_string: phase data string returned by get_data method with phase argument
+        :param s_parameter: SParam enum value represting the measured Sparam
+        :return: pd dataframe formatted correctly to be appended to the data frame in memory
+        """
+        # todo fix this so you can have phase or mag independently
+        frequencies, magnitudes = self.split_data_string(magnitude_data_string)
+        frequencies, phases = self.split_data_string(phase_data_string)
+        time_float = float(f"{elapsed_time.seconds}.{elapsed_time.microseconds}")
+        data_dict = {
+            DataFrameCols.ID.value: id,
+            DataFrameCols.TIME.value: [time_float for _ in frequencies],
+            DataFrameCols.LABEL.value: [label for _ in frequencies],
+            DataFrameCols.S_PARAMETER.value: [s_parameter for _ in frequencies],
+            DataFrameCols.FREQUENCY.value: [int(fq) for fq in frequencies],
+            DataFrameCols.MAGNITUDE.value: [float(mag) for mag in magnitudes],
+            DataFrameCols.PHASE.value: [float(phase) for phase in phases],
+        }
+        return pd.DataFrame(data_dict)
+
+    # todo what if you only want to measure one of phase or logmag?
+    def add_measurement_to_data_frame(
+            self, s_param: SParam,  magnitude_data_string: str,
+            phase_data_string: str, elapsed_time: timedelta, label: str, id
+    ):
+        """
+        Gets current measurement strings (logmag and phase) for the given S param from VNA and converts it
+        to a pd data frame, appending this data frame to the output data
+        :param s_param: SParam to get the data
+        :param elapsed_time: The elaspsed time of the current test (ie the time the data was captured, referenced to 0s)
+        :return: the data frame concated on to the current output
+        """
+        df = self.vna_data_string_to_df(
+            elapsed_time,
+            magnitude_data_string,
+            phase_data_string,
+            s_param.value,
+            label,
+            id,
+        )
+        return pd.concat([self.data_frame, df])
 
 if __name__ == '__main__':
     pass
@@ -392,3 +460,7 @@ if __name__ == '__main__':
     # data.single_freq_plotter(ghz_to_hz(0.4), plot_s_param=SParam.S11, data_frame_column_to_plot=DataFrameCols.PHASE)
     # combined_df = combine_data_frames_from_csv_folder(r'D:\James\documents\OneDrive - University of Glasgow\Glasgow\Year 2\Web App Dev 2\Workspace\picosdk-picovna-python-examples\results\data\flex')
     # combined_df['label'] = combined_df['label'].map(lambda x: x.split('_')[2])
+
+
+
+
