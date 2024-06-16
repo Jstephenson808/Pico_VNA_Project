@@ -127,3 +127,7 @@ def reorder_data_frame_columns(df:pd.DataFrame, new_order_indexes:[int])->pd.Dat
     columns = list(df.columns)
     new_columns = sorted(columns, key=lambda x: new_order_indexes.index(columns.index(x)))
     return df[new_columns]
+
+def input_movement_label() -> str:
+    label = input("Provide gesture label or leave blank for none:")
+    return label

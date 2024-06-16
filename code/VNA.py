@@ -5,7 +5,6 @@ import os
 import win32com.client
 
 from datetime import datetime, timedelta
-import pandas as pd
 
 from VNA_enums import (
     MeasurementFormat,
@@ -13,11 +12,17 @@ from VNA_enums import (
     MeasureSParam,
     DateFormats,
 )
-from VNA_exceptions import *
+from VNA_exceptions import (
+    VNAError,
+
+)
+
+
 from VNA_utils import (
     get_data_path,
     get_root_folder_path,
-    countdown_timer
+    countdown_timer,
+    input_movement_label
 )
 
 
@@ -83,7 +88,7 @@ class VNA:
     def generate_output_path(
         self,
         output_folder: str,
-        s_params_saved: SParam,
+        s_params_saved: [SParam],
         run_time: timedelta,
         fname="",
         label="",
@@ -142,9 +147,7 @@ class VNA:
                 s_param, elapsed_time, label, id
             )
 
-    def input_movement_label(self) -> str:
-        label = input("Provide gesture label or leave blank for none:")
-        return label
+
 
     def measure_n_times(
             self,
@@ -188,7 +191,7 @@ class VNA:
 
         # prompt for label
         if label is None:
-            label = self.input_movement_label()
+            label = input_movement_label()
 
         # this the output s parameter, which is RETRIEVED from the VNA
         if s_params_output == None:
