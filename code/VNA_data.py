@@ -266,6 +266,15 @@ class VnaData:
         data_frame_column_to_plot: DataFrameCols = DataFrameCols.MAGNITUDE,
         save_to_file=True,
     ):
+        """
+        plots a list of frequencies on a single axis, will save to file if save_to_file is True
+        :param freq_list:
+        :param output_folder_path:
+        :param plot_s_param:
+        :param data_frame_column_to_plot:
+        :param save_to_file:
+        :return:
+        """
 
         fig, ax = plt.subplots()
         ax.set_ylabel(f"|{plot_s_param.value}|")
