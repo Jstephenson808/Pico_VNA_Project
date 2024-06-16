@@ -416,7 +416,7 @@ class VnaData:
         :param s_parameter: SParam enum value represting the measured Sparam
         :return: pd dataframe formatted correctly to be appended to the data frame in memory
         """
-        # todo fix this so you can have phase or mag independently
+
         frequencies, magnitudes = self.split_data_string(magnitude_data_string)
         frequencies, phases = self.split_data_string(phase_data_string)
         time_float = float(f"{elapsed_time.seconds}.{elapsed_time.microseconds}")
@@ -431,7 +431,7 @@ class VnaData:
         }
         return pd.DataFrame(data_dict)
 
-    # todo what if you only want to measure one of phase or logmag?
+
     def add_measurement_to_data_frame(
             self, s_param: SParam,  magnitude_data_string: str,
             phase_data_string: str, elapsed_time: timedelta, label: str, id
@@ -451,7 +451,7 @@ class VnaData:
             label,
             id,
         )
-        return pd.concat([self.data_frame, df])
+        self.data_frame = pd.concat([self.data_frame, df])
 
 if __name__ == '__main__':
     pass

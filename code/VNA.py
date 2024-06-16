@@ -43,13 +43,17 @@ class VNA:
         self.vna_object = win32com.client.gencache.EnsureDispatch(vna_string)
         self.output_data = vna_data
 
-    #todo close connection
+
     def connect(self):
         print("Connecting VNA")
         search_vna = self.vna_object.FND()
         if search_vna == 0:
             raise VNAError("Connection Failed, do you have Pico VNA Open?")
-        print(f"VNA {str(search_vna)} Loaded")
+        print(f"VNA {str(search_vna)} Loaded,\n\rif you stop the program without closing the connection you will need to restart the VNA")
+
+    def close_connection(self):
+        self.vna_object.CloseVNA()
+        print("VNA Closed")
 
     def load_cal(self):
         """
@@ -134,7 +138,7 @@ class VNA:
         for s_param in s_params_output:
             self.get_data(s_param, MeasurementFormat.LOGMAG)
             self.get_data(s_param, MeasurementFormat.PHASE)
-            self.output_data.data_frame = self.add_measurement_to_data_frame(
+            self.output_data.add_measurement_to_data_frame(
                 s_param, elapsed_time, label, id
             )
 
@@ -200,38 +204,74 @@ class VNA:
 
     def measure_n_times(
             self,
+            *,
             run_time: timedelta,
+            n_measures=1,
+            print_elapsed_time=False,
             s_params_measure: MeasureSParam = MeasureSParam.ALL,
             s_params_output: [SParam] = None,
             file_name: str = "",
             output_dir=get_data_path(),
             label=None,
-            *,
-            print_countdown=False,
-            n_measures=50
-    ) -> VnaData:
+            countdown_seconds=2,
+            save_interval = 10
+    ):
+        """
+        nb * means these are key word args only, this is for clarity
 
-        # label = 'test'
+        Measures from the VNA for the provided run time, this is then repeated n_measures times.
+        The provided label is added to the data in the data frame, label should be the gesture in most instances.
+
+        s_param_measure is the data which the VNA will capture, the parameters which are then saved is s_param_output.
+        These are two different processes, the measurement and retrival of the data. Both of these are enum types which evaluate to strings which are
+        eventually passed to the VNA to capture/return the data.
+
+        File name can be passed but if none is passed then the user is prompted.
+
+        Output dir can be specified but is defaulted to the data_path.
+
+        :param run_time:
+        :param s_params_measure:
+        :param s_params_output:
+        :param file_name:
+        :param output_dir:
+        :param label:
+        :param countdown_seconds:
+        :param print_elapsed_time:
+        :param n_measures:
+        :param save_interval:
+        """
+
+        # prompt for label
         if label is None:
             label = self.input_movement_label()
 
+        # this the output s parameter, which is RETRIEVED from the VNA
         if s_params_output == None:
             s_params_output = [SParam.S11]
 
-
+        # connect and load calibration
         self.connect()
         self.load_cal()
 
         for i in range(n_measures):
+            # Each file is a single measurement for a given amount of time
+            # so for each of the measurements a new .csv is created
+
             self.output_data.csv_path = self.generate_output_path(
                 output_dir, s_params_output, run_time, file_name, label
             )
+
+            # just make dir if it doesn't exist
             os.makedirs(os.path.dirname(self.output_data.csv_path), exist_ok=True)
+
             print(f"Saving to {self.output_data.csv_path}")
-            print(i)
-            # reset df
+            print(f"Measurement {i+1} of {n_measures}")
+
+            # makes more sense for the whole thing to be a single df
+            # each of them being a .csv
             self.output_data.data_frame = None
-            countdown_timer(2)
+            countdown_timer(countdown_seconds)
             start_time = datetime.now()
             finish_time = start_time + run_time
             current_time = datetime.now()
@@ -239,8 +279,9 @@ class VNA:
             while current_time < finish_time:
                 current_time = datetime.now()
                 elapsed_time = current_time - start_time
-                if print_countdown:
+                if print_elapsed_time:
                     print(f"Running for another {(run_time - elapsed_time)}")
+                # method to take measurements and add them to the data frame
                 self.take_measurement(
                     s_params_measure,
                     s_params_output,
@@ -249,13 +290,11 @@ class VNA:
                     id=start_time.strftime(DateFormats.CURRENT.value),
                 )
                 measurement_number += 1
-                if measurement_number % 10 == 0:
+                if measurement_number % save_interval == 0:
                     self.output_data.data_frame.to_csv(
                         self.output_data.csv_path, index=False
                     )
 
         self.output_data.data_frame.to_csv(self.output_data.csv_path, index=False)
 
-        self.vna_object.CloseVNA()
-        print("VNA Closed")
-        return self.output_data
+        self.close_connection()
