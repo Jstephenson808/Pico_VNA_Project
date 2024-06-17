@@ -64,6 +64,12 @@ def pivot_data_frame_for_s_param(
 
 
 def make_fq_df(directory: str) -> pd.DataFrame:
+    """
+    loop over .csv directory and then make the pivoted table for each csv read in
+
+    :param directory:
+    :return:
+    """
     csvs = os.listdir(directory)
     combined_data_frame = None
     for csv_fname in csvs:
@@ -88,6 +94,12 @@ def make_fq_df(directory: str) -> pd.DataFrame:
 
 
 def combine_dfs_with_labels(directory_list, labels) -> pd.DataFrame:
+    """
+
+    :param directory_list:
+    :param labels:
+    :return:
+    """
     ids = [i for i in range(len(directory_list))]
     new_df = make_fq_df(directory_list.pop(0), labels.pop(0), ids.pop(0))
     for dir, label, sample_id in zip(directory_list, labels, ids):
@@ -99,12 +111,27 @@ def combine_dfs_with_labels(directory_list, labels) -> pd.DataFrame:
 def calulate_window_size_from_seconds(
         data_frame: pd.DataFrame, length_window_seconds: float
 ):
+    """
+    utility function to convert a window time in seconds to the number of
+    entries that window size corresponds to
+    :param data_frame:
+    :param length_window_seconds:
+    :return:
+    """
     return len(
         data_frame[(data_frame[DataFrameCols.TIME.value] < length_window_seconds)]
     )
 
 
 def rolling_window_split(data_frame: pd.DataFrame, rolling_window_seconds: float):
+    """
+    method to split a data frame using a rolling window to create more data points
+    this is depricated
+
+    :param data_frame:
+    :param rolling_window_seconds:
+    :return:
+    """
     new_id_list = [i for i in range(100000)]
     new_df: pd.DataFrame = None
     movement_dict = {}
@@ -139,22 +166,7 @@ def rolling_window_split(data_frame: pd.DataFrame, rolling_window_seconds: float
             window_start += window_increment
             window_end += window_increment
 
-    # for measurement_id in ids:
-    #     for mag_phase in data_frame["mag_or_phase"].unique():
-    #         for s_param in data_frame[DataFrameCols.S_PARAMETER.value].unique():
-    #             new_id = new_id_list.pop(0)
-    #             # need to select each sparam in turn and then mag and phase in turn to make sure they are all with the same id
-    #             id_frame = data_frame[(data_frame[DataFrameCols.ID.value] == measurement_id) & (data_frame[DataFrameCols.S_PARAMETER.value] == s_param) & (data_frame["mag_or_phase"] == mag_phase)]
-    #             # number of indexes which map to that many seconds
-    #             window_size = calulate_window_size_from_seconds(
-    #                 id_frame, rolling_window_seconds
-    #             )
-    #             rolling_window = id_frame.rolling(window=window_size)
-    #             for window_df in rolling_window:
-    #                 if len(window_df) == window_size:
-    #                     new_df, id_movement = combine_windowed_df(
-    #                         new_df, window_df, new_id, id_movement
-    #                     )
+
     return new_df, movement_dict
 
 
@@ -188,6 +200,11 @@ def window_split(data_frame: pd.DataFrame, window_seconds: float):
     return new_df, movement_dict
 
 def create_movement_vector_for_single_data_frame(df: pd.DataFrame)-> pd.Series:
+    """
+    creates a vector which will act as a solution for the classifier (ie entry 1 is movement a)
+    :param df:
+    :return:
+    """
     movement_dict = {}
     groups = df.groupby([DataFrameCols.ID.value])
     for id_value, id_df in groups:
