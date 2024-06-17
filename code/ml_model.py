@@ -521,7 +521,7 @@ def combine_data_frames_from_csv_folder(csv_folder_path, *, save=True, label="")
 def get_label_from_pkl_path(path):
     """
     removes .pkl and then date from fname format
-    "all_Sparams_magnitude_0.01_0.11_2024_04_02.pkl"
+    "all_Sparams_magnitude_0.01_0.11_2024_04_02.pkl" -> "all_Sparams_magnitude_0.01_0.11"
     """
     return os.path.basename(path)[::-1].split("_", maxsplit=3)[-1][::-1]
 
@@ -533,11 +533,23 @@ def extract_gesture_metric_values(
         gesture="weighted avg",
         metric="f1-score",
 ) -> dict:
+    """
+    Extracts the gesture metric
+    :param classifier_dict:
+    :param report_keys:
+    :param gesture:
+    :param metric:
+    :return:
+    """
     metric_list = []
     for report_key in report_keys:
+        # first you need to get the report from the dict that the test produces
         features_report = classifier_dict[report_key]
+        # then from that report you can extract the specific gesture you are interested in
         gesture_report = features_report[gesture]
         """
+        Finally for that gesture you extract the metric
+        
         The F-beta score can be interpreted as a weighted harmonic mean of
         the precision and recall, where an F-beta score reaches its best
         value at 1 and worst score at 0.
@@ -551,8 +563,16 @@ def extract_gesture_metric_values(
 
 
 def extract_gesture_metric_to_df(
-        pickle_fnames, *, gesture="weighted avg", metric="f1-score", folder_path=get_pickle_path()
+        pickle_fnames:[str], *, gesture="weighted avg", metric="f1-score", folder_path=get_pickle_path()
 ) -> pd.DataFrame:
+    """
+    Takes a list of filenames of pickled data frames and extracts out the provided metric for the given gesture
+    :param pickle_fnames: list of pickled results from classification testing
+    :param gesture: the gesture to extract the results for, can be specific or the average of each classification
+    :param metric:
+    :param folder_path:
+    :return:
+    """
     f1_scores = {}
     for fname in pickle_fnames:
         path = os.path.join(folder_path, fname)
@@ -569,6 +589,14 @@ def extract_gesture_metric_to_df(
 def extract_full_results_to_df(
         pickle_fnames, folder_path=get_pickle_path(), extract='report'
 ) -> pd.DataFrame:
+    """
+    takes a list of file name of saved results and creates a single data frame which contains all results
+    for a given
+    :param pickle_fnames:
+    :param folder_path:
+    :param extract:
+    :return:
+    """
     full_results_data_frame = None
     for fname in pickle_fnames:
         path = os.path.join(folder_path, fname)
