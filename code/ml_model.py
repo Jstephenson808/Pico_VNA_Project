@@ -63,35 +63,40 @@ def pivot_data_frame_for_s_param(
     return new_df
 
 
-def make_fq_df(directory: str) -> pd.DataFrame:
+def csv_dir_to_fq_df(directory: str) -> pd.DataFrame:
     csvs = os.listdir(directory)
     combined_data_frame = None
     for csv_fname in csvs:
         data = VnaData(os.path.join(get_data_path(), directory, csv_fname))
         # loop over each sparam in the file and make a pivot table then append
-        for sparam in data.data_frame[DataFrameCols.S_PARAMETER.value].unique():
-            pivoted_data_frame = pivot_data_frame_for_s_param(
-                sparam, data.data_frame, DataFrameCols.MAGNITUDE
-            )
-            combined_data_frame = pd.concat(
-                (combined_data_frame, pivoted_data_frame), ignore_index=True
-            )
+        combined_data_frame = pivot_csv_data_frame(combined_data_frame, data)
 
-            pivoted_data_frame = pivot_data_frame_for_s_param(
-                sparam, data.data_frame, DataFrameCols.PHASE
-            )
-            combined_data_frame = pd.concat(
-                (combined_data_frame, pivoted_data_frame), ignore_index=True
-            )
+    return combined_data_frame
 
+
+def pivot_csv_data_frame(combined_data_frame, data):
+    for sparam in data.data_frame[DataFrameCols.S_PARAMETER.value].unique():
+        pivoted_data_frame = pivot_data_frame_for_s_param(
+            sparam, data.data_frame, DataFrameCols.MAGNITUDE
+        )
+        combined_data_frame = pd.concat(
+            (combined_data_frame, pivoted_data_frame), ignore_index=True
+        )
+
+        pivoted_data_frame = pivot_data_frame_for_s_param(
+            sparam, data.data_frame, DataFrameCols.PHASE
+        )
+        combined_data_frame = pd.concat(
+            (combined_data_frame, pivoted_data_frame), ignore_index=True
+        )
     return combined_data_frame
 
 
 def combine_dfs_with_labels(directory_list, labels) -> pd.DataFrame:
     ids = [i for i in range(len(directory_list))]
-    new_df = make_fq_df(directory_list.pop(0), labels.pop(0), ids.pop(0))
+    new_df = csv_dir_to_fq_df(directory_list.pop(0), labels.pop(0), ids.pop(0))
     for dir, label, sample_id in zip(directory_list, labels, ids):
-        temp_df = make_fq_df(dir, label, sample_id)
+        temp_df = csv_dir_to_fq_df(dir, label, sample_id)
         new_df = pd.concat((new_df, temp_df), ignore_index=True)
     return new_df
 
@@ -425,12 +430,17 @@ def make_columns_have_s_param_mag_phase_titles(
 
 
 def filter_cols_between_fq_range(df: pd.DataFrame, lower_bound, upper_bound):
-    cols = df.columns.values
-    # Filter out non-integer values
-    filtered_list = [x for x in cols if isinstance(x, int)]
+    filtered_list = filter_cols_for_fq(df)
     # Filter the list based on the provided bounds
     freq_cols = [x for x in filtered_list if lower_bound <= x <= upper_bound]
     return filter_columns(df, freq_cols)
+
+
+def filter_cols_for_fq(df):
+    cols = df.columns.values
+    # Filter out non-integer values
+    filtered_list = [x for x in cols if isinstance(x, int)]
+    return filtered_list
 
 
 def filter_columns(df, frequencies):
@@ -476,7 +486,7 @@ def combine_data_frames_from_csv_folder(csv_folder_path, *, save=True, label="")
     data_folders = os.listdir(csv_folder_path)
     combined_df: pd.DataFrame = None
     for data_folder in data_folders:
-        combined_df_for_one_folder = make_fq_df(os.path.join(csv_folder_path, data_folder))
+        combined_df_for_one_folder = csv_dir_to_fq_df(os.path.join(csv_folder_path, data_folder))
         combined_df = pd.concat(
             (combined_df, combined_df_for_one_folder), ignore_index=True
         )

@@ -15,7 +15,7 @@ matplotlib.use("TkAgg")
 from matplotlib import pyplot as plt
 from VNA_enums import DataFrameCols, DateFormats, SParam, MeasurementFormat
 from VNA_exceptions import NotValidCSVException, NotValidSParamException
-from VNA_utils import get_root_folder_path, hz_to_ghz, ghz_to_hz
+from VNA_utils import get_root_folder_path, hz_to_ghz, ghz_to_hz, get_data_path
 
 
 class VnaData:
@@ -469,11 +469,112 @@ class VnaData:
         )
         self.data_frame = pd.concat([self.data_frame, df])
 
+def pivot_data_frame_for_s_param(
+        s_param: str, data_frame: pd.DataFrame, mag_or_phase: DataFrameCols
+) -> pd.DataFrame:
+    """
+    Takes in a data_frame in DataFrameFormats format and returns a dataframe which
+    has been pivoted to have the frequency as the column title with the other info
+    (ie the s param, id, label, time) in seperate columns
+    :param s_param: desired sparam for filtering
+    :param data_frame: dataframe to be pivoted
+    :param mag_or_phase: magnitude or phase selection for pivoting
+    :return: pivoted dataframe with the columns reordered
+    """
+    if (mag_or_phase is not DataFrameCols.MAGNITUDE) and (
+            mag_or_phase is not DataFrameCols.PHASE
+    ):
+        raise ValueError(
+            f"mag_or_phase must be one of those, currently is {mag_or_phase}"
+        )
+    sparam_df = data_frame[data_frame[DataFrameCols.S_PARAMETER.value] == s_param]
+    new_df = sparam_df.pivot(
+        index=DataFrameCols.TIME.value,
+        columns=DataFrameCols.FREQUENCY.value,
+        values=mag_or_phase.value,
+    )
+    new_df.reset_index(inplace=True)
+    new_df["mag_or_phase"] = mag_or_phase.value
+    new_df[DataFrameCols.S_PARAMETER.value] = s_param
+    new_df[DataFrameCols.ID.value] = data_frame[DataFrameCols.ID.value]
+    new_df[DataFrameCols.LABEL.value] = data_frame[DataFrameCols.LABEL.value]
+    reordered_columns = [
+                            DataFrameCols.ID.value,
+                            DataFrameCols.LABEL.value,
+                            "mag_or_phase",
+                            DataFrameCols.S_PARAMETER.value,
+                            DataFrameCols.TIME.value,
+                        ] + list(new_df.columns[1:-4])
+
+    new_df = new_df[reordered_columns]
+    return new_df
+
+
+def csv_dir_to_fq_df(directory: str) -> pd.DataFrame:
+    csvs = os.listdir(directory)
+    combined_data_frame = None
+    for csv_fname in csvs:
+        data = VnaData(os.path.join(get_data_path(), directory, csv_fname))
+        # loop over each sparam in the file and make a pivot table then append
+        combined_data_frame = pivot_csv_data_frame(combined_data_frame, data)
+
+    return combined_data_frame
+
+
+def pivot_csv_data_frame(data):
+    combined_data_frame = None
+    for sparam in data.data_frame[DataFrameCols.S_PARAMETER.value].unique():
+        pivoted_data_frame = pivot_data_frame_for_s_param(
+            sparam, data.data_frame, DataFrameCols.MAGNITUDE
+        )
+        combined_data_frame = pd.concat(
+            (combined_data_frame, pivoted_data_frame), ignore_index=True
+        )
+
+        pivoted_data_frame = pivot_data_frame_for_s_param(
+            sparam, data.data_frame, DataFrameCols.PHASE
+        )
+        combined_data_frame = pd.concat(
+            (combined_data_frame, pivoted_data_frame), ignore_index=True
+        )
+    return combined_data_frame
+
+
+def filter_and_find_min(df, id_val, label_val, mag_or_phase_val, s_param_val):
+    # Step 1: Filter the DataFrame based on the provided id, label, mag_or_phase, and s_param
+    filtered_df = df[(df['id'] == id_val) &
+                     (df['label'] == label_val) &
+                     (df['mag_or_phase'] == mag_or_phase_val) &
+                     (df['s_parameter'] == s_param_val)]
+
+    # Step 2: Group by the 'time' column
+    grouped = filtered_df.groupby('time')
+
+    # Step 3: Find the minimum value in each row for each unique time
+    min_values = grouped.apply(lambda x: x.iloc[:, 5:].min(axis=1), include_groups=False)
+
+    # Step 4: Find the corresponding frequency for each minimum value
+    min_frequencies = grouped.apply(lambda x: x.iloc[:, 5:].idxmin(axis=1), include_groups=False)
+
+    # Step 5: Combine the results into a single DataFrame or Series
+    result = pd.DataFrame({'min_value': min_values, 'frequency': min_frequencies})
+
+    result.set_index(result._get_label_or_level_values('time'), inplace=True)
+    result.index.name = 'time'
+
+    return result
+
 if __name__ == '__main__':
-    pass
+
     # targets = []
-    # data = VnaData(r'D:\James\documents\OneDrive - University of Glasgow\Glasgow\Year 2\Web App Dev 2\Workspace\picosdk-picovna-python-examples\results\data\wfa-140KHz-1001pts-10Mto4G_2\single_flex-antenna-watch-140KHz-1001pts-10Mto4G_2_2024_04_12_16_55_49_S11_S21_S12_S22_2_secs.csv')
-    # data.single_freq_plotter(ghz_to_hz(0.4), plot_s_param=SParam.S11, data_frame_column_to_plot=DataFrameCols.PHASE)
+    data = VnaData(r'C:\Users\James\OneDrive - University of Glasgow\Glasgow\Year 2\Web App Dev 2\Workspace\picosdk-picovna-python-examples\results\data\flex\wfa-140KHz-1001pts-10Mto4G_1\single_flex-antenna-watch-140KHz-1001pts-10Mto4G_1_2024_04_12_16_51_46_S11_S21_S12_S22_2_secs.csv')
+    data.data_frame = pivot_csv_data_frame(data)
+    min_data = filter_and_find_min(data.data_frame,
+                        '2024_04_12_16_51_48',
+                        'single_flex-antenna-watch-140KHz-1001pts-10Mto4G_1',
+                        'magnitude',
+                        'S11')
+    #data.single_freq_plotter(ghz_to_hz(0.4), plot_s_param=SParam.S11, data_frame_column_to_plot=DataFrameCols.PHASE)
     # combined_df = combine_data_frames_from_csv_folder(r'D:\James\documents\OneDrive - University of Glasgow\Glasgow\Year 2\Web App Dev 2\Workspace\picosdk-picovna-python-examples\results\data\flex')
     # combined_df['label'] = combined_df['label'].map(lambda x: x.split('_')[2])
 
