@@ -22,7 +22,7 @@ from VNA_utils import (
     get_data_path,
     get_root_folder_path,
     countdown_timer,
-    input_movement_label
+    input_movement_label, timer_func
 )
 
 
@@ -61,7 +61,7 @@ class VNA:
         print("Connecting VNA")
         search_vna = self.vna_object.FND()
         if search_vna == 0:
-            raise VNAError("Connection Failed, do you have Pico VNA Open?")
+            raise VNAError("Connection Failed, do you have Pico VNA Open? Or restart the device")
         print(f"VNA {str(search_vna)} Loaded,\n\rif you stop the program without closing the connection you will need to restart the VNA")
 
     def close_connection(self):
@@ -129,7 +129,7 @@ class VNA:
 
 
 
-    # add in timer logging
+    @timer_func
     def measure_wrapper(self, str):
         return self.vna_object.Measure(str)
 
@@ -153,10 +153,15 @@ class VNA:
         self.measure_wrapper(s_params_measure.value)
 
         for s_param in s_params_output:
-            self.get_data(s_param, MeasurementFormat.LOGMAG)
-            self.get_data(s_param, MeasurementFormat.PHASE)
+
+
             self.output_data.add_measurement_to_data_frame(
-                s_param, elapsed_time, label, id
+                s_param=s_param,
+                magnitude_data_string=self.get_data(s_param, MeasurementFormat.LOGMAG),
+                phase_data_string=self.get_data(s_param, MeasurementFormat.PHASE),
+                elapsed_time=elapsed_time,
+                label=label,
+                id=id
             )
 
 
@@ -173,7 +178,7 @@ class VNA:
             output_dir=get_data_path(),
             label=None,
             countdown_seconds=2,
-            save_interval = 10
+            save_interval = 100000
     ):
         """
         nb * means these are key word args only, this is for clarity
@@ -235,11 +240,17 @@ class VNA:
             finish_time = start_time + run_time
             current_time = datetime.now()
             measurement_number = 0
+            prev_time = current_time
+            sampling_fq = 0
             while current_time < finish_time:
                 current_time = datetime.now()
                 elapsed_time = current_time - start_time
+                dt = current_time - prev_time
+                if dt.total_seconds() > 0:
+                    sampling_fq = 1 / dt.total_seconds()
+                prev_time = current_time
                 if print_elapsed_time:
-                    print(f"Running for another {(run_time - elapsed_time)}")
+                    print(f"Running for another {(run_time - elapsed_time)} dt={dt} sfq={sampling_fq}")
                 # method to take measurements and add them to the data frame
                 self.take_measurement(
                     s_params_measure,
@@ -250,6 +261,7 @@ class VNA:
                 )
                 measurement_number += 1
                 if measurement_number % save_interval == 0:
+                    print(f"Saving at {elapsed_time}")
                     self.output_data.data_frame.to_csv(
                         self.output_data.csv_path, index=False
                     )

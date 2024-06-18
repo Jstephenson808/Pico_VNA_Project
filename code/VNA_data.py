@@ -443,8 +443,14 @@ class VnaData:
 
 
     def add_measurement_to_data_frame(
-            self, s_param: SParam,  magnitude_data_string: str,
-            phase_data_string: str, elapsed_time: timedelta, label: str, id
+            self,
+            *,
+            s_param: SParam,
+            magnitude_data_string: str,
+            phase_data_string: str,
+            elapsed_time: timedelta,
+            label: str,
+            id
     ):
         """
         Gets current measurement strings (logmag and phase) for the given S param from VNA and converts it
