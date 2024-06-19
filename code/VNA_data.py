@@ -173,6 +173,7 @@ class VnaData:
         self.data_frame: pd.DataFrame = data_frame
         self.date_time: datetime = date_time
         self.csv_path = path
+        self.dict_list = []
         if path is not None:
             self.init_df_date_time()
 
@@ -408,7 +409,7 @@ class VnaData:
         data = data_list[1::2]
         return frequencies, data
 
-    def vna_data_string_to_df(
+    def vna_data_string_to_dict(
             self,
             elapsed_time: timedelta,
             magnitude_data_string: str,
@@ -416,7 +417,7 @@ class VnaData:
             s_parameter: SParam,
             label: str,
             id,
-    ) -> pd.DataFrame:
+    ) -> dict:
         """
         Converts the strings returned by the VNA .get_data method into a data frame
         with the elapsed time, measured SParam, frequency, mag and phase
@@ -439,10 +440,10 @@ class VnaData:
             DataFrameCols.MAGNITUDE.value: [float(mag) for mag in magnitudes],
             DataFrameCols.PHASE.value: [float(phase) for phase in phases],
         }
-        return pd.DataFrame(data_dict)
+        return data_dict
 
 
-    def add_measurement_to_data_frame(
+    def add_measurement_to_dict_list(
             self,
             *,
             s_param: SParam,
@@ -459,7 +460,7 @@ class VnaData:
         :param elapsed_time: The elaspsed time of the current test (ie the time the data was captured, referenced to 0s)
         :return: the data frame concated on to the current output
         """
-        df = self.vna_data_string_to_df(
+        dict = self.vna_data_string_to_dict(
             elapsed_time,
             magnitude_data_string,
             phase_data_string,
@@ -467,7 +468,10 @@ class VnaData:
             label,
             id,
         )
-        self.data_frame = pd.concat([self.data_frame, df])
+        self.dict_list.append(dict)
+
+    def dict_list_to_df(self):
+        self.data_frame = pd.DataFrame.from_dict(self.dict_list)
 
 if __name__ == '__main__':
     pass

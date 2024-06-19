@@ -155,7 +155,7 @@ class VNA:
         for s_param in s_params_output:
 
 
-            self.output_data.add_measurement_to_data_frame(
+            self.output_data.add_measurement_to_dict_list(
                 s_param=s_param,
                 magnitude_data_string=self.get_data(s_param, MeasurementFormat.LOGMAG),
                 phase_data_string=self.get_data(s_param, MeasurementFormat.PHASE),
@@ -235,6 +235,7 @@ class VNA:
             # makes more sense for the whole thing to be a single df
             # each of them being a .csv
             self.output_data.data_frame = None
+            self.output_data.dict_list = []
             countdown_timer(countdown_seconds)
             start_time = datetime.now()
             finish_time = start_time + run_time
@@ -262,10 +263,12 @@ class VNA:
                 measurement_number += 1
                 if measurement_number % save_interval == 0:
                     print(f"Saving at {elapsed_time}")
+                    self.output_data.dict_list_to_df()
                     self.output_data.data_frame.to_csv(
                         self.output_data.csv_path, index=False
                     )
 
+        self.output_data.dict_list_to_df()
         self.output_data.data_frame.to_csv(self.output_data.csv_path, index=False)
 
         self.close_connection()
