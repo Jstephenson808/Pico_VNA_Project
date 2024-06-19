@@ -429,7 +429,7 @@ class VnaData:
 
         frequencies, magnitudes = self.split_data_string(magnitude_data_string)
         frequencies, phases = self.split_data_string(phase_data_string)
-        time_float = float(f"{elapsed_time.seconds}.{elapsed_time.microseconds}")
+        time_float = elapsed_time.total_seconds()
         data_dict = {
             DataFrameCols.ID.value: id,
             DataFrameCols.TIME.value: [time_float for _ in frequencies],
@@ -439,7 +439,7 @@ class VnaData:
             DataFrameCols.MAGNITUDE.value: [float(mag) for mag in magnitudes],
             DataFrameCols.PHASE.value: [float(phase) for phase in phases],
         }
-        return pd.DataFrame(data_dict)
+        return pd.DataFrame.from_dict(data_dict)
 
 
     def add_measurement_to_data_frame(
@@ -509,6 +509,17 @@ def pivot_data_frame_for_s_param(
     new_df = new_df[reordered_columns]
     return new_df
 
+def plot_min_freq_over_time(min_data):
+    plt.figure(figsize=(12, 6))
+    plt.plot(min_data['frequency'], label='Minimum Frequency')
+    plt.title('Minimum Frequency Over Time')
+    plt.xlabel('Time')
+    plt.ylabel('Frequency')
+    plt.legend()
+    plt.grid(True)
+    plt.show()
+
+    return
 
 def csv_dir_to_fq_df(directory: str) -> pd.DataFrame:
     csvs = os.listdir(directory)
@@ -541,22 +552,20 @@ def pivot_csv_data_frame(data):
 
 
 def filter_and_find_min(df, id_val, label_val, mag_or_phase_val, s_param_val):
-    # Step 1: Filter the DataFrame based on the provided id, label, mag_or_phase, and s_param
     filtered_df = df[(df['id'] == id_val) &
                      (df['label'] == label_val) &
                      (df['mag_or_phase'] == mag_or_phase_val) &
                      (df['s_parameter'] == s_param_val)]
 
-    # Step 2: Group by the 'time' column
     grouped = filtered_df.groupby('time')
 
-    # Step 3: Find the minimum value in each row for each unique time
+    # Find the minimum value in each row for each unique time
     min_values = grouped.apply(lambda x: x.iloc[:, 5:].min(axis=1), include_groups=False)
 
-    # Step 4: Find the corresponding frequency for each minimum value
+    # Find the corresponding frequency for each minimum value
     min_frequencies = grouped.apply(lambda x: x.iloc[:, 5:].idxmin(axis=1), include_groups=False)
 
-    # Step 5: Combine the results into a single DataFrame or Series
+    # Combine the results into a single DataFrame or Series
     result = pd.DataFrame({'min_value': min_values, 'frequency': min_frequencies})
 
     result.set_index(result._get_label_or_level_values('time'), inplace=True)
@@ -574,6 +583,7 @@ if __name__ == '__main__':
                         'single_flex-antenna-watch-140KHz-1001pts-10Mto4G_1',
                         'magnitude',
                         'S11')
+    plot_min_freq_over_time(min_data)
     #data.single_freq_plotter(ghz_to_hz(0.4), plot_s_param=SParam.S11, data_frame_column_to_plot=DataFrameCols.PHASE)
     # combined_df = combine_data_frames_from_csv_folder(r'D:\James\documents\OneDrive - University of Glasgow\Glasgow\Year 2\Web App Dev 2\Workspace\picosdk-picovna-python-examples\results\data\flex')
     # combined_df['label'] = combined_df['label'].map(lambda x: x.split('_')[2])
