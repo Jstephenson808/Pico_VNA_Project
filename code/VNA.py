@@ -178,7 +178,7 @@ class VNA:
             output_dir=get_data_path(),
             label=None,
             countdown_seconds=2,
-            save_interval = 100000
+            save_interval = 10000
     ):
         """
         nb * means these are key word args only, this is for clarity

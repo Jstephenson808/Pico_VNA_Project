@@ -432,7 +432,7 @@ class VnaData:
         frequencies, phases = self.split_data_string(phase_data_string)
         time_float = float(f"{elapsed_time.seconds}.{elapsed_time.microseconds}")
         data_dict = {
-            DataFrameCols.ID.value: id,
+            DataFrameCols.ID.value: [id for _ in frequencies],
             DataFrameCols.TIME.value: [time_float for _ in frequencies],
             DataFrameCols.LABEL.value: [label for _ in frequencies],
             DataFrameCols.S_PARAMETER.value: [s_parameter for _ in frequencies],
@@ -471,7 +471,8 @@ class VnaData:
         self.dict_list.append(dict)
 
     def dict_list_to_df(self):
-        self.data_frame = pd.DataFrame.from_dict(self.dict_list)
+
+        self.data_frame = pd.concat([pd.DataFrame.from_dict(dict_it) for dict_it in self.dict_list], ignore_index=True)
 
 if __name__ == '__main__':
     pass
