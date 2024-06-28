@@ -15,7 +15,7 @@ matplotlib.use("TkAgg")
 from matplotlib import pyplot as plt
 from VNA_enums import DataFrameCols, DateFormats, SParam, MeasurementFormat
 from VNA_exceptions import NotValidCSVException, NotValidSParamException
-from VNA_utils import get_root_folder_path, hz_to_ghz, ghz_to_hz
+from VNA_utils import get_root_folder_path, hz_to_ghz, ghz_to_hz, timer_func
 
 
 class VnaData:
@@ -470,6 +470,7 @@ class VnaData:
         )
         self.dict_list.append(dict)
 
+    @timer_func
     def dict_list_to_df(self):
 
         self.data_frame = pd.concat([pd.DataFrame.from_dict(dict_it) for dict_it in self.dict_list], ignore_index=True)

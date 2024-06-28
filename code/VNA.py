@@ -129,7 +129,7 @@ class VNA:
 
 
 
-    @timer_func
+    #@timer_func
     def measure_wrapper(self, str):
         return self.vna_object.Measure(str)
 
