@@ -14,7 +14,8 @@ from VNA_utils import (
 
 
 def extract_report_dictionary_from_test_results(result_dict):
-    # need to just get the results
+    # need to just get the results, just want the dict keys which contain
+    # "report"
     columns = [x for x in result_dict.keys() if "report" in x]
     return extract_gesture_metric_values(result_dict, columns)
 
@@ -22,14 +23,21 @@ def extract_report_dictionary_from_test_results(result_dict):
 def test_data_frame_classifier_frequency_window_with_report(
     data_frame: pd.DataFrame, label: str, frequency_hop: int = mhz_to_hz(100)
 ) -> pd.DataFrame:
+    #
     movement_vector = create_movement_vector_for_single_data_frame(data_frame)
+    # as df format is | labels | fq1 | fq2 ......
+    # need to get just the fqs which are listed
     freq_list = get_frequency_column_headings_list(data_frame)
+
     min_frequency, max_frequency = min(freq_list), max(freq_list)
     low_frequency, high_frequency = min_frequency, min_frequency + frequency_hop
-    f1_scores = {}
-    while high_frequency <= max_frequency:
-        print(f"{label}\n\r{hz_to_ghz(low_frequency)}GHz->{hz_to_ghz(high_frequency)}GHz")
 
+    f1_scores = {}
+
+    while high_frequency <= max_frequency:
+        print_fq_hop(high_frequency, label, low_frequency)
+
+        #
         data_frame_magnitude_filtered = filter_cols_between_fq_range(
             data_frame, low_frequency, high_frequency
         )
@@ -43,6 +51,10 @@ def test_data_frame_classifier_frequency_window_with_report(
     return pd.DataFrame.from_dict(
         f1_scores, orient="index", columns=[x for x in result.keys() if "report" in x]
     )
+
+
+def print_fq_hop(high_frequency, label, low_frequency):
+    print(f"{label}\n\r{hz_to_ghz(low_frequency)}GHz->{hz_to_ghz(high_frequency)}GHz")
 
 
 def test_classifier_from_df_dict(df_dict: {}) -> pd.DataFrame:

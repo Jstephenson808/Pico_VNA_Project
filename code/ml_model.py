@@ -425,15 +425,42 @@ def make_columns_have_s_param_mag_phase_titles(
 
 
 def filter_cols_between_fq_range(df: pd.DataFrame, lower_bound, upper_bound):
+    """
+    Filter the data frame so only the fq window of interest is selected and all teh
+    :param df:
+    :param lower_bound:
+    :param upper_bound:
+    :return:
+    """
+    freq_cols = get_list_of_in_bounds_fq(df, lower_bound, upper_bound)
+    return filter_columns(df, freq_cols)
+
+
+def get_list_of_in_bounds_fq(df, lower_bound_fq_hz, upper_bound_fq_hz):
+    """
+    Df has columns which correspond to fq, mixed in with labels for those measurements, need to remove non int
+    columm labels and then return a list of fq points which are within bounds of the fq range in Hz
+    :param df: data frame which contains
+    :param lower_bound_fq_hz:
+    :param upper_bound_fq_hz:
+    :return: list of columns which are in fq range
+    """
     cols = df.columns.values
     # Filter out non-integer values
     filtered_list = [x for x in cols if isinstance(x, int)]
     # Filter the list based on the provided bounds
-    freq_cols = [x for x in filtered_list if lower_bound <= x <= upper_bound]
-    return filter_columns(df, freq_cols)
+    freq_cols = [x for x in filtered_list if lower_bound_fq_hz <= x <= upper_bound_fq_hz]
+    return freq_cols
 
 
 def filter_columns(df, frequencies):
+    """
+    filtering of the data frame is done via regex, the filter function filters
+    by keeping labels from axis (columns) for which re.search(regex, label) == True.
+    :param df:
+    :param frequencies:
+    :return:
+    """
     pattern = rf"^id$|^label$|^mag_or_phase$|^s_parameter$|^time$"
     if frequencies:
         pattern += "|" + "|".join(f"^{num}$" for num in frequencies)
