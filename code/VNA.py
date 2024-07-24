@@ -267,8 +267,9 @@ class VNA:
                     self.output_data.data_frame.to_csv(
                         self.output_data.csv_path, index=False
                     )
+            print(f"Saving at end of run")
+            self.output_data.dict_list_to_df()
+            self.output_data.data_frame.to_csv(self.output_data.csv_path, index=False)
 
-        self.output_data.dict_list_to_df()
-        self.output_data.data_frame.to_csv(self.output_data.csv_path, index=False)
 
         self.close_connection()
