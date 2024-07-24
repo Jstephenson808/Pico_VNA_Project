@@ -11,6 +11,9 @@ from user_parameters import *
 calibration_path = os.path.join(get_calibration_path(),
                                               CALIBRATION_FNAME)
 
+calibration_folder = os.path.join(get_calibration_path(),
+                                              'test')
+
 if __name__ == "__main__":
     calibration = VnaCalibration(calibration_path=calibration_path)
 
@@ -20,6 +23,7 @@ if __name__ == "__main__":
         n = NUMBER_OF_TESTS
         label = f"single_{antenna}_{gesture}"
         print(f"Label is {label}")
+        print(os.path.basename(calibration_path))
         input(f"Gesture: {gesture} \nPress Enter To Start")
 
 
@@ -27,5 +31,10 @@ if __name__ == "__main__":
 
         vna = VNA(calibration, data)
 
-        vna.measure_n_times(run_time=timedelta(minutes=5), s_params_output=[param for param in SParam], label=label, print_elapsed_time=False, n_measures=n, save_interval=1000)
+        vna.measure_n_times(run_time=timedelta(seconds=3),
+                            s_params_output=[param for param in SParam],
+                            label=label,
+                            print_elapsed_time=False,
+                            n_measures=n,
+                            save_interval=1000)
 
