@@ -1,10 +1,12 @@
 # GESTURE CAPTURE
 from datetime import timedelta
 
-ANTENNA_LABEL = "Test_dipole1"
-TEST_GESTURES = ["xx"]
-NUMBER_OF_TESTS = 1
-TEST_TIME = timedelta(seconds=20)
+ANTENNA_LABEL = "Test_dipole2"
+#multiple test gestures; list all labels
+TEST_GESTURES = ["A", "B", "C"]
+#number of tests to be applied for each label in TEST_GESTURES
+NUMBER_OF_TESTS = 10
+TEST_TIME = timedelta(seconds=2)
 
 # CALIBRATION
 # This file is assumed to be in the "calibration" folder

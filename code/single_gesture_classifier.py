@@ -35,7 +35,12 @@ def test_data_frame_classifier_frequency_window_with_report(
     # need to get just the fqs which are listed
     freq_list = get_frequency_column_headings_list(data_frame)
 
+
     min_frequency, max_frequency = min(freq_list), max(freq_list)
+
+    min_frequency= mhz_to_hz(1000)
+    max_frequency= mhz_to_hz(1200)
+
     low_frequency, high_frequency = min_frequency, min_frequency + frequency_hop
 
     f1_scores = {}
@@ -216,29 +221,5 @@ def get_closest_freq_column(data_frame, target_frequency):
 
 
 if __name__ == "__main__":
-
-    s_parameter = "S11"
-    mag_or_phase = "magnitude"
-    label = "single_LIQUID_DIPOLE_SD1_B"
-    full_results_df_fname = "sd1_401_75KHz_full_combined_df_2024_07_24.pkl"
-
-    full_df = open_pickled_object(os.path.join(get_combined_df_path(), full_results_df_fname))
-
-
-    #todo need to add svm or dtree label to output dict
-
-    # combine dfs
-    # full_df_fname = os.listdir(os.path.join(get_pickle_path(), "full_dfs"))[0]
-    # experiment = "watch_small_antenna_1001_140KHz"
-    # full_results_df = combine_results_and_test(os.path.join(get_data_path(), experiment))
-    #
-    # pickle_object(
-    #     full_results_df, path=os.path.join(get_pickle_path(), "classifier_results"), file_name=f"full_results_{experiment}"
-    # )
-    # experiment = "watch_small_antenna_2001_140KHz"
-    # full_results_df = combine_results_and_test(os.path.join(get_data_path(), experiment))
-    #
-    # pickle_object(
-    #     full_results_df, path=os.path.join(get_pickle_path(), "classifier_results"),
-    #     file_name=f"full_results_{experiment}"
-    # )
+    experiment = "single_Test_dipole2"
+    full_results_df = combine_results_and_test(os.path.join(get_data_path(), experiment))

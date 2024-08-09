@@ -4,12 +4,13 @@ from itertools import product
 import numpy as np
 import pandas as pd
 import matplotlib
+from sklearn.metrics import ConfusionMatrixDisplay
 
 matplotlib.use("TkAgg")
 from VNA_utils import (
     get_full_results_df_path,
     reorder_data_frame_columns,
-    get_touchstones_path,
+    get_touchstones_path, get_classifier_path,
 )
 from ml_model import open_pickled_object, pickle_object
 import os
@@ -398,39 +399,36 @@ def gen_sweep_time_df(
 
 if __name__ == "__main__":
     sns.set(rc={"xtick.bottom": True, "ytick.left": True}, font_scale=2)
-    results_df = pd.concat(
-        (
-            open_pickled_object(
-                os.path.join(get_full_results_df_path(), "watch_small_ant.pkl")
-            ),
-            open_pickled_object(
-                os.path.join(get_full_results_df_path(), "wfa_full_ex_2.pkl")
-            ),
-        ),
-        ignore_index=True,
-    )
+    #results_df = open_pickled_object(os.path.join(get_full_results_df_path(), "watch_small_ant.pkl"))
+
+    results_df = open_pickled_object(os.path.join(get_classifier_path(), "all_Sparams_magnitude_1.0_1.1_2024_08_09.pkl"))
+
+    print(results_df['full_dt_confusion_matrix'])
+    disp = ConfusionMatrixDisplay(confusion_matrix=results_df['full_dt_confusion_matrix'])
+    disp.plot()
+
     #
     #
     # #
     # # # replace experiment names for graphing
-    replace_dict = {
-        "single_watchSmallAntennaL-140KHz-1001pts-10Mto4G": "Experiment 1",
-        "single_flex-antenna-watch-140KHz-1001pts-10Mto4G": "Experiment 2",
-        "filtered": "Filtered Features",
-        "full": "Full Feature Set",
-        "svm": "SVM",
-        "dt": "Decision Tree"
-    }
-    results_df = results_df.replace(replace_dict)
-    results_df = results_df[(results_df['high_frequency'].astype(float) < 3.92)]
-    # accuracy_df = results_df[(results_df["gesture"] == "accuracy") & (results_df['high_frequency'].astype(float) < 3.92)]
-
-    # sampling_freq_results = gen_sweep_time_df()
-    # plot_sampling_freq(sampling_freq_results)
-
-    #Show plot
-    # top_classifier_for_each_band(results_df, include_ALL_sparams=False)
-    max_accuracy_for_mag_sparam_categories(results_df)
+    # replace_dict = {
+    #     "single_watchSmallAntennaL-140KHz-1001pts-10Mto4G": "Experiment 1",
+    #     "single_flex-antenna-watch-140KHz-1001pts-10Mto4G": "Experiment 2",
+    #     "filtered": "Filtered Features",
+    #     "full": "Full Feature Set",
+    #     "svm": "SVM",
+    #     "dt": "Decision Tree"
+    # }
+    # results_df = results_df.replace(replace_dict)
+    # results_df = results_df[(results_df['high_frequency'].astype(float) < 3.92)]
+    # # accuracy_df = results_df[(results_df["gesture"] == "accuracy") & (results_df['high_frequency'].astype(float) < 3.92)]
+    #
+    # # sampling_freq_results = gen_sweep_time_df()
+    # # plot_sampling_freq(sampling_freq_results)
+    #
+    # #Show plot
+    # # top_classifier_for_each_band(results_df, include_ALL_sparams=False)
+    #max_accuracy_for_mag_sparam_categories(results_df)
     # freq_band_line_plot(results_df)
     # svm_vs_dt_strip_plot(results_df)
     # svm_vs_dtree_violin_plot(results_df)
