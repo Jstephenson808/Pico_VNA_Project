@@ -66,7 +66,8 @@ def test_data_frame_classifier_frequency_window_with_report(
 
 def print_fq_hop(high_frequency, label, low_frequency):
     print(f"{label}\n\r{hz_to_ghz(low_frequency)}GHz->{hz_to_ghz(high_frequency)}GHz")
-
+    with open('results.txt', 'a') as f:
+        f.write(f"\n --------------------------------- \n Testing s-parameter ph/mag: {label}, \n")
 
 def test_classifier_from_df_dict(df_dict: {}) -> pd.DataFrame:
     """

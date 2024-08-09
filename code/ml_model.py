@@ -319,11 +319,13 @@ def extract_features_and_test(
     # Evaluating the SVM classifier
 
     with open('results.txt', 'a') as f:
-        f.write(f'{datetime.now().strftime("%Y_%m_%d_%H_%M_%S")} \n')
+        f.write(f'Classification date/time: {datetime.now().strftime("%Y_%m_%d_%H_%M_%S")} \n')
         f.write(f"{classification_report(y_test, full_svm_y_pred)}\n")
         f.write(f'{classification_report(y_test, classifier_full_y_pred)}\n')
         f.write(f"dt confusion matrix: \n {decision_tree_full_confusion_matrix} \n")
         f.write(f"svm confusion matrix \n {full_svm_confusion_matrix} \n")
+      #  f.write(f"{label}\n")
+
 
     return {
 
