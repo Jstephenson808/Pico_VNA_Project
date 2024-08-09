@@ -27,7 +27,7 @@ def extract_report_dictionary_from_test_results(result_dict):
 
 
 def test_data_frame_classifier_frequency_window_with_report(
-    data_frame: pd.DataFrame, label: str, frequency_hop: int = mhz_to_hz(100)
+    data_frame: pd.DataFrame, label: str, frequency_hop: int = mhz_to_hz(200)
 ) -> pd.DataFrame:
     #
     movement_vector = create_movement_vector_for_single_data_frame(data_frame)
@@ -76,7 +76,7 @@ def test_classifier_from_df_dict(df_dict: {}) -> pd.DataFrame:
     for label, data_frame in df_dict.items():
         print(f"testing {label}")
         result_df = test_data_frame_classifier_frequency_window_with_report(
-            data_frame, label, frequency_hop=mhz_to_hz(100)
+            data_frame, label, frequency_hop=mhz_to_hz(200)
         )
         full_results_df = pd.concat((full_results_df, result_df))
     return full_results_df
