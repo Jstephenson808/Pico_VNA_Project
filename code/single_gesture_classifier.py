@@ -84,6 +84,12 @@ def filter_sparam_combinations(data: pd.DataFrame, *, mag_or_phase) -> {}:
     return s_param_dict
 
 def create_test_dict(combined_df: pd.DataFrame, *, test_permuations='ALL')->{}:
+    """
+    this function creates the test dict for the classifier
+    :param combined_df:
+    :param test_permuations:
+    :return:
+    """
     all_Sparams_magnitude = combined_df[(combined_df["mag_or_phase"] == "magnitude")]
     all_Sparams_phase = combined_df[(combined_df["mag_or_phase"] == "phase")]
     filtered_df_dict = {
@@ -211,16 +217,12 @@ def get_closest_freq_column(data_frame, target_frequency):
 
 if __name__ == "__main__":
 
-    #results = get_full_results_df_from_classifier_pkls(r"H:\James\Classifiers", extract='features')
-    # pickle_object(results, path=get_full_results_df_path(), file_name="watch_small_ant")
-    #results = pd.concat((open_pickled_object(os.path.join(get_full_results_df_path(), "watch_small_ant.pkl")), open_pickled_object(os.path.join(get_full_results_df_path(), "wfa_full_ex_2.pkl"))), ignore_index=True)
-    # pickle_object(
-    #     results, path=os.path.join(get_pickle_path(), "classifier_results"), file_name="full_results_single-watch-large-ant.pkl"
-    # )
     s_parameter = "S11"
     mag_or_phase = "magnitude"
     label = "single_LIQUID_DIPOLE_SD1_B"
-    full_df = open_pickled_object(os.path.join(get_pickle_path(), 'full_dfs', "sd1_401_75KHz_full_combined_df_2024_07_24.pkl"))
+    full_results_df_fname = "sd1_401_75KHz_full_combined_df_2024_07_24.pkl"
+
+    full_df = open_pickled_object(os.path.join(get_combined_df_path(), full_results_df_fname))
 
 
     #todo need to add svm or dtree label to output dict

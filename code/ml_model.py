@@ -4,7 +4,7 @@ os.environ["MKL_NUM_THREADS"] = "1"
 os.environ["OPENBLAS_NUM_THREADS"] = "1"
 
 from VNA_enums import DataFrameCols, SParam, DateFormats
-from VNA_utils import get_data_path, get_pickle_path, get_classifiers_path, reorder_data_frame_columns
+from VNA_utils import get_data_path, get_pickle_path, get_classifiers_path, reorder_data_frame_columns, get_combined_df_path
 from VNA_data import VnaData
 
 import pickle
@@ -64,6 +64,11 @@ def pivot_data_frame_for_s_param(
 
 
 def make_fq_df(directory: str) -> pd.DataFrame:
+    """
+
+    :param directory:
+    :return:
+    """
     csvs = os.listdir(directory)
     combined_data_frame = None
     for csv_fname in csvs:
@@ -481,6 +486,18 @@ def open_pickled_object(path):
         unpickled = pickle.load(f)
     return unpickled
 
+def open_full_results_df(file_name, folder=None)->pd.DataFrame:
+    """
+    Opens a .pkl data frame within the folder provided, if folder arg is none
+    then the default folder is used
+    :param file_name: the file name of the target data frame
+    :param folder: the folder of the data frame
+    :return: data frame
+    """
+    if folder is None:
+        folder = get_combined_df_path()
+
+    return open_pickled_object(os.path.join(folder, file_name))
 
 def feature_extract_test_filtered_data_frame(
         filtered_data_frame, movement_vector, save=True, fname=None, n_jobs=defaults.N_PROCESSES
@@ -661,8 +678,8 @@ def get_full_results_df_from_classifier_pkls(folder_path, extract='report'):
 if __name__ == "__main__":
     pass
 
-    # combined_df = open_pickled_object(
-    #     os.path.join(get_pickle_path(), "full_dfs", os.listdir(os.path.join(get_pickle_path(), "full_dfs"))[0]))
+    # will open the first file in the combined df folder for testing
+    # combined_df = open_full_results_df(os.listdir(get_combined_df_path())[0])
 
     # classifier_pickles = os.listdir(os.path.join(get_pickle_path(), "classifiers"))
     # classifiers = {fname.split('.')[0]:open_pickled_object(fname) for fname in classifier_pickles}

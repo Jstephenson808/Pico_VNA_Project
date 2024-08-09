@@ -31,10 +31,10 @@ if __name__ == "__main__":
 
         vna = VNA(calibration, data)
 
-        vna.measure_n_times(run_time=timedelta(seconds=3),
+        vna.measure_n_times(run_time=timedelta(seconds=15),
                             s_params_output=[param for param in SParam],
                             label=label,
-                            print_elapsed_time=False,
+                            print_elapsed_time=True,
                             n_measures=n,
                             save_interval=1000)
 
