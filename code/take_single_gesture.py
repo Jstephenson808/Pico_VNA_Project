@@ -31,7 +31,7 @@ if __name__ == "__main__":
 
         vna = VNA(calibration, data)
 
-        vna.measure_n_times(run_time=timedelta(seconds=15),
+        vna.measure_n_times(run_time=TEST_TIME,
                             s_params_output=[param for param in SParam],
                             label=label,
                             print_elapsed_time=True,

@@ -2,6 +2,7 @@
 ANTENNA_LABEL = "Stretch"
 TEST_GESTURES = ["Test"]
 NUMBER_OF_TESTS = 1
+TEST_TIME = timedelta(seconds=15)
 
 # CALIBRATION
 # This file is assumed to be in the "calibration" folder
