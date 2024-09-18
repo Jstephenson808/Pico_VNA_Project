@@ -67,7 +67,7 @@ def make_fq_df(directory: str) -> pd.DataFrame:
     csvs = os.listdir(directory)
     combined_data_frame = None
     for csv_fname in csvs:
-        data = VnaData(os.path.join(get_data_path(), directory, csv_fname))
+        data = VnaData(os.path.join(directory, csv_fname))
         # loop over each sparam in the file and make a pivot table then append
         for sparam in data.data_frame[DataFrameCols.S_PARAMETER.value].unique():
             pivoted_data_frame = pivot_data_frame_for_s_param(

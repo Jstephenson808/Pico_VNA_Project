@@ -1,7 +1,9 @@
+import os.path
 from itertools import permutations, combinations
 
 import pandas as pd
 
+from VNA_utils import get_full_dfs_path
 from ml_model import *
 from VNA_utils import (
     get_data_path,
@@ -118,8 +120,8 @@ def combine_results_and_test(full_df_path, csv_label=""):
 # function to run tests on a series of folders which contain results .csvs
 
 if __name__ == "__main__":
-
-    results = get_full_results_df_from_classifier_pkls(r"H:\James\Classifiers", extract='features')
+    results = open_pickled_object(os.path.join(get_full_dfs_path(), 'full_combined_df_2024_04_07.pkl'))
+    # results = get_full_results_df_from_classifier_pkls(r"H:\James\Classifiers", extract='features')
     # pickle_object(results, path=get_full_results_df_path(), file_name="watch_small_ant")
     #results = pd.concat((open_pickled_object(os.path.join(get_full_results_df_path(), "watch_small_ant.pkl")), open_pickled_object(os.path.join(get_full_results_df_path(), "wfa_full_ex_2.pkl"))), ignore_index=True)
     # pickle_object(
