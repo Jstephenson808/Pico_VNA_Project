@@ -15,7 +15,7 @@ matplotlib.use("TkAgg")
 from matplotlib import pyplot as plt
 from VNA_enums import DataFrameCols, DateFormats, SParam, MeasurementFormat
 from VNA_exceptions import NotValidCSVException, NotValidSParamException
-from VNA_utils import get_root_folder_path, hz_to_ghz, ghz_to_hz
+from VNA_utils import get_root_folder_path, hz_to_ghz, ghz_to_hz, timer_func
 
 
 class VnaData:
@@ -173,6 +173,7 @@ class VnaData:
         self.data_frame: pd.DataFrame = data_frame
         self.date_time: datetime = date_time
         self.csv_path = path
+        self.dict_list = []
         if path is not None:
             self.init_df_date_time()
 
@@ -408,7 +409,7 @@ class VnaData:
         data = data_list[1::2]
         return frequencies, data
 
-    def vna_data_string_to_df(
+    def vna_data_string_to_dict(
             self,
             elapsed_time: timedelta,
             magnitude_data_string: str,
@@ -416,7 +417,7 @@ class VnaData:
             s_parameter: SParam,
             label: str,
             id,
-    ) -> pd.DataFrame:
+    ) -> dict:
         """
         Converts the strings returned by the VNA .get_data method into a data frame
         with the elapsed time, measured SParam, frequency, mag and phase
@@ -431,7 +432,7 @@ class VnaData:
         frequencies, phases = self.split_data_string(phase_data_string)
         time_float = float(f"{elapsed_time.seconds}.{elapsed_time.microseconds}")
         data_dict = {
-            DataFrameCols.ID.value: id,
+            DataFrameCols.ID.value: [id for _ in frequencies],
             DataFrameCols.TIME.value: [time_float for _ in frequencies],
             DataFrameCols.LABEL.value: [label for _ in frequencies],
             DataFrameCols.S_PARAMETER.value: [s_parameter for _ in frequencies],
@@ -439,10 +440,10 @@ class VnaData:
             DataFrameCols.MAGNITUDE.value: [float(mag) for mag in magnitudes],
             DataFrameCols.PHASE.value: [float(phase) for phase in phases],
         }
-        return pd.DataFrame(data_dict)
+        return data_dict
 
 
-    def add_measurement_to_data_frame(
+    def add_measurement_to_dict_list(
             self,
             *,
             s_param: SParam,
@@ -459,7 +460,7 @@ class VnaData:
         :param elapsed_time: The elaspsed time of the current test (ie the time the data was captured, referenced to 0s)
         :return: the data frame concated on to the current output
         """
-        df = self.vna_data_string_to_df(
+        dict = self.vna_data_string_to_dict(
             elapsed_time,
             magnitude_data_string,
             phase_data_string,
@@ -467,15 +468,18 @@ class VnaData:
             label,
             id,
         )
-        self.data_frame = pd.concat([self.data_frame, df])
+        self.dict_list.append(dict)
+
+    @timer_func
+    def dict_list_to_df(self):
+
+        self.data_frame = pd.concat([pd.DataFrame.from_dict(dict_it) for dict_it in self.dict_list], ignore_index=True)
 
 if __name__ == '__main__':
-    pass
-    # targets = []
-    # data = VnaData(r'D:\James\documents\OneDrive - University of Glasgow\Glasgow\Year 2\Web App Dev 2\Workspace\picosdk-picovna-python-examples\results\data\wfa-140KHz-1001pts-10Mto4G_2\single_flex-antenna-watch-140KHz-1001pts-10Mto4G_2_2024_04_12_16_55_49_S11_S21_S12_S22_2_secs.csv')
-    # data.single_freq_plotter(ghz_to_hz(0.4), plot_s_param=SParam.S11, data_frame_column_to_plot=DataFrameCols.PHASE)
-    # combined_df = combine_data_frames_from_csv_folder(r'D:\James\documents\OneDrive - University of Glasgow\Glasgow\Year 2\Web App Dev 2\Workspace\picosdk-picovna-python-examples\results\data\flex')
-    # combined_df['label'] = combined_df['label'].map(lambda x: x.split('_')[2])
+    #targets = []
+    data = VnaData(r"C:\Users\mww19a\PycharmProjects\Pico_VNA_Project\results\data\single_Test_dipole1_xx\single_Test_dipole1_xx_2024_08_09_14_20_34_S11_S21_S12_S22_10_secs.csv")
+    data.single_freq_plotter(ghz_to_hz(0.4), plot_s_param=SParam.S11, data_frame_column_to_plot=DataFrameCols.MAGNITUDE)
+
 
 
 

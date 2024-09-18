@@ -14,7 +14,8 @@ def countdown_timer(seconds):
         seconds -= 1
     print("Start")
 
-#todo return execution time
+
+# todo return execution time
 def timer_func(func):
     # This function shows the execution time of
     # the function object passed
@@ -22,7 +23,7 @@ def timer_func(func):
         t1 = time()
         result = func(*args, **kwargs)
         t2 = time()
-        execution_time = t2-t1
+        execution_time = t2 - t1
         print(f"Function {func.__name__!r} executed in {execution_time:.4f}s")
         return result
 
@@ -80,6 +81,7 @@ def get_root_folder_path():
         )
     return path
 
+
 def get_results_path():
     path = os.path.join(get_root_folder_path(), VNA_defaults.RESULTS_FOLDER)
     os.makedirs(path, exist_ok=True)
@@ -97,15 +99,24 @@ def get_pickle_path():
     os.makedirs(path, exist_ok=True)
     return path
 
+
+def get_combined_df_path():
+    path = os.path.join(get_pickle_path(), VNA_defaults.COMBINED_DF_FOLDER)
+    os.makedirs(path, exist_ok=True)
+    return path
+
+
 def get_classifier_path():
     path = os.path.join(get_pickle_path(), VNA_defaults.CLASSIFIER_FOLDER)
     os.makedirs(path, exist_ok=True)
     return path
 
+
 def get_calibration_path():
     path = os.path.join(get_root_folder_path(), VNA_defaults.CALIBRATION_FOLDER)
     os.makedirs(path, exist_ok=True)
     return path
+
 
 def get_classifiers_path():
     return os.path.join(get_pickle_path(), "classifiers")
@@ -114,21 +125,29 @@ def get_classifiers_path():
 def get_full_dfs_path():
     return os.path.join(get_pickle_path(), "full_dfs")
 
-def get_frequency_column_headings_list(df: pd.DataFrame)->[int]:
+
+def get_frequency_column_headings_list(df: pd.DataFrame) -> [int]:
     return [x for x in df.columns if isinstance(x, int)]
+
 
 def get_full_results_df_path():
     return os.path.join(get_pickle_path(), "full_results_dfs")
 
+
 def get_touchstones_path():
     return os.path.join(get_results_path(), VNA_defaults.TOUCHSTONES_FOLDER)
 
-def reorder_data_frame_columns(df:pd.DataFrame, new_order_indexes:[int])->pd.DataFrame:
+
+def reorder_data_frame_columns(
+    df: pd.DataFrame, new_order_indexes: [int]
+) -> pd.DataFrame:
     columns = list(df.columns)
-    new_columns = sorted(columns, key=lambda x: new_order_indexes.index(columns.index(x)))
+    new_columns = sorted(
+        columns, key=lambda x: new_order_indexes.index(columns.index(x))
+    )
     return df[new_columns]
+
 
 def input_movement_label() -> str:
     label = input("Provide gesture label or leave blank for none:")
     return label
-
