@@ -272,7 +272,7 @@ def extract_features_and_test(
             )
             for df in split_dfs
         ]
-        extracted = pd.concat(features_list, ignore_index=True)
+        extracted = pd.concat(features_list)
     else:
         extracted = extract_features(
             data_frame_without_label,
@@ -280,7 +280,9 @@ def extract_features_and_test(
             column_id=DataFrameCols.ID.value,
             n_jobs=n_jobs,
         )
-    impute(extracted)
+    extracted = impute(extracted)
+    # print(extracted.head())
+    # print(feature_vector.head())
     features_filtered = select_features(extracted, feature_vector)
 
     X_full_train, X_full_test, y_train, y_test = train_test_split(
@@ -532,7 +534,7 @@ def feature_extract_test_filtered_data_frame(
     n_jobs=defaults.N_PROCESSES,
 ):
     df_fixed = make_columns_have_s_param_mag_phase_titles(filtered_data_frame)
-    classifiers = extract_features_and_test(df_fixed, movement_vector, n_jobs=n_jobs, ids_per_split=3)
+    classifiers = extract_features_and_test(df_fixed, movement_vector, n_jobs=n_jobs, ids_per_split=100)
     if save:
         if fname is None:
             fname = f"classifier_{datetime.now().date().strftime(DateFormats.DATE_FOLDER.value)}"
