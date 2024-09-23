@@ -1,10 +1,13 @@
 import os
+
+from VNA_utils import pickle_object, open_pickled_object, get_label_from_pkl_path
+
 os.environ["OMP_NUM_THREADS"] = "1"
 os.environ["MKL_NUM_THREADS"] = "1"
 os.environ["OPENBLAS_NUM_THREADS"] = "1"
 
 from VNA_enums import DataFrameCols, SParam, DateFormats
-from VNA_utils import get_data_path, get_pickle_path, get_classifiers_path, reorder_data_frame_columns, get_combined_df_path
+from VNA_utils import get_pickle_path, get_classifiers_path, reorder_data_frame_columns
 from VNA_data import VnaData
 
 import pickle
@@ -213,6 +216,27 @@ def combine_windowed_df(
     else:
         new_df = pd.concat((new_df, windowed_df), ignore_index=True)
     return new_df, movement_dict
+
+def split_data_frame_into_id_chunks(df: pd.DataFrame, ids_per_split: int)->[pd.DataFrame]:
+
+    # Get the unique IDs
+    unique_ids = df['ID'].unique()
+
+    # Initialize a list to store the smaller DataFrames
+    split_dfs_by_id = []
+
+    # Split into chunks of 3 IDs each
+    for i in range(0, len(unique_ids), ids_per_split):
+        # Get the current chunk of 3 IDs
+        chunk_ids = unique_ids[i:i + ids_per_split]
+
+        # Filter the original DataFrame for those IDs
+        smaller_df = df[df['ID'].isin(chunk_ids)]
+
+        # Append the resulting DataFrame to the list
+        split_dfs_by_id.append(smaller_df)
+
+    return split_dfs_by_id
 
 
 def extract_features_and_test(
@@ -472,33 +496,6 @@ def filter_columns(df, frequencies):
     return df.filter(regex=pattern, axis=1)
 
 
-def pickle_object(object_to_pickle,*, path:str, file_name:str):
-    os.makedirs(path, exist_ok=True)
-    if ".pkl" not in file_name[-4:]:
-        file_name = f"{file_name}.pkl"
-    path = os.path.join(path, file_name)
-    with open(path, "wb") as f:
-        pickle.dump(object_to_pickle, f)
-
-
-def open_pickled_object(path):
-    with open(path, "rb") as f:
-        unpickled = pickle.load(f)
-    return unpickled
-
-def open_full_results_df(file_name, folder=None)->pd.DataFrame:
-    """
-    Opens a .pkl data frame within the folder provided, if folder arg is none
-    then the default folder is used
-    :param file_name: the file name of the target data frame
-    :param folder: the folder of the data frame
-    :return: data frame
-    """
-    if folder is None:
-        folder = get_combined_df_path()
-
-    return open_pickled_object(os.path.join(folder, file_name))
-
 def feature_extract_test_filtered_data_frame(
         filtered_data_frame, movement_vector, save=True, fname=None, n_jobs=defaults.N_PROCESSES
 ):
@@ -543,14 +540,6 @@ def combine_data_frames_from_csv_folder(csv_folder_path, *, save=True, label="")
             pickle.dump(combined_df, f)
 
     return combined_df
-
-
-def get_label_from_pkl_path(path):
-    """
-    removes .pkl and then date from fname format
-    "all_Sparams_magnitude_0.01_0.11_2024_04_02.pkl"
-    """
-    return os.path.basename(path)[::-1].split("_", maxsplit=3)[-1][::-1]
 
 
 def extract_gesture_metric_values(

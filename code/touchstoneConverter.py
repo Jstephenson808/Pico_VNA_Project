@@ -7,7 +7,7 @@ from natsort import natsorted
 from skrf import Frequency, Network
 from datetime import datetime, timedelta
 from VNA_enums import DateFormats
-from ml_model import open_full_results_df
+from code.VNA_utils import open_full_results_df
 
 
 def get_time_recorded_from_touchstone(path):
@@ -70,13 +70,18 @@ def space_out_duplicates(datetimes):
 
     return spaced_out
 
-# inside function
+def zero_ref_time_column(df):
+    df['time'] = pd.to_datetime(df['time'], format="%Y_%m_%d_%H_%M_%S.%f")
+    df['time'] = df.groupby('id')['time'].transform(lambda x: x - x.min())
+    df['time'] = df['time'].transform(lambda x: x.total_seconds())
+    return df
+
+
 def extract_data_from_touchstone_folder(folder_path, label)->pd.DataFrame:
     df = None
     touchstone_files = natsorted(os.listdir(folder_path))
     times = [get_time_recorded_from_touchstone(os.path.join(folder_path,path)) for path in touchstone_files]
     times = space_out_duplicates(times)
-    print(times)
     i=0
     for touchstone_file in touchstone_files:
         path = os.path.join(folder_path, touchstone_file)
@@ -103,7 +108,7 @@ def extract_values_from_touchstone_files_to_df(path, experiment_label, times, df
     time_touchstone_created = times.pop(0)
 
     gesture_label = split_fname[7]
-    label = experiment_label + gesture_label
+    label = experiment_label + '_' + gesture_label
 
     s_params = [f'S{i}{j}' for i in range(1, 5) for j in range(1, 5)]
 

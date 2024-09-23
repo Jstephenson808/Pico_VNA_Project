@@ -3,6 +3,10 @@ from enum import Enum
 class Movements(Enum):
     BEND = "bend"
 
+class DfFilterOptions(Enum):
+    PHASE = "phase"
+    MAGNITUDE = "magnitude"
+    BOTH = "both"
 
 class DateFormats(Enum):
     CURRENT = "%Y_%m_%d_%H_%M_%S"

@@ -1,20 +1,16 @@
-from itertools import permutations, combinations
+from itertools import combinations
+from random import random, choice, sample
 
 import numpy as np
-import pandas as pd
 
-from VNA_utils import get_full_dfs_path
 from ml_model import *
+from VNA_enums import DfFilterOptions
 from VNA_utils import (
-    get_data_path,
-    ghz_to_hz,
     mhz_to_hz,
     hz_to_ghz,
     get_frequency_column_headings_list,
-    get_full_results_df_path,
-    reorder_data_frame_columns,
-    get_frequency_column_headings_list
-    )
+    open_pickled_object, get_combined_df_path
+)
 from matplotlib import pyplot as plt
 
 
@@ -82,48 +78,61 @@ def filter_sparam_combinations(data: pd.DataFrame, *, mag_or_phase) -> {}:
         s_param_dict[f"{s_param_1}_{s_param_2}_{mag_or_phase}"] = data[((data[DataFrameCols.S_PARAMETER.value]==s_param_1)&(data["mag_or_phase"]==mag_or_phase))|((data[DataFrameCols.S_PARAMETER.value]==s_param_2)&(data["mag_or_phase"]==mag_or_phase))]
     return s_param_dict
 
-def create_test_dict(combined_df: pd.DataFrame, *, test_permuations='ALL')->{}:
+
+def create_test_dict(combined_df: pd.DataFrame, sparam_sets: list[list[str]], filter_type:DfFilterOptions=DfFilterOptions.BOTH) -> dict:
     """
-    this function creates the test dict for the classifier
-    :param combined_df:
-    :param test_permuations:
-    :return:
+    This function creates the test dict for the classifier, allowing filtering by specific S-parameter sets
+    and by magnitude, phase, or both.
+
+    :param combined_df: The combined dataframe containing data.
+    :param sparam_sets: A list of lists containing S-parameter strings (e.g., [['S11', 'S12'], ['S21']]).
+    :param filter_type: Filter by 'magnitude', 'phase', or 'both'. Defaults to 'both'.
+    :return: A dictionary with filtered dataframes.
     """
-    all_Sparams_magnitude = combined_df[(combined_df["mag_or_phase"] == "magnitude")]
-    all_Sparams_phase = combined_df[(combined_df["mag_or_phase"] == "phase")]
-    filtered_df_dict = {
-        f"{param.value}_magnitude": all_Sparams_magnitude[
-            all_Sparams_magnitude[DataFrameCols.S_PARAMETER.value] == param.value
+
+    # Initialize the dictionary to store filtered dataframes
+    filtered_df_dict = {}
+
+    # Check the filter type and set which columns to filter
+    if filter_type.value in ['both', 'magnitude']:
+        all_Sparams_magnitude = combined_df[combined_df["mag_or_phase"] == "magnitude"]
+    if filter_type.value in ['both', 'phase']:
+        all_Sparams_phase = combined_df[combined_df["mag_or_phase"] == "phase"]
+
+    # Iterate over each sparameter set provided in sparam_sets
+    for i, sparam_set in enumerate(sparam_sets):
+        set_name = f"{('_').join(sparam_set)}"
+
+        # Filter for magnitude if specified or 'both'
+        if filter_type.value in ['both', 'magnitude']:
+            filtered_df_dict[f"{set_name}_magnitude"] = all_Sparams_magnitude[
+                all_Sparams_magnitude[DataFrameCols.S_PARAMETER.value].isin(sparam_set)
             ]
-        for param in SParam
-    }
-    filtered_df_dict["all_Sparams_magnitude"] = all_Sparams_magnitude
-    filtered_df_dict["all_Sparams_phase"] = all_Sparams_phase
-    filtered_df_dict.update(
-        {
-            f"{param.value}_phase": all_Sparams_phase[
-                all_Sparams_phase[DataFrameCols.S_PARAMETER.value] == param.value
-                ]
-            for param in SParam
-        }
-    )
-    filtered_df_dict.update(
-        filter_sparam_combinations(combined_df, mag_or_phase='magnitude')
-    )
-    filtered_df_dict.update(
-        filter_sparam_combinations(combined_df, mag_or_phase='phase')
-    )
+
+        # Filter for phase if specified or 'both'
+        if filter_type.value in ['both', 'phase']:
+            filtered_df_dict[f"{set_name}_phase"] = all_Sparams_phase[
+                all_Sparams_phase[DataFrameCols.S_PARAMETER.value].isin(sparam_set)
+            ]
+
+    # Optionally, include all S-parameters for both magnitude and phase if needed
+    if filter_type in ['both', 'magnitude']:
+        filtered_df_dict["all_Sparams_magnitude"] = all_Sparams_magnitude
+    if filter_type in ['both', 'phase']:
+        filtered_df_dict["all_Sparams_phase"] = all_Sparams_phase
+
     return filtered_df_dict
 
-def test_classifier_for_all_measured_params(combined_df: pd.DataFrame) -> pd.DataFrame:
+
+def test_classifier_for_all_measured_params(combined_df: pd.DataFrame, sparam_sets, filter_type:DfFilterOptions) -> pd.DataFrame:
     """
     return report
     """
-    filtered_df_dict = create_test_dict(combined_df, test_permuations='ALL')
+    filtered_df_dict = create_test_dict(combined_df, sparam_sets=sparam_sets, filter_type=filter_type)
     return test_classifier_from_df_dict(filtered_df_dict)
 
 #todo refactor this mess
-def combine_results_and_test(full_df_path, csv_label=""):
+def combine_results_and_test(full_df_path, sparam_sets, filter_option=DfFilterOptions.BOTH, csv_label=""):
     file_name = os.path.basename(full_df_path)
     if file_name.endswith(".pkl"):
         combined_df: pd.DataFrame = open_pickled_object(
@@ -134,7 +143,7 @@ def combine_results_and_test(full_df_path, csv_label=""):
             full_df_path, label=csv_label
         )
 
-    return test_classifier_for_all_measured_params(combined_df)
+    return test_classifier_for_all_measured_params(combined_df, sparam_sets, filter_option)
 
 def plot_comparison_table(full_df,*, s_parameter=None, mag_or_phase=None, target_frequency=None):
     if target_frequency is None:
@@ -152,7 +161,7 @@ def plot_comparison_table(full_df,*, s_parameter=None, mag_or_phase=None, target
     for label_group in grouped_by_label:
 
         grouped_by_ids = label_group.groupby('id')
-        random_test = random.choice(list(grouped_by_ids.groups.keys()))
+        random_test = choice(list(grouped_by_ids.groups.keys()))
         dfs_to_plot.append(filter_fq_cols(filtered_df.query(f'id == "{random_test}"'), target_frequency))
 
     fig, axs = plt.subplots(nrows=len(dfs_to_plot), ncols=1, sharex=True)
@@ -180,7 +189,7 @@ def plot_fq_time_series(full_df: pd.DataFrame,*, s_parameter=None, mag_or_phase=
         f's_parameter == "{s_parameter}" and mag_or_phase == "{mag_or_phase}" and label == "{label}"')
     grouped_by_id = filtered_df.groupby('id')
     filtered_dfs = []
-    random_ids = random.sample(list(grouped_by_id.groups.keys()), n_random_ids)
+    random_ids = sample(list(grouped_by_id.groups.keys()), n_random_ids)
     random_experiment_list = [filtered_df.query(f'id == "{id}"') for id in random_ids]
     for random_experiment_df in random_experiment_list:
         filtered_dfs.append(filter_fq_cols(random_experiment_df, target_frequency))
@@ -224,12 +233,14 @@ if __name__ == "__main__":
     full_df = open_pickled_object(os.path.join(get_combined_df_path(), full_results_df_fname))
 
 
+    s_param_combinations_list = [['S12', 'S13', 'S14'], ['S34','S23','S42']]
+
     #todo need to add svm or dtree label to output dict
 
     # combine dfs
     # full_df_fname = os.listdir(os.path.join(get_pickle_path(), "full_dfs"))[0]
     # experiment = "watch_small_antenna_1001_140KHz"
-    # full_results_df = combine_results_and_test(os.path.join(get_data_path(), experiment))
+    full_results_df = combine_results_and_test(os.path.join(get_data_path(), experiment))
     #
     # pickle_object(
     #     full_results_df, path=os.path.join(get_pickle_path(), "classifier_results"), file_name=f"full_results_{experiment}"

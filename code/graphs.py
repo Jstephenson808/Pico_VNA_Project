@@ -11,7 +11,7 @@ from VNA_utils import (
     reorder_data_frame_columns,
     get_touchstones_path,
 )
-from ml_model import open_pickled_object, pickle_object
+from code.VNA_utils import pickle_object, open_pickled_object
 import os
 import seaborn as sns
 import matplotlib.pyplot as plt

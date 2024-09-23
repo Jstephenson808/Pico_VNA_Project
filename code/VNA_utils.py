@@ -1,4 +1,5 @@
 import os
+import pickle
 from time import time, sleep
 
 import pandas as pd
@@ -151,3 +152,40 @@ def reorder_data_frame_columns(
 def input_movement_label() -> str:
     label = input("Provide gesture label or leave blank for none:")
     return label
+
+
+def pickle_object(object_to_pickle,*, path:str, file_name:str):
+    os.makedirs(path, exist_ok=True)
+    if ".pkl" not in file_name[-4:]:
+        file_name = f"{file_name}.pkl"
+    path = os.path.join(path, file_name)
+    with open(path, "wb") as f:
+        pickle.dump(object_to_pickle, f)
+
+
+def open_pickled_object(path):
+    with open(path, "rb") as f:
+        unpickled = pickle.load(f)
+    return unpickled
+
+
+def open_full_results_df(file_name, folder=None)->pd.DataFrame:
+    """
+    Opens a .pkl data frame within the folder provided, if folder arg is none
+    then the default folder is used
+    :param file_name: the file name of the target data frame
+    :param folder: the folder of the data frame
+    :return: data frame
+    """
+    if folder is None:
+        folder = get_combined_df_path()
+
+    return open_pickled_object(os.path.join(folder, file_name))
+
+
+def get_label_from_pkl_path(path):
+    """
+    removes .pkl and then date from fname format
+    "all_Sparams_magnitude_0.01_0.11_2024_04_02.pkl"
+    """
+    return os.path.basename(path)[::-1].split("_", maxsplit=3)[-1][::-1]
