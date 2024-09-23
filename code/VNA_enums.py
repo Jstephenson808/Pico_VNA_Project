@@ -8,7 +8,7 @@ class DateFormats(Enum):
     CURRENT = "%Y_%m_%d_%H_%M_%S"
     ORIGINAL = "%Y_%m_%d_%H_%M_%S.%f"
     DATE_FOLDER = "%Y_%m_%d"
-
+    MILLISECONDS = "%Y_%m_%d_%H_%M_%S.%f"
 
 class MeasureSParam(Enum):
     S11 = "S11"
@@ -19,9 +19,9 @@ class MeasureSParam(Enum):
 
 class SParam(Enum):
     S11 = "S11"
-    S21 = "S21"
     S12 = "S12"
     S22 = "S22"
+    S21 = "S21"
 
 
 class MeasurementFormat(Enum):
