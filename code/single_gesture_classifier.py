@@ -45,12 +45,12 @@ def test_data_frame_classifier_frequency_window_with_report(
         print_fq_hop(high_frequency, label, low_frequency)
 
         #
-        data_frame_magnitude_filtered = filter_cols_between_fq_range(
+        data_frame_fq_range_filtered = filter_cols_between_fq_range(
             data_frame, low_frequency, high_frequency
         )
         fq_label = f"{label}_{hz_to_ghz(low_frequency)}_{hz_to_ghz(high_frequency)}"
         result, fname = feature_extract_test_filtered_data_frame(
-            data_frame_magnitude_filtered, movement_vector, fname=fq_label
+            data_frame_fq_range_filtered, movement_vector, fname=fq_label
         )
         f1_scores[fq_label] = extract_report_dictionary_from_test_results(result)
         low_frequency += frequency_hop
@@ -236,7 +236,7 @@ if __name__ == "__main__":
     # full_results_df_fname = "sd1_401_75KHz_full_combined_df_2024_07_24.pkl"
 
     full_df = open_full_results_df("17_09_patent_exp_combined_df.pkl")
-
+    full_df.columns = list(full_df.columns[:5]) + [int(x) for x in full_df.columns[5:]]
 
     s_param_combinations_list = [['S12', 'S13', 'S14'], ['S34','S23','S42']]
 
