@@ -532,7 +532,7 @@ def feature_extract_test_filtered_data_frame(
     n_jobs=defaults.N_PROCESSES,
 ):
     df_fixed = make_columns_have_s_param_mag_phase_titles(filtered_data_frame)
-    classifiers = extract_features_and_test(df_fixed, movement_vector, n_jobs=n_jobs)
+    classifiers = extract_features_and_test(df_fixed, movement_vector, n_jobs=n_jobs, ids_per_split=3)
     if save:
         if fname is None:
             fname = f"classifier_{datetime.now().date().strftime(DateFormats.DATE_FOLDER.value)}"

@@ -101,7 +101,7 @@ def get_pickle_path():
     return path
 
 
-def get_combined_df_path():
+def get_full_df_path():
     path = os.path.join(get_pickle_path(), VNA_defaults.COMBINED_DF_FOLDER)
     os.makedirs(path, exist_ok=True)
     return path
@@ -128,7 +128,7 @@ def get_full_dfs_path():
 
 
 def get_frequency_column_headings_list(df: pd.DataFrame) -> [int]:
-    return [x for x in df.columns if isinstance(x, int)]
+    return [int(x) for x in df.columns[5:]]
 
 
 def get_full_results_df_path():
@@ -169,7 +169,7 @@ def open_pickled_object(path):
     return unpickled
 
 
-def open_full_results_df(file_name, folder=None)->pd.DataFrame:
+def open_full_results_df(file_name, folder=None) -> pd.DataFrame:
     """
     Opens a .pkl data frame within the folder provided, if folder arg is none
     then the default folder is used
@@ -178,7 +178,7 @@ def open_full_results_df(file_name, folder=None)->pd.DataFrame:
     :return: data frame
     """
     if folder is None:
-        folder = get_combined_df_path()
+        folder = get_full_df_path()
 
     return open_pickled_object(os.path.join(folder, file_name))
 
