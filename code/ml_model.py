@@ -18,7 +18,11 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.svm import SVC
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import classification_report, confusion_matrix, ConfusionMatrixDisplay
+from sklearn.metrics import (
+    classification_report,
+    confusion_matrix,
+    ConfusionMatrixDisplay,
+)
 
 from tsfresh.utilities.dataframe_functions import impute
 from tsfresh import extract_features, select_features
@@ -26,7 +30,7 @@ from tsfresh import defaults
 
 
 def pivot_data_frame_for_s_param(
-        s_param: str, data_frame: pd.DataFrame, mag_or_phase: DataFrameCols
+    s_param: str, data_frame: pd.DataFrame, mag_or_phase: DataFrameCols
 ) -> pd.DataFrame:
     """
     Takes in a data_frame in DataFrameFormats format and returns a dataframe which
@@ -38,7 +42,7 @@ def pivot_data_frame_for_s_param(
     :return: pivoted dataframe with the columns reordered
     """
     if (mag_or_phase is not DataFrameCols.MAGNITUDE) and (
-            mag_or_phase is not DataFrameCols.PHASE
+        mag_or_phase is not DataFrameCols.PHASE
     ):
         raise ValueError(
             f"mag_or_phase must be one of those, currently is {mag_or_phase}"
@@ -55,12 +59,12 @@ def pivot_data_frame_for_s_param(
     new_df[DataFrameCols.ID.value] = data_frame[DataFrameCols.ID.value]
     new_df[DataFrameCols.LABEL.value] = data_frame[DataFrameCols.LABEL.value]
     reordered_columns = [
-                            DataFrameCols.ID.value,
-                            DataFrameCols.LABEL.value,
-                            "mag_or_phase",
-                            DataFrameCols.S_PARAMETER.value,
-                            DataFrameCols.TIME.value,
-                        ] + list(new_df.columns[1:-4])
+        DataFrameCols.ID.value,
+        DataFrameCols.LABEL.value,
+        "mag_or_phase",
+        DataFrameCols.S_PARAMETER.value,
+        DataFrameCols.TIME.value,
+    ] + list(new_df.columns[1:-4])
 
     new_df = new_df[reordered_columns]
     return new_df
@@ -105,7 +109,7 @@ def combine_dfs_with_labels(directory_list, labels) -> pd.DataFrame:
 
 
 def calulate_window_size_from_seconds(
-        data_frame: pd.DataFrame, length_window_seconds: float
+    data_frame: pd.DataFrame, length_window_seconds: float
 ):
     return len(
         data_frame[(data_frame[DataFrameCols.TIME.value] < length_window_seconds)]
@@ -130,16 +134,16 @@ def rolling_window_split(data_frame: pd.DataFrame, rolling_window_seconds: float
             group_data[
                 (group_data[DataFrameCols.S_PARAMETER.value] == SParam.S11.value)
                 & (group_data["mag_or_phase"] == "magnitude")
-                ][DataFrameCols.TIME.value]
-                .diff()
-                .mean()
+            ][DataFrameCols.TIME.value]
+            .diff()
+            .mean()
         )
         while window_end <= group_data[DataFrameCols.TIME.value].max():
             new_id = new_id_list.pop(0)
             windowed_df = group_data[
                 (group_data[DataFrameCols.TIME.value] >= window_start)
                 & (group_data[DataFrameCols.TIME.value] < window_end)
-                ]
+            ]
             new_df, movement_dict = combine_windowed_df(
                 new_df, windowed_df, new_id, movement_dict
             )
@@ -185,7 +189,7 @@ def window_split(data_frame: pd.DataFrame, window_seconds: float):
             windowed_df = group_data[
                 (group_data[DataFrameCols.TIME.value] >= window_start)
                 & (group_data[DataFrameCols.TIME.value] < window_end)
-                ]
+            ]
             new_df, id_movement = combine_windowed_df(
                 new_df, windowed_df, new_id, movement_dict
             )
@@ -195,15 +199,17 @@ def window_split(data_frame: pd.DataFrame, window_seconds: float):
 
     return new_df, movement_dict
 
-def create_movement_vector_for_single_data_frame(df: pd.DataFrame)-> pd.Series:
+
+def create_movement_vector_for_single_data_frame(df: pd.DataFrame) -> pd.Series:
     movement_dict = {}
     groups = df.groupby([DataFrameCols.ID.value])
     for id_value, id_df in groups:
         movement_dict[id_value[0]] = id_df[DataFrameCols.LABEL.value].values[0]
     return pd.Series(movement_dict)
 
+
 def combine_windowed_df(
-        new_df: pd.DataFrame, windowed_df: pd.DataFrame, new_id, movement_dict
+    new_df: pd.DataFrame, windowed_df: pd.DataFrame, new_id, movement_dict
 ) -> pd.DataFrame:
     windowed_df = windowed_df.reset_index(drop=True)
 
@@ -217,10 +223,13 @@ def combine_windowed_df(
         new_df = pd.concat((new_df, windowed_df), ignore_index=True)
     return new_df, movement_dict
 
-def split_data_frame_into_id_chunks(df: pd.DataFrame, ids_per_split: int)->[pd.DataFrame]:
+
+def split_data_frame_into_id_chunks(
+    df: pd.DataFrame, ids_per_split: int
+) -> [pd.DataFrame]:
 
     # Get the unique IDs
-    unique_ids = df['ID'].unique()
+    unique_ids = df[DataFrameCols.ID.value].unique()
 
     # Initialize a list to store the smaller DataFrames
     split_dfs_by_id = []
@@ -228,10 +237,10 @@ def split_data_frame_into_id_chunks(df: pd.DataFrame, ids_per_split: int)->[pd.D
     # Split into chunks of 3 IDs each
     for i in range(0, len(unique_ids), ids_per_split):
         # Get the current chunk of 3 IDs
-        chunk_ids = unique_ids[i:i + ids_per_split]
+        chunk_ids = unique_ids[i : i + ids_per_split]
 
         # Filter the original DataFrame for those IDs
-        smaller_df = df[df['ID'].isin(chunk_ids)]
+        smaller_df = df[df[DataFrameCols.ID.value].isin(chunk_ids)]
 
         # Append the resulting DataFrame to the list
         split_dfs_by_id.append(smaller_df)
@@ -240,18 +249,37 @@ def split_data_frame_into_id_chunks(df: pd.DataFrame, ids_per_split: int)->[pd.D
 
 
 def extract_features_and_test(
-        full_data_frame, feature_vector, drop_cols=[DataFrameCols.LABEL.value], n_jobs=defaults.N_PROCESSES
+    full_data_frame,
+    feature_vector,
+    drop_cols=[DataFrameCols.LABEL.value],
+    n_jobs=defaults.N_PROCESSES,
+    ids_per_split=0,
 ):
     combined_df = full_data_frame.ffill()
     # s_params_mapping = {s.value:index+1 for index, s in enumerate(SParam)}
     # full_data_frame[DataFrameCols.S_PARAMETER.value].map({s.value: index for index, s in enumerate(SParam)})
-    dropped_label = combined_df.drop(columns=drop_cols)
-    extracted = extract_features(
-        dropped_label,
-        column_sort=DataFrameCols.TIME.value,
-        column_id=DataFrameCols.ID.value,
-        n_jobs=n_jobs
-    )
+    data_frame_without_label = combined_df.drop(columns=drop_cols)
+    if ids_per_split > 0:
+        split_dfs = split_data_frame_into_id_chunks(
+            data_frame_without_label, ids_per_split
+        )
+        features_list = [
+            extract_features(
+                df,
+                column_sort=DataFrameCols.TIME.value,
+                column_id=DataFrameCols.ID.value,
+                n_jobs=n_jobs,
+            )
+            for df in split_dfs
+        ]
+        extracted = pd.concat(features_list, ignore_index=True)
+    else:
+        extracted = extract_features(
+            data_frame_without_label,
+            column_sort=DataFrameCols.TIME.value,
+            column_id=DataFrameCols.ID.value,
+            n_jobs=n_jobs,
+        )
     impute(extracted)
     features_filtered = select_features(extracted, feature_vector)
 
@@ -265,7 +293,9 @@ def extract_features_and_test(
     decision_tree_full_dict = classification_report(
         y_test, classifier_full_y_pred, output_dict=True
     )
-    decision_tree_full_confusion_matrix = confusion_matrix(y_test, classifier_full_y_pred)
+    decision_tree_full_confusion_matrix = confusion_matrix(
+        y_test, classifier_full_y_pred
+    )
     ConfusionMatrixDisplay(decision_tree_full_confusion_matrix).plot()
     print(classification_report(y_test, classifier_full_y_pred))
 
@@ -279,7 +309,9 @@ def extract_features_and_test(
     decision_tree_filtered_dict = classification_report(
         y_test, dt_classifier_filtered_y_pred, output_dict=True
     )
-    decision_tree_filterd_confusion_matrix = confusion_matrix(y_test, dt_classifier_filtered_y_pred)
+    decision_tree_filterd_confusion_matrix = confusion_matrix(
+        y_test, dt_classifier_filtered_y_pred
+    )
     print(classification_report(y_test, dt_classifier_filtered_y_pred))
 
     # print("SVM".center(80, "="))
@@ -301,10 +333,8 @@ def extract_features_and_test(
     # print("Full")
     # Evaluating the SVM classifier
     full_svm_y_pred = svm_classifier.predict(X_full_test_scaled)
-    full_svm_confusion_matrix= confusion_matrix(y_test, full_svm_y_pred)
-    full_svm_report = classification_report(
-        y_test, full_svm_y_pred, output_dict=True
-    )
+    full_svm_confusion_matrix = confusion_matrix(y_test, full_svm_y_pred)
+    full_svm_report = classification_report(y_test, full_svm_y_pred, output_dict=True)
     print(classification_report(y_test, full_svm_y_pred))
 
     # Splitting the data into training and testing sets
@@ -329,11 +359,7 @@ def extract_features_and_test(
         y_test, svm_filtered_y_pred, output_dict=True
     )
     svm_filtered_confusion_matrix = confusion_matrix(y_test, svm_filtered_y_pred)
-    print(
-        classification_report(
-            y_test, svm_filtered_y_pred
-        )
-    )
+    print(classification_report(y_test, svm_filtered_y_pred))
 
     # Evaluating the SVM classifier
     # print("Filtered")
@@ -353,7 +379,7 @@ def extract_features_and_test(
         "filtered_dt_confusion_matrix": decision_tree_filterd_confusion_matrix,
         "full_dt_confusion_matrix": decision_tree_full_confusion_matrix,
         "full_svm_confusion_matrix": full_svm_confusion_matrix,
-        "filtered_svm_confusion_matrix": svm_filtered_confusion_matrix
+        "filtered_svm_confusion_matrix": svm_filtered_confusion_matrix,
     }
 
 
@@ -428,7 +454,7 @@ def test_features_print(full_features, features_filtered, feature_vector):
 
 
 def make_columns_have_s_param_mag_phase_titles(
-        data_frame: pd.DataFrame,
+    data_frame: pd.DataFrame,
 ) -> pd.DataFrame:
     freq_cols = [val for val in data_frame.columns.values if isinstance(val, int)]
     grouped_data = data_frame.groupby(["mag_or_phase", DataFrameCols.S_PARAMETER.value])
@@ -478,7 +504,9 @@ def get_list_of_in_bounds_fq(df, lower_bound_fq_hz, upper_bound_fq_hz):
     # Filter out non-integer values
     filtered_list = [x for x in cols if isinstance(x, int)]
     # Filter the list based on the provided bounds
-    freq_cols = [x for x in filtered_list if lower_bound_fq_hz <= x <= upper_bound_fq_hz]
+    freq_cols = [
+        x for x in filtered_list if lower_bound_fq_hz <= x <= upper_bound_fq_hz
+    ]
     return freq_cols
 
 
@@ -497,7 +525,11 @@ def filter_columns(df, frequencies):
 
 
 def feature_extract_test_filtered_data_frame(
-        filtered_data_frame, movement_vector, save=True, fname=None, n_jobs=defaults.N_PROCESSES
+    filtered_data_frame,
+    movement_vector,
+    save=True,
+    fname=None,
+    n_jobs=defaults.N_PROCESSES,
 ):
     df_fixed = make_columns_have_s_param_mag_phase_titles(filtered_data_frame)
     classifiers = extract_features_and_test(df_fixed, movement_vector, n_jobs=n_jobs)
@@ -510,14 +542,13 @@ def feature_extract_test_filtered_data_frame(
     return classifiers, fname
 
 
-
-
-
 def combine_data_frames_from_csv_folder(csv_folder_path, *, save=True, label=""):
     data_folders = os.listdir(csv_folder_path)
     combined_df: pd.DataFrame = None
     for data_folder in data_folders:
-        combined_df_for_one_folder = make_fq_df(os.path.join(csv_folder_path, data_folder))
+        combined_df_for_one_folder = make_fq_df(
+            os.path.join(csv_folder_path, data_folder)
+        )
         combined_df = pd.concat(
             (combined_df, combined_df_for_one_folder), ignore_index=True
         )
@@ -531,11 +562,11 @@ def combine_data_frames_from_csv_folder(csv_folder_path, *, save=True, label="")
 
         os.makedirs(full_df_path, exist_ok=True)
         with open(
-                os.path.join(
-                    full_df_path,
-                    fname,
-                ),
-                "wb",
+            os.path.join(
+                full_df_path,
+                fname,
+            ),
+            "wb",
         ) as f:
             pickle.dump(combined_df, f)
 
@@ -543,11 +574,11 @@ def combine_data_frames_from_csv_folder(csv_folder_path, *, save=True, label="")
 
 
 def extract_gesture_metric_values(
-        classifier_dict: dict,
-        report_keys: [str],
-        *,
-        gesture="weighted avg",
-        metric="f1-score",
+    classifier_dict: dict,
+    report_keys: [str],
+    *,
+    gesture="weighted avg",
+    metric="f1-score",
 ) -> dict:
     metric_list = []
     for report_key in report_keys:
@@ -567,7 +598,11 @@ def extract_gesture_metric_values(
 
 
 def extract_gesture_metric_to_df(
-        pickle_fnames, *, gesture="weighted avg", metric="f1-score", folder_path=get_pickle_path()
+    pickle_fnames,
+    *,
+    gesture="weighted avg",
+    metric="f1-score",
+    folder_path=get_pickle_path(),
 ) -> pd.DataFrame:
     f1_scores = {}
     for fname in pickle_fnames:
@@ -582,8 +617,9 @@ def extract_gesture_metric_to_df(
 
     return pd.DataFrame.from_dict(f1_scores, orient="index", columns=columns)
 
+
 def extract_full_results_to_df(
-        pickle_fnames, folder_path=get_pickle_path(), extract='report'
+    pickle_fnames, folder_path=get_pickle_path(), extract="report"
 ) -> pd.DataFrame:
     full_results_data_frame = None
     for fname in pickle_fnames:
@@ -592,55 +628,75 @@ def extract_full_results_to_df(
         classifier_dict = open_pickled_object(path)
         label = get_label_from_pkl_path(path)
         report_keys = [x for x in classifier_dict.keys() if extract in x]
-        if extract == 'report':
-            partial_results_df = extract_all_metrics_to_df(classifier_dict, report_keys, label)
-        if extract == 'features':
-            partial_results_df = extract_feature_number(classifier_dict, report_keys, label)
-        full_results_data_frame = pd.concat((full_results_data_frame,partial_results_df), ignore_index=True)
+        if extract == "report":
+            partial_results_df = extract_all_metrics_to_df(
+                classifier_dict, report_keys, label
+            )
+        if extract == "features":
+            partial_results_df = extract_feature_number(
+                classifier_dict, report_keys, label
+            )
+        full_results_data_frame = pd.concat(
+            (full_results_data_frame, partial_results_df), ignore_index=True
+        )
 
-    if extract == 'report':
+    if extract == "report":
         full_results_data_frame = fix_measurement_column(full_results_data_frame)
     return full_results_data_frame
 
-def extract_feature_number(classifier_dict: dict,
-                              report_keys: [str],
-                              label
-                              ) -> pd.DataFrame:
+
+def extract_feature_number(
+    classifier_dict: dict, report_keys: [str], label
+) -> pd.DataFrame:
     combined_data_frame = None
     for report_key in report_keys:
         report_key_dict = {}
-        report_key_dict['Experiment'] = label.split('-')[0]
-        report_key_dict['Feature Set'] = report_key
-        report_key_dict['Number of Features'] = len(classifier_dict[report_key].columns)
+        report_key_dict["Experiment"] = label.split("-")[0]
+        report_key_dict["Feature Set"] = report_key
+        report_key_dict["Number of Features"] = len(classifier_dict[report_key].columns)
         report_key_data_frame = pd.DataFrame.from_dict([report_key_dict])
-        combined_data_frame = pd.concat((combined_data_frame, report_key_data_frame), ignore_index=True)
+        combined_data_frame = pd.concat(
+            (combined_data_frame, report_key_data_frame), ignore_index=True
+        )
     return combined_data_frame
 
-def extract_all_metrics_to_df(classifier_dict: dict,
-                              report_keys: [str],
-                              label
-                              ) -> pd.DataFrame:
+
+def extract_all_metrics_to_df(
+    classifier_dict: dict, report_keys: [str], label
+) -> pd.DataFrame:
     combined_data_frame = None
     for report_key in report_keys:
-        report_key_data_frame = pd.DataFrame.from_dict(classifier_dict[report_key]).T.reset_index()
-        split_column = report_key_data_frame['index'].str.rsplit('_', n=1, expand=True)
+        report_key_data_frame = pd.DataFrame.from_dict(
+            classifier_dict[report_key]
+        ).T.reset_index()
+        split_column = report_key_data_frame["index"].str.rsplit("_", n=1, expand=True)
         # need to fix these rows as they don't have correct label
-        rows_to_copy = (split_column[0] == 'accuracy') | (split_column[0] == 'macro avg') | (split_column[0] == 'weighted avg')
+        rows_to_copy = (
+            (split_column[0] == "accuracy")
+            | (split_column[0] == "macro avg")
+            | (split_column[0] == "weighted avg")
+        )
         # copy over
         split_column.loc[rows_to_copy, 1] = split_column.loc[rows_to_copy, 0]
-        #relabel whole column to fix this
+        # relabel whole column to fix this
         split_column[0] = split_column[0][0]
-        split_column.columns = ['label', 'gesture']
-        report_key_data_frame = pd.concat([report_key_data_frame.drop('index', axis=1), split_column], axis=1)
+        split_column.columns = ["label", "gesture"]
+        report_key_data_frame = pd.concat(
+            [report_key_data_frame.drop("index", axis=1), split_column], axis=1
+        )
 
-        report_key_data_frame['parameters'] = label
-        report_key_data_frame['classifier'] = report_key.split('_')[1]
-        report_key_data_frame['full or filtered'] = report_key.split('_')[0]
-        new_column_order = list(report_key_data_frame.columns)[4:] + list(report_key_data_frame.columns)[:4]
+        report_key_data_frame["parameters"] = label
+        report_key_data_frame["classifier"] = report_key.split("_")[1]
+        report_key_data_frame["full or filtered"] = report_key.split("_")[0]
+        new_column_order = (
+            list(report_key_data_frame.columns)[4:]
+            + list(report_key_data_frame.columns)[:4]
+        )
         report_key_data_frame = report_key_data_frame[new_column_order]
-        combined_data_frame = pd.concat((combined_data_frame, report_key_data_frame), ignore_index=True)
+        combined_data_frame = pd.concat(
+            (combined_data_frame, report_key_data_frame), ignore_index=True
+        )
     return combined_data_frame
-
 
 
 def get_results_from_classifier_pkls(folder_path):
@@ -651,18 +707,24 @@ def get_results_from_classifier_pkls(folder_path):
     stacked_df = weighted_f1_score_df.stack()
     return stacked_df.sort_values(ascending=False)
 
-def fix_measurement_column(results_df:pd.DataFrame)->pd.DataFrame:
-    pattern = r'(S?\d?\d?_?S?\d?\d?\w+)_(\w+)_(\d+\.\d+)_(\d+\.\d+)'
-    results_df[['s_param', 'type', 'low_frequency', 'high_frequency']] = results_df['parameters'].str.extractall(
-        pattern).reset_index(drop=True)
-    results_df.drop(columns=['parameters'], inplace=True)
-    results_df = reorder_data_frame_columns(results_df, [0,2,3,9,8,10,11,1,4,5,6,7])
+
+def fix_measurement_column(results_df: pd.DataFrame) -> pd.DataFrame:
+    pattern = r"(S?\d?\d?_?S?\d?\d?\w+)_(\w+)_(\d+\.\d+)_(\d+\.\d+)"
+    results_df[["s_param", "type", "low_frequency", "high_frequency"]] = (
+        results_df["parameters"].str.extractall(pattern).reset_index(drop=True)
+    )
+    results_df.drop(columns=["parameters"], inplace=True)
+    results_df = reorder_data_frame_columns(
+        results_df, [0, 2, 3, 9, 8, 10, 11, 1, 4, 5, 6, 7]
+    )
     return results_df
 
-def get_full_results_df_from_classifier_pkls(folder_path, extract='report'):
+
+def get_full_results_df_from_classifier_pkls(folder_path, extract="report"):
     fnames = os.listdir(folder_path)
 
     return extract_full_results_to_df(fnames, folder_path, extract)
+
 
 if __name__ == "__main__":
     pass

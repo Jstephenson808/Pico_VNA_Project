@@ -58,7 +58,7 @@ def print_fq_hop(high_frequency, label, low_frequency):
     print(f"{label}\n\r{hz_to_ghz(low_frequency)}GHz->{hz_to_ghz(high_frequency)}GHz")
 
 
-def test_classifier_from_df_dict(df_dict: {}) -> pd.DataFrame:
+def test_classifier_from_df_dict(df_dict: {}, frequency_hop=mhz_to_hz(100)) -> pd.DataFrame:
     """
     This returns a report and save classifier to pkl path
     """
@@ -66,7 +66,7 @@ def test_classifier_from_df_dict(df_dict: {}) -> pd.DataFrame:
     for label, data_frame in df_dict.items():
         print(f"testing {label}")
         result_df = test_data_frame_classifier_frequency_window_with_report(
-            data_frame, label, frequency_hop=mhz_to_hz(100)
+            data_frame, label, frequency_hop=frequency_hop
         )
         full_results_df = pd.concat((full_results_df, result_df))
     return full_results_df
