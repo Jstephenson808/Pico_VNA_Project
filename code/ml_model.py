@@ -28,7 +28,7 @@ from tsfresh.utilities.dataframe_functions import impute
 from tsfresh import extract_features, select_features
 from tsfresh import defaults
 
-
+#todo class -> picoVNA converter
 def pivot_data_frame_for_s_param(
     s_param: str, data_frame: pd.DataFrame, mag_or_phase: DataFrameCols
 ) -> pd.DataFrame:
@@ -69,7 +69,7 @@ def pivot_data_frame_for_s_param(
     new_df = new_df[reordered_columns]
     return new_df
 
-
+#todo move to vnaData -> this is a converter method
 def make_fq_df(directory: str) -> pd.DataFrame:
     """
 

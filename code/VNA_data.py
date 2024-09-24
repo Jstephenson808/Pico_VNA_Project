@@ -244,6 +244,29 @@ class VnaData:
             ]
         return df.sort_values(by=[DataFrameCols.TIME.value])
 
+    def extract_time_df(
+        self, target_time_seconds: float, s_param: SParam = None
+    ) -> pd.DataFrame:
+        """
+        Takes in a target frequency and optional sparam,
+        returns a data frame containing only those values
+        and optionally only those sparams
+
+        :param target_frequency: Frequency to find
+        :param s_param: SParam enum value to search for
+        :return: data frame containing only those values
+        """
+        if s_param is None:
+            df = self.data_frame.loc[
+                (self.data_frame[DataFrameCols.TIME.value] == target_time_seconds)
+            ]
+        else:
+            df = self.data_frame.loc[
+                (self.data_frame[DataFrameCols.TIME.value] == target_time_seconds)
+                & (self.data_frame[DataFrameCols.S_PARAMETER.value] == s_param.value)
+            ]
+        return df.sort_values(by=[DataFrameCols.TIME.value])
+
     def save_df(self, file_path=os.path.join("../Project Files/results", "data")):
         """
         Write data frame to given file path
@@ -327,6 +350,11 @@ class VnaData:
         idx = (np.abs(array - target_frequency)).argmin()
         return array[idx]
 
+    def find_nearest_time(self, time_series: pd.Series, target_time_in_seconds=0):
+        array = np.asarray(time_series)
+        idx = (np.abs(array - target_time_in_seconds)).argmin()
+        return array[idx]
+
     def validate_s_param(self, plot_s_param: SParam) -> bool:
         if (plot_s_param is None) or (plot_s_param not in SParam):
             raise NotValidSParamException(f"{plot_s_param} is not valid")
@@ -364,7 +392,7 @@ class VnaData:
         # data is a single frame with:
         #  -
         # if no sparam is given just pick the first value of SParam
-        if plot_s_param == None:
+        if plot_s_param is None:
             plot_s_param = self.handle_none_param(plot_s_param)
 
         self.validate_s_param(plot_s_param)
@@ -382,15 +410,18 @@ class VnaData:
         plt.title(f"|{plot_s_param.value}| Over Time at {target_frequency_GHz} GHz")
 
         if save_to_file:
-            os.makedirs(output_folder_path, exist_ok=True)
-            plt.savefig(
-                os.path.join(
-                    output_folder_path,
-                    f"{datetime.now().strftime('%Y_%m_%d_%H_%M_%S')}-{target_frequency_GHz}_GHz.svg",
-                ),
-                format="svg",
-            )
+            self.save_graph_to_file(output_folder_path, target_frequency_GHz)
         plt.show()
+
+    def save_graph_to_file(self, output_folder_path, target_frequency_GHz, format='svg'):
+        os.makedirs(output_folder_path, exist_ok=True)
+        plt.savefig(
+            os.path.join(
+                output_folder_path,
+                f"{datetime.now().strftime('%Y_%m_%d_%H_%M_%S')}-{target_frequency_GHz}_GHz{format}",
+            ),
+            format=format,
+        )
 
     def pivot_data_frame_frequency(self, value: DataFrameCols) -> pd.DataFrame:
         return self.data_frame.pivot(
@@ -474,6 +505,42 @@ class VnaData:
     def dict_list_to_df(self):
 
         self.data_frame = pd.concat([pd.DataFrame.from_dict(dict_it) for dict_it in self.dict_list], ignore_index=True)
+
+    def plot_freq_specturm_at_a_time(self, time:timedelta, plot_s_param=None, data_frame_column_to_plot=DataFrameCols.MAGNITUDE,output_folder_path=os.path.join(
+            get_root_folder_path(),
+            "results",
+            "graph",
+            datetime.now().date().strftime(DateFormats.DATE_FOLDER.value),
+        ), save_to_file=True):
+        """
+                Plots a single frequency from the internal data frame, saves it to the provided folder
+                :param target_frequency: frequency in Hz to be plotted
+                :param output_folder_path: string for the output folder, defaults to /results/graphs
+                :param plot_s_param: optional enum indicating Sparam to be plotted
+                :param data_frame_column_to_plot:
+                :return:
+                """
+
+        # if no sparam is given just pick the first value of SParam
+        if plot_s_param == None:
+            plot_s_param = self.handle_none_param(plot_s_param)
+
+        self.validate_s_param(plot_s_param)
+
+        target_time = self.find_nearest_time(
+            self.data_frame[DataFrameCols.TIME.value], time.seconds
+        )
+        data_frame = self.extract_time_df(target_time, plot_s_param)
+
+        fig, ax = plt.subplots()
+        self.plot_freq_on_axis(data_frame, ax, data_frame_column_to_plot)
+        ax.set_ylabel(f"|{plot_s_param.value}|")
+        ax.set_xlabel("Frequency Hz")
+        plt.title(f"|{plot_s_param.value}| Over Time at {target_time} seconds")
+        if save_to_file:
+            self.save_graph_to_file(output_folder_path, time.seconds)
+        plt.show()
+
 
 if __name__ == '__main__':
     #targets = []
