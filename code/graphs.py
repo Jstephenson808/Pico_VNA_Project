@@ -5,13 +5,18 @@ import numpy as np
 import pandas as pd
 import matplotlib
 
+from ml_model import (extract_full_results_to_df, get_results_from_classifier_pkls,
+                      get_full_results_df_from_classifier_pkls,
+                      filter_cols_between_fq_range)
+
 matplotlib.use("TkAgg")
 from VNA_utils import (
     get_full_results_df_path,
     reorder_data_frame_columns,
     get_touchstones_path,
+    ghz_to_hz
 )
-from code.VNA_utils import pickle_object, open_pickled_object
+from VNA_utils import pickle_object, open_pickled_object
 import os
 import seaborn as sns
 import matplotlib.pyplot as plt
@@ -398,31 +403,31 @@ def gen_sweep_time_df(
 
 if __name__ == "__main__":
     sns.set(rc={"xtick.bottom": True, "ytick.left": True}, font_scale=2)
-    results_df = pd.concat(
-        (
-            open_pickled_object(
-                os.path.join(get_full_results_df_path(), "watch_small_ant.pkl")
-            ),
-            open_pickled_object(
-                os.path.join(get_full_results_df_path(), "wfa_full_ex_2.pkl")
-            ),
-        ),
-        ignore_index=True,
-    )
-    #
+    full_df = open_pickled_object(r'C:\Users\2573758S\PycharmProjects\Pico_VNA_Project\pickles\full_dfs\17_09_patent_exp_combined_df.pkl')
+    full_df.columns = [pd.to_numeric(col, errors='coerce') if col.isnumeric() else col for col in full_df.columns]
+    results_df = get_full_results_df_from_classifier_pkls(r'C:\Users\2573758S\PycharmProjects\Pico_VNA_Project\pickles\classifiers\smd_3_patent_exp')
+    accuracy_df = results_df[(results_df["gesture"] == "accuracy")]
+    accuracy_df = accuracy_df.sort_values(by='f1-score', ascending=False)
+    mag_df = accuracy_df[accuracy_df['type'] == 'magnitude']
+    top_magnitude = mag_df.iloc[0]
+    filtered_df_s_param = full_df[full_df['s_parameter'].isin(top_magnitude['s_param'].split('_'))]
+    filtered_df_fq_range = filter_cols_between_fq_range(filtered_df_s_param, ghz_to_hz(float(top_magnitude['low_frequency'])), ghz_to_hz(float(top_magnitude['high_frequency'])))
+    # confusion_matrix_dict = get_full_results_df_from_classifier_pkls(r'C:\Users\2573758S\PycharmProjects\Pico_VNA_Project\pickles\classifiers\smd_3_patent_exp', extract="confusion_matrix")
+    # #ConfusionMatrixDisplay(decision_tree_full_confusion_matrix).plot()
+    #pickle_object(results_df, path=r'C:\Users\2573758S\PycharmProjects\Pico_VNA_Project\pickles\full_classification_results', file_name='smd_3_patent_exp.pkl')
     #
     # #
     # # # replace experiment names for graphing
-    replace_dict = {
-        "single_watchSmallAntennaL-140KHz-1001pts-10Mto4G": "Experiment 1",
-        "single_flex-antenna-watch-140KHz-1001pts-10Mto4G": "Experiment 2",
-        "filtered": "Filtered Features",
-        "full": "Full Feature Set",
-        "svm": "SVM",
-        "dt": "Decision Tree"
-    }
-    results_df = results_df.replace(replace_dict)
-    results_df = results_df[(results_df['high_frequency'].astype(float) < 3.92)]
+    # replace_dict = {
+    #     "single_watchSmallAntennaL-140KHz-1001pts-10Mto4G": "Experiment 1",
+    #     "single_flex-antenna-watch-140KHz-1001pts-10Mto4G": "Experiment 2",
+    #     "filtered": "Filtered Features",
+    #     "full": "Full Feature Set",
+    #     "svm": "SVM",
+    #     "dt": "Decision Tree"
+    # }
+    # results_df = results_df.replace(replace_dict)
+    # results_df = results_df[(results_df['high_frequency'].astype(float) < 3.92)]
     # accuracy_df = results_df[(results_df["gesture"] == "accuracy") & (results_df['high_frequency'].astype(float) < 3.92)]
 
     # sampling_freq_results = gen_sweep_time_df()
@@ -430,7 +435,7 @@ if __name__ == "__main__":
 
     #Show plot
     # top_classifier_for_each_band(results_df, include_ALL_sparams=False)
-    max_accuracy_for_mag_sparam_categories(results_df)
+    # max_accuracy_for_mag_sparam_categories(results_df)
     # freq_band_line_plot(results_df)
     # svm_vs_dt_strip_plot(results_df)
     # svm_vs_dtree_violin_plot(results_df)
@@ -438,5 +443,5 @@ if __name__ == "__main__":
     #plot_s_param_mag_phase_from_touchstone(os.path.join(get_touchstones_path(), 'cp1_soil2_dry.s2p'), 'Watch Short Antenna')
     #plot_s_param_mag_phase_from_touchstone(os.path.join(get_touchstones_path(), 'watch_L_short_band_short_short_wires_140khz_1001pts.s2p'), 'Flex Antenna')
 
-    plt.show()
+    #plt.show()
     # ax.legend(title='Classifier', labels=['SVM', 'D Tree'])
