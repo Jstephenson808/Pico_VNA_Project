@@ -4,13 +4,21 @@ from itertools import product
 import numpy as np
 import pandas as pd
 import matplotlib
+from sklearn.metrics import ConfusionMatrixDisplay
+
+from ml_model import (extract_full_results_to_df, get_results_from_classifier_pkls,
+                      get_full_results_df_from_classifier_pkls,
+                      filter_cols_between_fq_range)
 
 matplotlib.use("TkAgg")
 from VNA_utils import (
     get_full_results_df_path,
     reorder_data_frame_columns,
     get_touchstones_path,
+    ghz_to_hz
 )
+
+from VNA_enums import ConfusionMatrixKey
 from VNA_utils import pickle_object, open_pickled_object
 import os
 import seaborn as sns
@@ -395,17 +403,33 @@ def gen_sweep_time_df(
 
     return pd.DataFrame.from_dict(output_dict)
 
+def make_confusion_matrix_dict_string_from_series(series: pd.Series)->str:
+    return ('_').join([series['s_param'], series['type'], series['low_frequency'], series['high_frequency']])
+
+
 
 if __name__ == "__main__":
     sns.set(rc={"xtick.bottom": True, "ytick.left": True}, font_scale=2)
-    results_df = open_pickled_object(r'C:\Users\js637s.CAMPUS\PycharmProjects\Pico_VNA_Project\pickles\full_classification_results\smd_3_patent_exp.pkl')
+    full_df = open_pickled_object(r'C:\Users\2573758S\PycharmProjects\Pico_VNA_Project\pickles\full_dfs\17_09_patent_exp_combined_df.pkl')
 
-    # fn to plot results over time at a given frequency for a given test
-    # fn to plot multiple test on the same graph over time
-    # fn to plot a set of tests with the time domain results of each
-    # fn to plot all of the results in seperate plots
+    confusion_matrix_option = ConfusionMatrixKey.FULL_SVM.value
 
-    #
+    full_df.columns = [pd.to_numeric(col, errors='coerce') if col.isnumeric() else col for col in full_df.columns]
+    results_df = get_full_results_df_from_classifier_pkls(r'C:\Users\2573758S\PycharmProjects\Pico_VNA_Project\pickles\classifiers\smd_3_patent_exp')
+    accuracy_df = results_df[(results_df["gesture"] == "accuracy")]
+    accuracy_df = accuracy_df.sort_values(by='f1-score', ascending=False)
+    mag_df = accuracy_df[accuracy_df['type'] == 'magnitude']
+    top_magnitude = mag_df.iloc[0]
+    filtered_df_s_param = full_df[full_df['s_parameter'].isin(top_magnitude['s_param'].split('_'))]
+    filtered_df_fq_range = filter_cols_between_fq_range(filtered_df_s_param, ghz_to_hz(float(top_magnitude['low_frequency'])), ghz_to_hz(float(top_magnitude['high_frequency'])))
+    confusion_matrix_dict = get_full_results_df_from_classifier_pkls(r'C:\Users\2573758S\PycharmProjects\Pico_VNA_Project\pickles\classifiers\smd_3_patent_exp', extract="confusion_matrix")
+    confusion_matrix_key = make_confusion_matrix_dict_string_from_series(top_magnitude)
+    confusion_matrix = confusion_matrix_dict[confusion_matrix_key][confusion_matrix_option]
+    labels = [label[-1] for label in full_df['label'].unique()]
+    ConfusionMatrixDisplay(confusion_matrix, display_labels=labels).plot()
+    plt.title(f'Confusion Matrix for {top_magnitude["label"].split('_')[-1]} \n\r Using {top_magnitude["classifier"].title()} classifier between {top_magnitude['low_frequency']} and {top_magnitude['high_frequency']} GHz')
+    plt.show()
+    #pickle_object(results_df, path=r'C:\Users\2573758S\PycharmProjects\Pico_VNA_Project\pickles\full_classification_results', file_name='smd_3_patent_exp.pkl')
     #
     # #
     # # # replace experiment names for graphing
@@ -419,7 +443,7 @@ if __name__ == "__main__":
     # }
     # results_df = results_df.replace(replace_dict)
     # results_df = results_df[(results_df['high_frequency'].astype(float) < 3.92)]
-    # # accuracy_df = results_df[(results_df["gesture"] == "accuracy") & (results_df['high_frequency'].astype(float) < 3.92)]
+    # accuracy_df = results_df[(results_df["gesture"] == "accuracy") & (results_df['high_frequency'].astype(float) < 3.92)]
 
     # sampling_freq_results = gen_sweep_time_df()
     # plot_sampling_freq(sampling_freq_results)
@@ -431,8 +455,8 @@ if __name__ == "__main__":
     # svm_vs_dt_strip_plot(results_df)
     # svm_vs_dtree_violin_plot(results_df)
     # full_vs_filtered_features_plot(results_df)
-    # #plot_s_param_mag_phase_from_touchstone(os.path.join(get_touchstones_path(), 'cp1_soil2_dry.s2p'), 'Watch Short Antenna')
-    # #plot_s_param_mag_phase_from_touchstone(os.path.join(get_touchstones_path(), 'watch_L_short_band_short_short_wires_140khz_1001pts.s2p'), 'Flex Antenna')
-    #
-    # plt.show()
+    #plot_s_param_mag_phase_from_touchstone(os.path.join(get_touchstones_path(), 'cp1_soil2_dry.s2p'), 'Watch Short Antenna')
+    #plot_s_param_mag_phase_from_touchstone(os.path.join(get_touchstones_path(), 'watch_L_short_band_short_short_wires_140khz_1001pts.s2p'), 'Flex Antenna')
+
+    #plt.show()
     # ax.legend(title='Classifier', labels=['SVM', 'D Tree'])

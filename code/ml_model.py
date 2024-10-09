@@ -1,5 +1,7 @@
 import os
 
+import numpy
+
 from VNA_utils import pickle_object, open_pickled_object, get_label_from_pkl_path
 
 os.environ["OMP_NUM_THREADS"] = "1"
@@ -485,6 +487,8 @@ def filter_cols_between_fq_range(df: pd.DataFrame, lower_bound, upper_bound):
     :param upper_bound:
     :return:
     """
+    lower_bound = int(lower_bound)
+    upper_bound = int(upper_bound)
     freq_cols = get_list_of_in_bounds_fq(df, lower_bound, upper_bound)
     return filter_columns(df, freq_cols)
 
@@ -498,9 +502,9 @@ def get_list_of_in_bounds_fq(df, lower_bound_fq_hz, upper_bound_fq_hz):
     :param upper_bound_fq_hz:
     :return: list of columns which are in fq range
     """
-    cols = df.columns.values
+    cols = list(df.columns.values)
     # Filter out non-integer values
-    filtered_list = [x for x in cols if isinstance(x, int)]
+    filtered_list = [x for x in cols if isinstance(x, int) or isinstance(x, numpy.int64)]
     # Filter the list based on the provided bounds
     freq_cols = [
         x for x in filtered_list if lower_bound_fq_hz <= x <= upper_bound_fq_hz
@@ -634,6 +638,9 @@ def extract_full_results_to_df(
             partial_results_df = extract_feature_number(
                 classifier_dict, report_keys, label
             )
+        if extract == "confusion_matrix":
+            confusion_dict = {key: val for key, val in classifier_dict.items() if extract in key}
+            partial_results_df = pd.DataFrame.from_dict(confusion_dict)
         full_results_data_frame = pd.concat(
             (full_results_data_frame, partial_results_df), ignore_index=True
         )
@@ -641,6 +648,16 @@ def extract_full_results_to_df(
     if extract == "report":
         full_results_data_frame = fix_measurement_column(full_results_data_frame)
     return full_results_data_frame
+
+def extract_confusion_matrix_from_results(pickle_fnames, folder_path=get_pickle_path()):
+    confusion_matrix_dict = {}
+    for pickle_fname in pickle_fnames:
+        path = os.path.join(folder_path, pickle_fname)
+        classifier_dict = open_pickled_object(path)
+        label = get_label_from_pkl_path(path)
+        confusion_dict = {key: val for key, val in classifier_dict.items() if "confusion_matrix" in key}
+        confusion_matrix_dict[label] = confusion_dict
+    return confusion_matrix_dict
 
 
 def extract_feature_number(
@@ -720,8 +737,10 @@ def fix_measurement_column(results_df: pd.DataFrame) -> pd.DataFrame:
 
 def get_full_results_df_from_classifier_pkls(folder_path, extract="report"):
     fnames = os.listdir(folder_path)
-
-    return extract_full_results_to_df(fnames, folder_path, extract)
+    if extract == "confusion_matrix":
+        return extract_confusion_matrix_from_results(fnames, folder_path)
+    else:
+        return extract_full_results_to_df(fnames, folder_path, extract)
 
 
 if __name__ == "__main__":

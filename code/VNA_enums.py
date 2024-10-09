@@ -1,5 +1,10 @@
 from enum import Enum
 
+class ConfusionMatrixKey(Enum):
+    FILTERED_DT = 'filtered_dt_confusion_matrix'
+    FULL_DT = 'full_dt_confusion_matrix'
+    FULL_SVM = 'full_svm_confusion_matrix'
+    FILTERED_SVM = 'filtered_svm_confusion_matrix'
 class Movements(Enum):
     BEND = "bend"
 
