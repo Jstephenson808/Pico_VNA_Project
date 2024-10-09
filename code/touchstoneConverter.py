@@ -5,9 +5,10 @@ import numpy as np
 import pandas as pd
 from natsort import natsorted
 from skrf import Frequency, Network
+from skrf.io.touchstone import Touchstone
 from datetime import datetime, timedelta
 from VNA_enums import DateFormats
-from code.VNA_utils import open_full_results_df
+from VNA_utils import open_full_results_df
 
 
 def get_time_recorded_from_touchstone(path):
@@ -79,7 +80,7 @@ def zero_ref_time_column(df):
 
 def extract_data_from_touchstone_folder(folder_path, label)->pd.DataFrame:
     df = None
-    touchstone_files = natsorted(os.listdir(folder_path))
+    touchstone_files = natsorted(os.listdir(folder_path))[:3]
     times = [get_time_recorded_from_touchstone(os.path.join(folder_path,path)) for path in touchstone_files]
     times = space_out_duplicates(times)
     i=0
@@ -95,8 +96,12 @@ def create_empty_data_frame(network: Network)->pd.DataFrame:
     columns = ['id', 'label', 'mag_or_phase', 's_parameter', 'time'] + [str(int(fq)) for fq in frequency_array]
     return pd.DataFrame(columns=columns)
 
+def linear_complex_value_to_dB(complex_value):
+    return 20 * np.log10(np.abs(complex_value))
+
 def extract_values_from_touchstone_files_to_df(path, experiment_label, times, df:pd.DataFrame=None)->pd.DataFrame:
     touchstone_network = Network(path)
+    touchstone_class = Touchstone(path)
     if df is None:
         df = create_empty_data_frame(touchstone_network)
 
@@ -124,11 +129,11 @@ def extract_values_from_touchstone_files_to_df(path, experiment_label, times, df
 
 if __name__ == "__main__":
     # iterate through whole folder
-    path = r'D:\James\documents\OneDrive - University of Glasgow\Glasgow\Year 4\Project\Pico_VNA_Project\results\touchstones\17_09_patent_exp'
+    path = r'D:\Nik\phantom\moving'
     # label is the same for each
-    label = 'single_liquidAntennaSM3'
+    label = 'rotating_test'
     df = extract_data_from_touchstone_folder(path, label)
 
 
 
-    full_df = open_full_results_df("full_combined_df_2024_04_07.pkl")
+    full_df = open_full_results_df(r'C:\Users\js637s.CAMPUS\PycharmProjects\Pico_VNA_Project\pickles\full_dfs\full_combined_df_2024_08_09.pkl')

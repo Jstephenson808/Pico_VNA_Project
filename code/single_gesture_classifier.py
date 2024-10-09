@@ -230,30 +230,29 @@ def get_closest_freq_column(data_frame, target_frequency):
 
 if __name__ == "__main__":
 
+    # improve saving of full results so that can happen
+    # set up all sparams -> permutations
+    #
+
     # s_parameter = "S11"
     # mag_or_phase = "magnitude"
     # label = "single_LIQUID_DIPOLE_SD1_B"
     # full_results_df_fname = "sd1_401_75KHz_full_combined_df_2024_07_24.pkl"
 
-    full_df = open_full_results_df("17_09_patent_exp_combined_df.pkl")
-    full_df.columns = list(full_df.columns[:5]) + [int(x) for x in full_df.columns[5:]]
-
-    s_param_combinations_list = [['S12', 'S13', 'S14'], ['S34','S23','S42']]
-
-    #todo need to add svm or dtree label to output dict
-    full_results_df = test_classifier_for_all_measured_params(full_df, s_param_combinations_list, DfFilterOptions.BOTH)
-    # combine dfs
+    # full_df = open_full_results_df("17_09_patent_exp_combined_df.pkl")
+    # full_df.columns = list(full_df.columns[:5]) + [int(x) for x in full_df.columns[5:]]
+    #
+    # s_param_combinations_list = [['S12', 'S13', 'S14'], ['S34','S23','S42']]
+    #
+    # #todo need to add svm or dtree label to output dict
+    # full_results_df = test_classifier_for_all_measured_params(full_df, s_param_combinations_list, DfFilterOptions.BOTH)
+    # # combine dfs
     # full_df_fname = os.listdir(os.path.join(get_pickle_path(), "full_dfs"))[0]
     # experiment = "watch_small_antenna_1001_140KHz"
     #full_results_df = combine_results_and_test(os.path.join(get_data_path(), experiment))
     #
-    pickle_object(
-        full_results_df, path=os.path.join(get_pickle_path(), "classifier_results"), file_name=f"full_results_17_09_patent_exp"
-    )
-    # experiment = "watch_small_antenna_2001_140KHz"
-    # full_results_df = combine_results_and_test(os.path.join(get_data_path(), experiment))
-    #
     # pickle_object(
-    #     full_results_df, path=os.path.join(get_pickle_path(), "classifier_results"),
-    #     file_name=f"full_results_{experiment}"
+    #     full_results_df, path=os.path.join(get_pickle_path(), "classifier_results"), file_name=f"full_results_17_09_patent_exp"
     # )
+
+    open_pickled_object(r'C:\Users\js637s.CAMPUS\PycharmProjects\Pico_VNA_Project\pickles\full_results_17_09_patent_exp.pkl')

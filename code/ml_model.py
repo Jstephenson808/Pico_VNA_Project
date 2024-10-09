@@ -70,9 +70,9 @@ def pivot_data_frame_for_s_param(
     return new_df
 
 #todo move to vnaData -> this is a converter method
-def make_fq_df(directory: str) -> pd.DataFrame:
+def csv_directory_to_ml_data_frame(directory: str) -> pd.DataFrame:
     """
-
+    converts a given directory containing .csv data
     :param directory:
     :return:
     """
@@ -101,9 +101,9 @@ def make_fq_df(directory: str) -> pd.DataFrame:
 
 def combine_dfs_with_labels(directory_list, labels) -> pd.DataFrame:
     ids = [i for i in range(len(directory_list))]
-    new_df = make_fq_df(directory_list.pop(0), labels.pop(0), ids.pop(0))
+    new_df = csv_directory_to_ml_data_frame(directory_list.pop(0), labels.pop(0), ids.pop(0))
     for dir, label, sample_id in zip(directory_list, labels, ids):
-        temp_df = make_fq_df(dir, label, sample_id)
+        temp_df = csv_directory_to_ml_data_frame(dir, label, sample_id)
         new_df = pd.concat((new_df, temp_df), ignore_index=True)
     return new_df
 
@@ -368,10 +368,6 @@ def extract_features_and_test(
     # Evaluating the SVM classifier
 
     return {
-        "dt_filtered_classifier": dt_classifier_filtered,
-        "dt_full_classifier": classifier_full,
-        "svm_full_classifier": svm_classifier,
-        "svm_filtered_classifier": svm_classifier_filtered,
         "full_features": extracted,
         "filtered_features": features_filtered,
         "filtered_svm_report": dict_svm_filtered,
@@ -548,7 +544,7 @@ def combine_data_frames_from_csv_folder(csv_folder_path, *, save=True, label="")
     data_folders = os.listdir(csv_folder_path)
     combined_df: pd.DataFrame = None
     for data_folder in data_folders:
-        combined_df_for_one_folder = make_fq_df(
+        combined_df_for_one_folder = csv_directory_to_ml_data_frame(
             os.path.join(csv_folder_path, data_folder)
         )
         combined_df = pd.concat(

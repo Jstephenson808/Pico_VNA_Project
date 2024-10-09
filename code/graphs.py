@@ -11,7 +11,7 @@ from VNA_utils import (
     reorder_data_frame_columns,
     get_touchstones_path,
 )
-from code.VNA_utils import pickle_object, open_pickled_object
+from VNA_utils import pickle_object, open_pickled_object
 import os
 import seaborn as sns
 import matplotlib.pyplot as plt
@@ -398,45 +398,41 @@ def gen_sweep_time_df(
 
 if __name__ == "__main__":
     sns.set(rc={"xtick.bottom": True, "ytick.left": True}, font_scale=2)
-    results_df = pd.concat(
-        (
-            open_pickled_object(
-                os.path.join(get_full_results_df_path(), "watch_small_ant.pkl")
-            ),
-            open_pickled_object(
-                os.path.join(get_full_results_df_path(), "wfa_full_ex_2.pkl")
-            ),
-        ),
-        ignore_index=True,
-    )
+    results_df = open_pickled_object(r'C:\Users\js637s.CAMPUS\PycharmProjects\Pico_VNA_Project\pickles\full_classification_results\smd_3_patent_exp.pkl')
+
+    # fn to plot results over time at a given frequency for a given test
+    # fn to plot multiple test on the same graph over time
+    # fn to plot a set of tests with the time domain results of each
+    # fn to plot all of the results in seperate plots
+
     #
     #
     # #
     # # # replace experiment names for graphing
-    replace_dict = {
-        "single_watchSmallAntennaL-140KHz-1001pts-10Mto4G": "Experiment 1",
-        "single_flex-antenna-watch-140KHz-1001pts-10Mto4G": "Experiment 2",
-        "filtered": "Filtered Features",
-        "full": "Full Feature Set",
-        "svm": "SVM",
-        "dt": "Decision Tree"
-    }
-    results_df = results_df.replace(replace_dict)
-    results_df = results_df[(results_df['high_frequency'].astype(float) < 3.92)]
-    # accuracy_df = results_df[(results_df["gesture"] == "accuracy") & (results_df['high_frequency'].astype(float) < 3.92)]
+    # replace_dict = {
+    #     "single_watchSmallAntennaL-140KHz-1001pts-10Mto4G": "Experiment 1",
+    #     "single_flex-antenna-watch-140KHz-1001pts-10Mto4G": "Experiment 2",
+    #     "filtered": "Filtered Features",
+    #     "full": "Full Feature Set",
+    #     "svm": "SVM",
+    #     "dt": "Decision Tree"
+    # }
+    # results_df = results_df.replace(replace_dict)
+    # results_df = results_df[(results_df['high_frequency'].astype(float) < 3.92)]
+    # # accuracy_df = results_df[(results_df["gesture"] == "accuracy") & (results_df['high_frequency'].astype(float) < 3.92)]
 
     # sampling_freq_results = gen_sweep_time_df()
     # plot_sampling_freq(sampling_freq_results)
 
     #Show plot
     # top_classifier_for_each_band(results_df, include_ALL_sparams=False)
-    max_accuracy_for_mag_sparam_categories(results_df)
+    # max_accuracy_for_mag_sparam_categories(results_df)
     # freq_band_line_plot(results_df)
     # svm_vs_dt_strip_plot(results_df)
     # svm_vs_dtree_violin_plot(results_df)
     # full_vs_filtered_features_plot(results_df)
-    #plot_s_param_mag_phase_from_touchstone(os.path.join(get_touchstones_path(), 'cp1_soil2_dry.s2p'), 'Watch Short Antenna')
-    #plot_s_param_mag_phase_from_touchstone(os.path.join(get_touchstones_path(), 'watch_L_short_band_short_short_wires_140khz_1001pts.s2p'), 'Flex Antenna')
-
-    plt.show()
+    # #plot_s_param_mag_phase_from_touchstone(os.path.join(get_touchstones_path(), 'cp1_soil2_dry.s2p'), 'Watch Short Antenna')
+    # #plot_s_param_mag_phase_from_touchstone(os.path.join(get_touchstones_path(), 'watch_L_short_band_short_short_wires_140khz_1001pts.s2p'), 'Flex Antenna')
+    #
+    # plt.show()
     # ax.legend(title='Classifier', labels=['SVM', 'D Tree'])
