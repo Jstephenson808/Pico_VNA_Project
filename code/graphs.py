@@ -18,7 +18,7 @@ from VNA_utils import (
     ghz_to_hz
 )
 
-from VNA_enums import ConfusionMatrixKey
+from VNA_enums import ConfusionMatrixKey, MeasurementKey
 from VNA_utils import pickle_object, open_pickled_object
 import os
 import seaborn as sns
@@ -416,44 +416,76 @@ def confusion_matrix_from_single_result(single_result_series: pd.Series,
     ConfusionMatrixDisplay(confusion_matrix, display_labels=labels).plot()
     plt.title(
         f'Confusion Matrix for {single_result_series["label"].split("_")[-1]} \n\r '
-        f'Using {single_result_series["classifier"].title()} classifier between {single_result_series["low_frequency"]} and {single_result_series["high_frequency"]} GHz')
+        f'Using {single_result_series["classifier"].title()} classifier using {single_result_series["type"].title()} between {single_result_series["low_frequency"]} and {single_result_series["high_frequency"]} GHz')
     plt.show()
-    return
 
-def display_confusion_matrix_for_top_value(full_df, results_df, confusion_matrix_dict):
+def display_confusion_matrix_for_given_accuracy_value(full_df, results_df, confusion_matrix_dict, accuracy_value, measurement: MeasurementKey, confusion_matrix_option: ConfusionMatrixKey)->None:
+    # allows you to index the lowest values by using -ve numbers
+    if accuracy_value > 0:
+        accuracy_index = accuracy_value - 1
+    else:
+        accuracy_index = accuracy_value
+
     full_df.columns = [pd.to_numeric(col, errors='coerce') if col.isnumeric() else col for col in full_df.columns]
 
     accuracy_df = results_df[(results_df["gesture"] == "accuracy")]
     accuracy_df = accuracy_df.sort_values(by='f1-score', ascending=False)
-    mag_df = accuracy_df[accuracy_df['type'] == 'magnitude']
-    top_magnitude = mag_df.iloc[0]
-
+    measurement_df = accuracy_df[accuracy_df['type'] == measurement.value]
+    selected_result = measurement_df.iloc[accuracy_index]
 
     labels = [label[-1] for label in full_df['label'].unique()]
-    confusion_matrix_from_single_result(top_magnitude, labels, confusion_matrix_dict, confusion_matrix_option)
+    confusion_matrix_from_single_result(selected_result, labels, confusion_matrix_dict, confusion_matrix_option)
 
+def show_top_five_and_bottom_five_confusion_matricies(full_df, results_df, confusion_matrix_dict, measurement: MeasurementKey, confusion_matrix_option: ConfusionMatrixKey)->None:
+    for i in range(5):
+        display_confusion_matrix_for_given_accuracy_value(full_df, results_df, confusion_matrix_dict, i, measurement, confusion_matrix_option)
+    for i in range(-5,-1):
+        display_confusion_matrix_for_given_accuracy_value(full_df, results_df, confusion_matrix_dict, i, measurement, confusion_matrix_option)
+
+def plot_s_param_channels(full_df, target_freq_hz, measurement: MeasurementKey, s_params_to_plot=None):
+
+    full_df = full_df[full_df['mag_or_phase'] == measurement.value]
+
+    #find closest fq to target
+    closest_fq = find_nearest_frequency(full_df, target_freq_hz)
+    filter_id = full_df['id'].unique()[0]
+    filtered_df = full_df[full_df['id'] == filter_id]
+    if s_params_to_plot is None:
+        s_params_to_plot = filtered_df['s_parameter'].unique()
+    fig, ax = plt.subplots(len(s_params_to_plot), 1, sharex=True)
+    ax = ax.flatten()
+    for axis, s_param in zip(ax, s_params_to_plot):
+        s_param_df = filtered_df[filtered_df['s_parameter'] == s_param]
+        sns.lineplot(data=s_param_df, x='time', y=closest_fq, ax=axis)
+        axis.set_title(f'{s_param}')
+    plt.show()
+
+def find_nearest_frequency(full_df, target_frequency_hz):
+    array = np.asarray(list(full_df.columns)[5:])
+    idx = (np.abs(array - target_frequency_hz)).argmin()
+    return array[idx]
 
 if __name__ == "__main__":
     sns.set(rc={"xtick.bottom": True, "ytick.left": True}, font_scale=2)
     pkl_classifier_folder = r'C:\Users\2573758S\PycharmProjects\Pico_VNA_Project\pickles\classifiers\smd_3_patent_exp'
 
     full_df = open_pickled_object(r'C:\Users\js637s.CAMPUS\PycharmProjects\Pico_VNA_Project\pickles\full_dfs\full_combined_df_2024_08_09.pkl')
-
-    confusion_matrix_option = ConfusionMatrixKey.FULL_SVM.value
-    results_df = get_full_results_df_from_classifier_pkls(pkl_classifier_folder
-                                                          )
-    accuracy_df = results_df[(results_df["gesture"] == "accuracy")]
-    accuracy_df = accuracy_df.sort_values(by='f1-score', ascending=False)
-    mag_df = accuracy_df[accuracy_df['type'] == 'magnitude']
-    top_magnitude = mag_df.iloc[0]
-    filtered_df_s_param = full_df[full_df['s_parameter'].isin(top_magnitude['s_param'].split('_'))]
-
-    filtered_df_fq_range = filter_cols_between_fq_range(filtered_df_s_param,
-                                                        ghz_to_hz(float(top_magnitude['low_frequency'])),
-                                                        ghz_to_hz(float(top_magnitude['high_frequency'])))
-    confusion_matrix_dict = get_full_results_df_from_classifier_pkls(
-        pkl_classifier_folder,
-        extract="confusion_matrix")
+    plot_s_param_channels(full_df, target_freq_hz=200000000, measurement=MeasurementKey.MAGNITUDE, s_params_to_plot=['S11', 'S21'])
+    # confusion_matrix_option = ConfusionMatrixKey.FULL_SVM.value
+    # results_df = get_full_results_df_from_classifier_pkls(pkl_classifier_folder
+    #                                                       )
+    # accuracy_df = results_df[(results_df["gesture"] == "accuracy")]
+    # accuracy_df = accuracy_df.sort_values(by='f1-score', ascending=False)
+    # mag_df = accuracy_df[accuracy_df['type'] == 'magnitude']
+    # top_magnitude = mag_df.iloc[0]
+    # filtered_df_s_param = full_df[full_df['s_parameter'].isin(top_magnitude['s_param'].split('_'))]
+    #
+    # filtered_df_fq_range = filter_cols_between_fq_range(filtered_df_s_param,
+    #                                                     ghz_to_hz(float(top_magnitude['low_frequency'])),
+    #                                                     ghz_to_hz(float(top_magnitude['high_frequency'])))
+    # confusion_matrix_dict = get_full_results_df_from_classifier_pkls(
+    #     pkl_classifier_folder,
+    #     extract="confusion_matrix")
 
 
     #pickle_object(results_df, path=r'C:\Users\2573758S\PycharmProjects\Pico_VNA_Project\pickles\full_classification_results', file_name='smd_3_patent_exp.pkl')

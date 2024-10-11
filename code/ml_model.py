@@ -203,6 +203,14 @@ def window_split(data_frame: pd.DataFrame, window_seconds: float):
 
 
 def create_movement_vector_for_single_data_frame(df: pd.DataFrame) -> pd.Series:
+    """
+    Creates a series which maps each unique id to the associated movement for a results data frame
+    Args:
+        df:
+
+    Returns:
+
+    """
     movement_dict = {}
     groups = df.groupby([DataFrameCols.ID.value])
     for id_value, id_df in groups:
@@ -236,7 +244,7 @@ def split_data_frame_into_id_chunks(
     # Initialize a list to store the smaller DataFrames
     split_dfs_by_id = []
 
-    # Split into chunks of 3 IDs each
+    # Split into chunks of n IDs each
     for i in range(0, len(unique_ids), ids_per_split):
         # Get the current chunk of 3 IDs
         chunk_ids = unique_ids[i : i + ids_per_split]
