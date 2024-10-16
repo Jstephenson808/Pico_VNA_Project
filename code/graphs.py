@@ -444,7 +444,7 @@ def plot_fq_time_series(full_df: pd.DataFrame,*, s_parameter=None, mag_or_phase=
         f's_parameter == "{s_parameter}" and mag_or_phase == "{mag_or_phase}" and label == "{label}"')
     grouped_by_id = filtered_df.groupby('id')
     filtered_dfs = []
-    random_ids = sample(list(grouped_by_id.groups.keys()), n_random_ids)
+    random_ids = random.sample(list(grouped_by_id.groups.keys()), n_random_ids)
     random_experiment_list = [filtered_df.query(f'id == "{id}"') for id in random_ids]
     for random_experiment_df in random_experiment_list:
         filtered_dfs.append(filter_fq_cols(random_experiment_df, target_frequency))
@@ -511,11 +511,10 @@ if __name__ == "__main__":
     sns.set(rc={"xtick.bottom": True, "ytick.left": True}, font_scale=2)
     pkl_classifier_folder = r'C:\Users\2573758S\PycharmProjects\Pico_VNA_Project\pickles\classifiers\smd_3_patent_exp'
 
-    full_df = open_pickled_object(r'C:\Users\js637s.CAMPUS\PycharmProjects\Pico_VNA_Project\pickles\full_dfs\full_combined_df_2024_08_09.pkl')
+    full_df = open_pickled_object(r'C:\Users\2573758S\PycharmProjects\Pico_VNA_Project\pickles\full_dfs\17_09_patent_exp_combined_df.pkl')
 
     confusion_matrix_option = ConfusionMatrixKey.FULL_SVM.value
-    results_df = get_full_results_df_from_classifier_pkls(pkl_classifier_folder
-                                                          )
+    results_df = open_pickled_object(r'C:\Users\2573758S\PycharmProjects\Pico_VNA_Project\pickles\full_classification_results\smd_3_patent_exp.pkl')
     accuracy_df = results_df[(results_df["gesture"] == "accuracy")]
     accuracy_df = accuracy_df.sort_values(by='f1-score', ascending=False)
     mag_df = accuracy_df[accuracy_df['type'] == 'magnitude']
@@ -528,7 +527,7 @@ if __name__ == "__main__":
     confusion_matrix_dict = get_full_results_df_from_classifier_pkls(
         pkl_classifier_folder,
         extract="confusion_matrix")
-
+    display_confusion_matrix_for_top_value(full_df, results_df, confusion_matrix_dict)
 
     #pickle_object(results_df, path=r'C:\Users\2573758S\PycharmProjects\Pico_VNA_Project\pickles\full_classification_results', file_name='smd_3_patent_exp.pkl')
     #
