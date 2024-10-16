@@ -19,7 +19,7 @@ from VNA_utils import (
     get_frequency_column_headings_list, hz_to_ghz
 )
 
-from VNA_enums import ConfusionMatrixKey, DataFrameCols
+from VNA_enums import ConfusionMatrixKey, DataFrameCols, MeasurementKey
 from VNA_utils import pickle_object, open_pickled_object
 import os
 import seaborn as sns
