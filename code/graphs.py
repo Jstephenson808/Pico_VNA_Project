@@ -506,6 +506,51 @@ def plot_comparison_table(full_df, *, s_parameter=None, mag_or_phase=None, targe
         plt.title(f"|{s_parameter}| Over Time at {hz_to_ghz(closest_fq)} GHz")
         plt.show()
 
+def display_confusion_matrix_for_given_accuracy_value(full_df, results_df, confusion_matrix_dict, accuracy_value, measurement: MeasurementKey, confusion_matrix_option: ConfusionMatrixKey)->None:
+    # allows you to index the lowest values by using -ve numbers
+    if accuracy_value > 0:
+        accuracy_index = accuracy_value - 1
+    else:
+        accuracy_index = accuracy_value
+
+    full_df.columns = [pd.to_numeric(col, errors='coerce') if col.isnumeric() else col for col in full_df.columns]
+
+    accuracy_df = results_df[(results_df["gesture"] == "accuracy")]
+    accuracy_df = accuracy_df.sort_values(by='f1-score', ascending=False)
+    measurement_df = accuracy_df[accuracy_df['type'] == measurement.value]
+    selected_result = measurement_df.iloc[accuracy_index]
+
+    labels = [label[-1] for label in full_df['label'].unique()]
+    confusion_matrix_from_single_result(selected_result, labels, confusion_matrix_dict, confusion_matrix_option)
+
+def show_top_five_and_bottom_five_confusion_matricies(full_df, results_df, confusion_matrix_dict, measurement: MeasurementKey, confusion_matrix_option: ConfusionMatrixKey)->None:
+    for i in range(5):
+        display_confusion_matrix_for_given_accuracy_value(full_df, results_df, confusion_matrix_dict, i, measurement, confusion_matrix_option)
+    for i in range(-5,-1):
+        display_confusion_matrix_for_given_accuracy_value(full_df, results_df, confusion_matrix_dict, i, measurement, confusion_matrix_option)
+
+def plot_s_param_channels(full_df, target_freq_hz, measurement: MeasurementKey, s_params_to_plot=None):
+
+    full_df = full_df[full_df['mag_or_phase'] == measurement.value]
+
+    #find closest fq to target
+    closest_fq = find_nearest_frequency(full_df, target_freq_hz)
+    filter_id = full_df['id'].unique()[0]
+    filtered_df = full_df[full_df['id'] == filter_id]
+    if s_params_to_plot is None:
+        s_params_to_plot = filtered_df['s_parameter'].unique()
+    fig, ax = plt.subplots(len(s_params_to_plot), 1, sharex=True)
+    ax = ax.flatten()
+    for axis, s_param in zip(ax, s_params_to_plot):
+        s_param_df = filtered_df[filtered_df['s_parameter'] == s_param]
+        sns.lineplot(data=s_param_df, x='time', y=closest_fq, ax=axis)
+        axis.set_title(f'{s_param}')
+    plt.show()
+
+def find_nearest_frequency(full_df, target_frequency_hz):
+    array = np.asarray(list(full_df.columns)[5:])
+    idx = (np.abs(array - target_frequency_hz)).argmin()
+    return array[idx]
 
 if __name__ == "__main__":
     sns.set(rc={"xtick.bottom": True, "ytick.left": True}, font_scale=2)
