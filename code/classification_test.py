@@ -1,3 +1,5 @@
+from typing import Union, List
+
 import pandas as pd
 
 from VNA_utils import mhz_to_hz
@@ -6,9 +8,17 @@ from s_param_data_converter import SParamDataConverter
 from s_parameter_data import SParameterData
 from movement_vector import MovementVector
 
+
+
 class SParameterCombinationsList:
-    def __init__(self, list:[[FourPortSParams]]):
-        self.list = list
+
+    def __init__(self, param_list:List[List[Union[FourPortSParams, str]]]):
+        self.list = self.list = [
+            param if isinstance(param, FourPortSParams)
+            else FourPortSParams[param.upper()]
+            for s_param_list in param_list
+            for param in s_param_list
+        ]
 
 
 class ClassificationExperimentParameters:

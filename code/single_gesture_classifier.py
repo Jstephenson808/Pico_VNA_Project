@@ -4,6 +4,8 @@ from code.movement_vector import create_movement_vector_for_single_data_frame
 
 from code.s_parameter_data import SParameterData
 
+from code.classification_test import SParameterCombinationsList
+
 os.environ["OMP_NUM_THREADS"] = "1"
 os.environ["MKL_NUM_THREADS"] = "1"
 os.environ["OPENBLAS_NUM_THREADS"] = "1"
@@ -240,7 +242,8 @@ if __name__ == "__main__":
 
     s_param_data = SParameterData("17_09_patent_exp_combined_df.pkl")
 
-    s_param_combinations_list = [['S12', 'S13', 'S14'], ['S34','S23','S42']]
+    s_param_combinations = [['S12', 'S13', 'S14'], ['S34','S23','S42']]
+    s_param_combinations_list = SParameterCombinationsList.convert_string_list(s_param_combinations)
     #
     # #todo need to add svm or dtree label to output dict
     full_results_df = test_classifier_for_all_measured_params(full_df, s_param_combinations_list, DfFilterOptions.BOTH)
