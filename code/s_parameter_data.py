@@ -1,6 +1,7 @@
 import os
 from __future__ import annotations
 
+import uuid
 from argparse import ArgumentError
 
 import pandas as pd
@@ -35,6 +36,13 @@ class SParameterData:
             raise ArgumentError("Label must be provided")
         self.label = label
         self.data_frame_split_by_id = None
+        self.id = uuid.uuid4()
+
+    def __str__(self):
+        return f'Data containing: {self.label}, UUID: {self.id}'
+
+    def __repr__(self):
+        return f'SParameterData({self.label}, {self.data_frame}) UUID: {self.id}'
 
     def get_magnitude_data_frame(self)-> pd.DataFrame:
         return self.data_frame[self.data_frame["mag_or_phase"] == "magnitude"]
