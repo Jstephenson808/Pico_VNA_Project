@@ -15,7 +15,7 @@ class CsvToResultsDataFrame:
     def __init__(self, csv_folder_path: Path):
         self.csv_folder_path = csv_folder_path
 
-    def csv_directory_to_ml_data_frame(self) -> FullResults:
+    def csv_directory_to_ml_data_frame(self) -> SParameterData:
         """
         converts a given directory containing .csv data
         :param directory:
@@ -41,7 +41,7 @@ class CsvToResultsDataFrame:
                     (combined_data_frame, pivoted_data_frame), ignore_index=True
                 )
 
-        return FullResults(combined_data_frame)
+        return SParameterData(combined_data_frame)
 
     def pivot_data_frame_for_s_param(
             self, s_param: str, data_frame: pd.DataFrame, mag_or_phase: DataFrameCols
@@ -83,10 +83,10 @@ class CsvToResultsDataFrame:
         new_df = new_df[reordered_columns]
         return new_df
 
-class FullResults:
+class SParameterData:
 
     @staticmethod
-    def open_full_results_df(file_name, folder=None) -> FullResults:
+    def open_full_results_df(file_name, folder=None) -> SParameterData:
         """
         Opens a .pkl data frame within the folder provided, if folder arg is none
         then the default folder is used
@@ -97,10 +97,10 @@ class FullResults:
         if folder is None:
             folder = get_full_df_path()
         data_frame = open_pickled_object(os.path.join(folder, file_name))
-        return FullResults(data_frame)
+        return SParameterData(data_frame)
 
 
-    def __init__(self, data_frame: pd.DataFrame):
+    def __init__(self, data_frame: pd.DataFrame=None):
         self.data_frame = data_frame
         self.data_frame.columns = list(self.data_frame.columns[:5]) + [int(x) for x in self.data_frame.columns[5:]]
         self.data_frame_split_by_id = None
@@ -131,7 +131,7 @@ class FullResults:
         return split_dfs_by_id
 
 class Classifier:
-    def __init__(self, full_results: FullResults):
+    def __init__(self, full_results: SParameterData):
         self.full_results = full_results
         self.filtered_results_dict = None
 

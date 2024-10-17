@@ -1,12 +1,14 @@
 from VNA_utils import mhz_to_hz
-from full_results import FullResults
+from full_results import SParameterData
 
 
 class ClassificationTest:
 
 
-    def __init__(self, freq_hop, results_object: FullResults):
-        self.
+    def __init__(self, freq_hop, s_param_data: SParameterData):
+        self.results = s_param_data
+        self.freq_hop = freq_hop
+
 
     def test_data_frame_classifier_frequency_window_with_report(
             self,
