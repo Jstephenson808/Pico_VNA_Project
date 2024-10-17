@@ -1,3 +1,5 @@
+import pandas as pd
+
 from VNA_utils import mhz_to_hz
 from s_parameter_data import SParameterData
 
@@ -15,8 +17,8 @@ class ClassificationTest:
             label: str,
             frequency_hop: int = mhz_to_hz(100)
             ) -> pd.DataFrame:
-        #
-        movement_vector = create_movement_vector_for_single_data_frame(data_frame)
+
+        self.movement_vector = self.create_movement_vector_for_single_data_frame(data_frame)
         # as df format is | labels | fq1 | fq2 ......
         # need to get just the fqs which are listed
         freq_list = get_frequency_column_headings_list(data_frame)

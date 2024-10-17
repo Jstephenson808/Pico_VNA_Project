@@ -202,22 +202,6 @@ def window_split(data_frame: pd.DataFrame, window_seconds: float):
     return new_df, movement_dict
 
 
-def create_movement_vector_for_single_data_frame(df: pd.DataFrame) -> pd.Series:
-    """
-    Creates a series which maps each unique id to the associated movement for a results data frame
-    Args:
-        df:
-
-    Returns:
-
-    """
-    movement_dict = {}
-    groups = df.groupby([DataFrameCols.ID.value])
-    for id_value, id_df in groups:
-        movement_dict[id_value[0]] = id_df[DataFrameCols.LABEL.value].values[0]
-    return pd.Series(movement_dict)
-
-
 def combine_windowed_df(
     new_df: pd.DataFrame, windowed_df: pd.DataFrame, new_id, movement_dict
 ) -> pd.DataFrame:
