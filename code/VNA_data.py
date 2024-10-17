@@ -13,7 +13,7 @@ from VNA_enums import DataFrameCols
 
 matplotlib.use("TkAgg")
 from matplotlib import pyplot as plt
-from VNA_enums import DataFrameCols, DateFormats, SParam, MeasurementFormat
+from VNA_enums import DataFrameCols, DateFormats, TwoPortSParams, MeasurementFormat
 from VNA_exceptions import NotValidCSVException, NotValidSParamException
 from VNA_utils import get_root_folder_path, hz_to_ghz, ghz_to_hz, timer_func
 
@@ -222,7 +222,7 @@ class VnaData:
         assert all(col.value in data_frame.columns for col in DataFrameCols)
 
     def extract_freq_df(
-        self, target_frequency: int, s_param: SParam = None
+        self, target_frequency: int, s_param: TwoPortSParams = None
     ) -> pd.DataFrame:
         """
         Takes in a target frequency and optional sparam,
@@ -245,7 +245,7 @@ class VnaData:
         return df.sort_values(by=[DataFrameCols.TIME.value])
 
     def extract_time_df(
-        self, target_time_seconds: float, s_param: SParam = None
+        self, target_time_seconds: float, s_param: TwoPortSParams = None
     ) -> pd.DataFrame:
         """
         Takes in a target frequency and optional sparam,
@@ -286,7 +286,7 @@ class VnaData:
             "graph",
             datetime.now().date().strftime(DateFormats.DATE_FOLDER.value),
         ),
-        plot_s_param: SParam = None,
+        plot_s_param: TwoPortSParams = None,
         data_frame_column_to_plot: DataFrameCols = DataFrameCols.MAGNITUDE,
         save_to_file=True,
     ):
@@ -355,14 +355,14 @@ class VnaData:
         idx = (np.abs(array - target_time_in_seconds)).argmin()
         return array[idx]
 
-    def validate_s_param(self, plot_s_param: SParam) -> bool:
-        if (plot_s_param is None) or (plot_s_param not in SParam):
+    def validate_s_param(self, plot_s_param: TwoPortSParams) -> bool:
+        if (plot_s_param is None) or (plot_s_param not in TwoPortSParams):
             raise NotValidSParamException(f"{plot_s_param} is not valid")
         return True
 
-    def handle_none_param(self, plot_s_param: None) -> SParam | None:
+    def handle_none_param(self, plot_s_param: None) -> TwoPortSParams | None:
         plot_s_param_string = self.data_frame[DataFrameCols.S_PARAMETER.value].values[0]
-        for param_enum in SParam:
+        for param_enum in TwoPortSParams:
             if param_enum.value == plot_s_param_string:
                 plot_s_param = param_enum
                 break
@@ -377,7 +377,7 @@ class VnaData:
             "graph",
             datetime.now().date().strftime(DateFormats.DATE_FOLDER.value),
         ),
-        plot_s_param: SParam = None,
+        plot_s_param: TwoPortSParams = None,
         data_frame_column_to_plot: DataFrameCols = DataFrameCols.MAGNITUDE,
         save_to_file=True,
     ):
@@ -445,7 +445,7 @@ class VnaData:
             elapsed_time: timedelta,
             magnitude_data_string: str,
             phase_data_string: str,
-            s_parameter: SParam,
+            s_parameter: TwoPortSParams,
             label: str,
             id,
     ) -> dict:
@@ -477,7 +477,7 @@ class VnaData:
     def add_measurement_to_dict_list(
             self,
             *,
-            s_param: SParam,
+            s_param: TwoPortSParams,
             magnitude_data_string: str,
             phase_data_string: str,
             elapsed_time: timedelta,
@@ -662,7 +662,7 @@ if __name__ == '__main__':
     # combined_df['label'] = combined_df['label'].map(lambda x: x.split('_')[2])
     #targets = []
     data = VnaData(r"C:\Users\mww19a\PycharmProjects\Pico_VNA_Project\results\data\single_Test_dipole1_xx\single_Test_dipole1_xx_2024_08_09_14_20_34_S11_S21_S12_S22_10_secs.csv")
-    data.single_freq_plotter(ghz_to_hz(0.4), plot_s_param=SParam.S11, data_frame_column_to_plot=DataFrameCols.MAGNITUDE)
+    data.single_freq_plotter(ghz_to_hz(0.4), plot_s_param=TwoPortSParams.S11, data_frame_column_to_plot=DataFrameCols.MAGNITUDE)
 
 
 

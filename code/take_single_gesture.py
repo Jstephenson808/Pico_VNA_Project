@@ -5,7 +5,7 @@ from VNA_calibration import VnaCalibration
 from VNA_data import VnaData
 from datetime import timedelta
 from VNA_utils import get_calibration_path, ghz_to_hz
-from VNA_enums import SParam
+from VNA_enums import TwoPortSParams
 from user_parameters import *
 
 calibration_path = os.path.join(get_calibration_path(),
@@ -32,7 +32,7 @@ if __name__ == "__main__":
         vna = VNA(calibration, data)
 
         vna.measure_n_times(run_time=TEST_TIME,
-                            s_params_output=[param for param in SParam],
+                            s_params_output=[param for param in TwoPortSParams],
                             label=label,
                             print_elapsed_time=True,
                             n_measures=n,

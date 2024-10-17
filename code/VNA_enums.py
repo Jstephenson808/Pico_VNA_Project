@@ -32,12 +32,29 @@ class MeasureSParam(Enum):
     ALL = "All"
 
 
-class SParam(Enum):
+class TwoPortSParams(Enum):
     S11 = "S11"
     S12 = "S12"
     S22 = "S22"
     S21 = "S21"
 
+class FourPortSParams(Enum):
+    S11 = "S11"
+    S12 = "S12"
+    S13 = "S13"
+    S14 = "S14"
+    S21 = "S21"
+    S22 = "S22"
+    S23 = "S23"
+    S24 = "S24"
+    S31 = "S31"
+    S32 = "S32"
+    S33 = "S33"
+    S34 = "S34"
+    S41 = "S41"
+    S42 = "S42"
+    S43 = "S43"
+    S44 = "S44"
 
 class MeasurementFormat(Enum):
     LOGMAG = "logmag"

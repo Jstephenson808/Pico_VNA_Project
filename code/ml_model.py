@@ -8,7 +8,7 @@ os.environ["OMP_NUM_THREADS"] = "1"
 os.environ["MKL_NUM_THREADS"] = "1"
 os.environ["OPENBLAS_NUM_THREADS"] = "1"
 
-from VNA_enums import DataFrameCols, SParam, DateFormats
+from VNA_enums import DataFrameCols, TwoPortSParams, DateFormats
 from VNA_utils import get_pickle_path, get_classifiers_path, reorder_data_frame_columns
 from VNA_data import VnaData
 
@@ -134,7 +134,7 @@ def rolling_window_split(data_frame: pd.DataFrame, rolling_window_seconds: float
         # get the avg of a single set of time
         window_increment = (
             group_data[
-                (group_data[DataFrameCols.S_PARAMETER.value] == SParam.S11.value)
+                (group_data[DataFrameCols.S_PARAMETER.value] == TwoPortSParams.S11.value)
                 & (group_data["mag_or_phase"] == "magnitude")
             ][DataFrameCols.TIME.value]
             .diff()

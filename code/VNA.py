@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 
 from VNA_enums import (
     MeasurementFormat,
-    SParam,
+    TwoPortSParams,
     MeasureSParam,
     DateFormats,
 )
@@ -84,7 +84,7 @@ class VNA:
         print(f"Result {ans}")
 
     def get_data(
-        self, s_parameter: SParam, data_format: MeasurementFormat, point=0
+        self, s_parameter: TwoPortSParams, data_format: MeasurementFormat, point=0
     ) -> str:
         """
         wrapper for getting data from the VNA after measurement
@@ -100,7 +100,7 @@ class VNA:
     def generate_output_path(
         self,
         output_folder: str,
-        s_params_saved: [SParam],
+        s_params_saved: [TwoPortSParams],
         run_time: timedelta,
         fname="",
         label="",
@@ -137,7 +137,7 @@ class VNA:
     def take_measurement(
         self,
         s_params_measure: MeasureSParam,
-        s_params_output: [SParam],
+        s_params_output: [TwoPortSParams],
         elapsed_time: timedelta,
         label: str,
         id,
@@ -173,7 +173,7 @@ class VNA:
             n_measures=1,
             print_elapsed_time=False,
             s_params_measure: MeasureSParam = MeasureSParam.ALL,
-            s_params_output: [SParam] = None,
+            s_params_output: [TwoPortSParams] = None,
             file_name: str = "",
             output_dir=get_data_path(),
             label=None,
@@ -212,7 +212,7 @@ class VNA:
 
         # this the output s parameter, which is RETRIEVED from the VNA
         if s_params_output == None:
-            s_params_output = [SParam.S11]
+            s_params_output = [TwoPortSParams.S11]
 
         # connect and load calibration
         self.connect()

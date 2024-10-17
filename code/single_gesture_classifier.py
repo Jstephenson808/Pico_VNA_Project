@@ -2,6 +2,8 @@ import os
 
 from code.movement_vector import create_movement_vector_for_single_data_frame
 
+from code.s_parameter_data import SParameterData
+
 os.environ["OMP_NUM_THREADS"] = "1"
 os.environ["MKL_NUM_THREADS"] = "1"
 os.environ["OPENBLAS_NUM_THREADS"] = "1"
@@ -81,7 +83,7 @@ def test_classifier_from_df_dict(df_dict: {}, frequency_hop=mhz_to_hz(100)) -> p
 
 def filter_sparam_combinations(data: pd.DataFrame, *, mag_or_phase) -> {}:
     s_param_dict = {}
-    s_param_combs = combinations([param.value for param in SParam], 2)
+    s_param_combs = combinations([param.value for param in TwoPortSParams], 2)
     for s_param_1, s_param_2 in s_param_combs:
         s_param_dict[f"{s_param_1}_{s_param_2}_{mag_or_phase}"] = data[((data[DataFrameCols.S_PARAMETER.value]==s_param_1)&(data["mag_or_phase"]==mag_or_phase))|((data[DataFrameCols.S_PARAMETER.value]==s_param_2)&(data["mag_or_phase"]==mag_or_phase))]
     return s_param_dict
@@ -236,19 +238,9 @@ def get_closest_freq_column(data_frame, target_frequency):
 
 if __name__ == "__main__":
 
-    # improve saving of full results so that can happen
-    # set up all sparams -> permutations
-    #
+    s_param_data = SParameterData("17_09_patent_exp_combined_df.pkl")
 
-    # s_parameter = "S11"
-    # mag_or_phase = "magnitude"
-    # label = "single_LIQUID_DIPOLE_SD1_B"
-    # full_results_df_fname = "sd1_401_75KHz_full_combined_df_2024_07_24.pkl"
-
-    full_df = open_full_results_df("17_09_patent_exp_combined_df.pkl")
-    full_df.columns = list(full_df.columns[:5]) + [int(x) for x in full_df.columns[5:]]
-
-    # s_param_combinations_list = [['S12', 'S13', 'S14'], ['S34','S23','S42']]
+    s_param_combinations_list = [['S12', 'S13', 'S14'], ['S34','S23','S42']]
     #
     # #todo need to add svm or dtree label to output dict
     full_results_df = test_classifier_for_all_measured_params(full_df, s_param_combinations_list, DfFilterOptions.BOTH)

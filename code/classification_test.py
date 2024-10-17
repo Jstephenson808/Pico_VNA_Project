@@ -1,24 +1,37 @@
 import pandas as pd
 
 from VNA_utils import mhz_to_hz
+from VNA_enums import FourPortSParams
+from s_param_data_converter import SParamDataConverter
 from s_parameter_data import SParameterData
+from movement_vector import MovementVector
+
+class SParameterCombinationsList:
+    def __init__(self, list:[[FourPortSParams]]):
+        self.list = list
 
 
-class ClassificationTest:
+class ClassificationExperimentParameters:
+    def __init__(self, s_param_combinations_list:SParameterCombinationsList):
+        self.s_param_combinations_list = s_param_combinations_list
+
+
+class ClassificationExperiment:
 
 
     def __init__(self, freq_hop, s_param_data: SParameterData):
         self.results = s_param_data
         self.freq_hop = freq_hop
+        self.movement_vector = MovementVector()
 
-
+    #todo what is data_frame? -> I think its s_parameter_data?
     def test_data_frame_classifier_frequency_window_with_report(
             self,
             label: str,
             frequency_hop: int = mhz_to_hz(100)
             ) -> pd.DataFrame:
 
-        self.movement_vector = self.create_movement_vector_for_single_data_frame(data_frame)
+        self.movement_vector.create_movement_vector_for_single_data_frame(data_frame)
         # as df format is | labels | fq1 | fq2 ......
         # need to get just the fqs which are listed
         freq_list = get_frequency_column_headings_list(data_frame)

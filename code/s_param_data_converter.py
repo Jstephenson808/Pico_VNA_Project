@@ -22,7 +22,7 @@ class SParamDataConverter(ABC):
     def convert_to_s_param_data(self)->SParameterData:
         pass
 
-class CsvSParamDataConverter(SParameterData):
+class CsvSParamDataConverter(SParamDataConverter):
     def __init__(self, csv_folder_path):
         self.csv_folder_path = csv_folder_path
 
