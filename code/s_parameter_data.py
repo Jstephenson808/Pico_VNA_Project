@@ -1,7 +1,11 @@
 import os
 from __future__ import annotations
 
+from argparse import ArgumentError
+
 import pandas as pd
+from numba.core.ir import Raise
+from pandas.core.dtypes.generic import ABCNDFrame
 
 from VNA_utils import get_full_df_path, open_pickled_object
 from VNA_enums import DataFrameCols, DfFilterOptions
@@ -24,11 +28,19 @@ class SParameterData:
         return SParameterData(data_frame)
 
 
-    def __init__(self, data_frame: pd.DataFrame=None):
+    def __init__(self, label=None, data_frame: pd.DataFrame=None):
         self.data_frame = data_frame
         self.data_frame.columns = list(self.data_frame.columns[:5]) + [int(x) for x in self.data_frame.columns[5:]]
+        if label is None:
+            raise ArgumentError("Label must be provided")
+        self.label = label
         self.data_frame_split_by_id = None
 
+    def get_magnitude_data_frame(self)-> pd.DataFrame:
+        return self.data_frame[self.data_frame["mag_or_phase"] == "magnitude"]
+
+    def get_phase_data_frame(self)->pd.DataFrame:
+        return self.data_frame[self.data_frame["mag_or_phase"] == "phase"]
 
     def split_data_frame_into_id_chunks(
             self, ids_per_split: int

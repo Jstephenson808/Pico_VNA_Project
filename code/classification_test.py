@@ -1,9 +1,10 @@
-from typing import Union, List
+from typing import Union, List, Dict
 
 import pandas as pd
 
 from VNA_utils import mhz_to_hz
-from VNA_enums import FourPortSParams
+from VNA_enums import FourPortSParams, DataFrameCols
+from code.VNA_enums import DfFilterOptions
 from s_param_data_converter import SParamDataConverter
 from s_parameter_data import SParameterData
 from movement_vector import MovementVector
@@ -20,10 +21,75 @@ class SParameterCombinationsList:
             for param in s_param_list
         ]
 
+    def __iter__(self):
+        self._index = 0
+        return self
+
+    def __next__(self):
+        if self._index < len(self.list):
+            result = self.list[self._index]
+            self._index += 1
+            return result
+        else:
+            raise StopIteration
 
 class ClassificationExperimentParameters:
-    def __init__(self, s_param_combinations_list:SParameterCombinationsList):
+    def __init__(self,
+                 s_param_combinations_list:SParameterCombinationsList,
+                 s_param_data:SParameterData,
+                 s_param_measurement_options:DfFilterOptions):
+        self.s_param_data = s_param_data
         self.s_param_combinations_list = s_param_combinations_list
+        self.s_param_measurement_options = s_param_measurement_options
+
+        self.test_data_frames_dict = None
+
+    def create_test_dict(self) -> Dict[str, SParameterData]:
+        """
+        This function creates the test dict for the classifier, allowing filtering by specific S-parameter sets
+        and by magnitude, phase, or both.
+
+        :param combined_df: The combined dataframe containing data.
+        :param sparam_sets: A list of lists containing S-parameter strings (e.g., [['S11', 'S12'], ['S21']]).
+        :param filter_type: Filter by 'magnitude', 'phase', or 'both'. Defaults to 'both'.
+        :return: A dictionary with filtered dataframes.
+        """
+
+        # Initialize the dictionary to store filtered dataframes
+        filtered_df_dict = {}
+
+        # Check the filter type and set which columns to filter
+        if self.s_param_measurement_options in (DfFilterOptions.BOTH, DfFilterOptions.MAGNITUDE):
+            all_Sparams_magnitude = self.s_param_data.get_magnitude_data_frame()
+        if self.s_param_measurement_options in (DfFilterOptions.BOTH, DfFilterOptions.MAGNITUDE):
+            all_Sparams_phase = self.s_param_data.get_phase_data_frame()
+
+        # Iterate over each sparameter set provided in sparam_sets
+        for i, s_param_set in enumerate(self.s_param_combinations_list):
+            set_name = f"{'_'.join([s_param.value for s_param in s_param_set])}"
+
+            # Filter for magnitude if specified or 'both'
+            if self.s_param_measurement_options in (DfFilterOptions.BOTH, DfFilterOptions.MAGNITUDE):
+                filtered_df = all_Sparams_magnitude[
+                    all_Sparams_magnitude[DataFrameCols.S_PARAMETER.value].isin(s_param_set)
+                ]
+                label = f"{set_name}_magnitude"
+                filtered_df_dict[label] = SParameterData(label=label, data_frame=filtered_df)
+
+            # Filter for phase if specified or 'both'
+            if self.s_param_measurement_options in (DfFilterOptions.BOTH, DfFilterOptions.MAGNITUDE):
+                filtered_df = all_Sparams_phase[
+                    all_Sparams_phase[DataFrameCols.S_PARAMETER.value].isin(s_param_set)
+                ]
+                label = f"{set_name}_phase"
+                filtered_df_dict[label] = SParameterData(label=label, data_frame=filtered_df)
+
+            if self.s_param_measurement_options in DfFilterOptions.BOTH:
+                filtered_df = self.s_param_data.data_frame[self.s_param_data.data_frame[DataFrameCols.S_PARAMETER.value].isin(s_param_set)]
+                label = f"{set_name}_both"
+                filtered_df_dict[label] = SParameterData(label=label, data_frame=filtered_df)
+        self.test_data_frames_dict = filtered_df_dict
+        return filtered_df_dict
 
 
 class ClassificationExperiment:

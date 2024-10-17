@@ -1,4 +1,5 @@
 import os
+from typing import Dict
 
 from code.movement_vector import create_movement_vector_for_single_data_frame
 
@@ -93,7 +94,7 @@ def filter_sparam_combinations(data: pd.DataFrame, *, mag_or_phase) -> {}:
 
 def create_test_dict(combined_df: pd.DataFrame,
                      sparam_sets: list[list[str]],
-                     filter_type:DfFilterOptions=DfFilterOptions.BOTH) -> dict:
+                     filter_type:DfFilterOptions=DfFilterOptions.BOTH) -> Dict[str, SParameterData]:
     """
     This function creates the test dict for the classifier, allowing filtering by specific S-parameter sets
     and by magnitude, phase, or both.
@@ -134,7 +135,7 @@ def create_test_dict(combined_df: pd.DataFrame,
                     combined_df[DataFrameCols.S_PARAMETER.value].isin(sparam_set)
                 ]
 
-    return filtered_df_dict
+    return filtered_dfs
 
 
 def test_classifier_for_all_measured_params(combined_df: pd.DataFrame,
