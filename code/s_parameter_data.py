@@ -1,87 +1,11 @@
 import os
 from __future__ import annotations
 
-from pathlib import Path
-
 import pandas as pd
 
-from VNA_utils import get_full_df_path, open_pickled_object, mhz_to_hz
-from VNA_data import VnaData
+from VNA_utils import get_full_df_path, open_pickled_object
 from VNA_enums import DataFrameCols, DfFilterOptions
-from single_gesture_classifier import print_fq_hop
 
-
-class CsvToResultsDataFrame:
-    def __init__(self, csv_folder_path: Path):
-        self.csv_folder_path = csv_folder_path
-
-    def csv_directory_to_ml_data_frame(self) -> SParameterData:
-        """
-        converts a given directory containing .csv data
-        :param directory:
-        :return:
-        """
-        csvs = os.listdir(self.directory)
-        combined_data_frame = None
-        for csv_fname in csvs:
-            data = VnaData(os.path.join(self.directory, csv_fname))
-            # loop over each sparam in the file and make a pivot table then append
-            for sparam in data.data_frame[DataFrameCols.S_PARAMETER.value].unique():
-                pivoted_data_frame = self.pivot_data_frame_for_s_param(
-                    sparam, data.data_frame, DataFrameCols.MAGNITUDE
-                )
-                combined_data_frame = pd.concat(
-                    (combined_data_frame, pivoted_data_frame), ignore_index=True
-                )
-
-                pivoted_data_frame = self.pivot_data_frame_for_s_param(
-                    sparam, data.data_frame, DataFrameCols.PHASE
-                )
-                combined_data_frame = pd.concat(
-                    (combined_data_frame, pivoted_data_frame), ignore_index=True
-                )
-
-        return SParameterData(combined_data_frame)
-
-    def pivot_data_frame_for_s_param(
-            self, s_param: str, data_frame: pd.DataFrame, mag_or_phase: DataFrameCols
-    ) -> pd.DataFrame:
-        """
-        Takes in a data_frame in DataFrameFormats format and returns a dataframe which
-        has been pivoted to have the frequency as the column title with the other info
-        (ie the s param, id, label, time) in seperate columns
-        :param s_param: desired sparam for filtering
-        :param data_frame: dataframe to be pivoted
-        :param mag_or_phase: magnitude or phase selection for pivoting
-        :return: pivoted dataframe with the columns reordered
-        """
-        if (mag_or_phase is not DataFrameCols.MAGNITUDE) and (
-                mag_or_phase is not DataFrameCols.PHASE
-        ):
-            raise ValueError(
-                f"mag_or_phase must be one of those, currently is {mag_or_phase}"
-            )
-        sparam_df = data_frame[data_frame[DataFrameCols.S_PARAMETER.value] == s_param]
-        new_df = sparam_df.pivot(
-            index=DataFrameCols.TIME.value,
-            columns=DataFrameCols.FREQUENCY.value,
-            values=mag_or_phase.value,
-        )
-        new_df.reset_index(inplace=True)
-        new_df["mag_or_phase"] = mag_or_phase.value
-        new_df[DataFrameCols.S_PARAMETER.value] = s_param
-        new_df[DataFrameCols.ID.value] = data_frame[DataFrameCols.ID.value]
-        new_df[DataFrameCols.LABEL.value] = data_frame[DataFrameCols.LABEL.value]
-        reordered_columns = [
-                                DataFrameCols.ID.value,
-                                DataFrameCols.LABEL.value,
-                                "mag_or_phase",
-                                DataFrameCols.S_PARAMETER.value,
-                                DataFrameCols.TIME.value,
-                            ] + list(new_df.columns[1:-4])
-
-        new_df = new_df[reordered_columns]
-        return new_df
 
 class SParameterData:
 

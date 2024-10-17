@@ -21,11 +21,6 @@ def get_time_recorded_from_touchstone(path):
         else:
              pass
 
-
-# class SParameter():
-#     def __init__(self, sparam_string: str):
-#
-
 def s_params_as_list(network: Network, s_param, phase_flag=False, mag_flag=False):
     destination_port = int(s_param[1])
     origin_port = int(s_param[2])
@@ -42,7 +37,6 @@ def get_complex_phase_mag_lists(network: Network, s_param):
     phase_values = s_params_as_list(network, s_param, phase_flag=True)
     db_values = s_params_as_list(network, s_param, mag_flag=True)
     return complex_values, phase_values, db_values
-
 
 def space_out_duplicates(datetimes):
     spaced_out = []  # This will hold the adjusted datetimes
@@ -99,7 +93,9 @@ def create_empty_data_frame(network: Network)->pd.DataFrame:
 def linear_complex_value_to_dB(complex_value):
     return 20 * np.log10(np.abs(complex_value))
 
-def extract_values_from_touchstone_files_to_df(path, experiment_label, times, df:pd.DataFrame=None)->pd.DataFrame:
+def extract_values_from_touchstone_files_to_df(path,
+                                               experiment_label,
+                                               times, df:pd.DataFrame=None)->pd.DataFrame:
     touchstone_network = Network(path)
     touchstone_class = Touchstone(path)
     if df is None:

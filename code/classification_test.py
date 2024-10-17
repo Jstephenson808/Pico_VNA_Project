@@ -1,5 +1,5 @@
 from VNA_utils import mhz_to_hz
-from full_results import SParameterData
+from s_parameter_data import SParameterData
 
 
 class ClassificationTest:
