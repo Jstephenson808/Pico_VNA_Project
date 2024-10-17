@@ -34,14 +34,18 @@ class SParameterCombinationsList:
             raise StopIteration
 
 class ClassificationExperimentParameters:
+
     def __init__(self,
+                 s_param_data: SParameterData,
                  s_param_combinations_list:SParameterCombinationsList,
-                 s_param_data:SParameterData,
-                 s_param_measurement_options:DfFilterOptions):
+                 s_param_measurement_options:DfFilterOptions,
+                 freq_hop:int):
         self.s_param_data = s_param_data
         self.s_param_combinations_list = s_param_combinations_list
         self.s_param_measurement_options = s_param_measurement_options
+        self.freq_hop = freq_hop
 
+        self.movement_vector = MovementVector()
         self.test_data_frames_dict = None
 
     def create_test_dict(self) -> Dict[str, SParameterData]:
@@ -94,11 +98,9 @@ class ClassificationExperimentParameters:
 
 class ClassificationExperiment:
 
-
-    def __init__(self, freq_hop, s_param_data: SParameterData):
-        self.results = s_param_data
-        self.freq_hop = freq_hop
-        self.movement_vector = MovementVector()
+    def __init__(self, experiment_parameters:ClassificationExperimentParameters):
+        self.experiment_parameters = experiment_parameters
+        self.experiment_results = ClassificationExperimentResults()
 
     #todo what is data_frame? -> I think its s_parameter_data?
     def test_data_frame_classifier_frequency_window_with_report(
@@ -134,3 +136,8 @@ class ClassificationExperiment:
         return pd.DataFrame.from_dict(
             f1_scores, orient="index", columns=[x for x in result.keys() if "report" in x]
         )
+
+class ClassificationExperimentResults:
+
+    def __init__(self, results_df:pd.DataFrame=None):
+        self.results_df = results_df
