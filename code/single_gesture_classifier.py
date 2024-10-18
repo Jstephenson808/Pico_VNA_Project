@@ -35,10 +35,13 @@ def extract_report_dictionary_from_test_results(result_dict):
 
 
 def test_data_frame_classifier_frequency_window_with_report(
-    data_frame: pd.DataFrame, label: str, frequency_hop: int = mhz_to_hz(100)
+    data_frame: pd.DataFrame,
+    label: str,
+    frequency_hop: int = mhz_to_hz(100)
 ) -> pd.DataFrame:
-    #
+
     movement_vector = create_movement_vector_for_single_data_frame(data_frame)
+
     # as df format is | labels | fq1 | fq2 ......
     # need to get just the fqs which are listed
     freq_list = get_frequency_column_headings_list(data_frame)

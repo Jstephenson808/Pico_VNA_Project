@@ -102,6 +102,9 @@ class ClassificationExperiment:
         self.experiment_parameters = experiment_parameters
         self.experiment_results = ClassificationExperimentResults()
 
+    def run_test(self):
+        pass
+
     #todo what is data_frame? -> I think its s_parameter_data?
     def test_data_frame_classifier_frequency_window_with_report(
             self,
