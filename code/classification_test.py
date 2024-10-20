@@ -39,11 +39,14 @@ class ClassificationExperimentParameters:
                  s_param_data: SParameterData,
                  s_param_combinations_list:SParameterCombinationsList,
                  s_param_measurement_options:DfFilterOptions,
-                 freq_hop:int):
+                 freq_hop:int,
+                 feature_extraction_parameters:):
         self.s_param_data = s_param_data
         self.s_param_combinations_list = s_param_combinations_list
         self.s_param_measurement_options = s_param_measurement_options
         self.freq_hop = freq_hop
+        self.ids_per_split_for_feature_extraction = ids_per_split_for_feature_extraction
+
 
         self.movement_vector = MovementVector()
         self.test_data_frames_dict = None
