@@ -40,15 +40,14 @@ class ClassificationExperimentParameters:
                  s_param_combinations_list:SParameterCombinationsList,
                  s_param_measurement_options:DfFilterOptions,
                  freq_hop:int,
-                 feature_extraction_parameters:):
+                 ):
         self.s_param_data = s_param_data
         self.s_param_combinations_list = s_param_combinations_list
         self.s_param_measurement_options = s_param_measurement_options
         self.freq_hop = freq_hop
-        self.ids_per_split_for_feature_extraction = ids_per_split_for_feature_extraction
-
 
         self.movement_vector = MovementVector()
+        self.movement_vector.create_movement_vector_for_single_data_frame(self.s_param_data.get_full_data_frame())
         self.test_data_frames_dict = None
 
     def create_test_dict(self) -> Dict[str, SParameterData]:

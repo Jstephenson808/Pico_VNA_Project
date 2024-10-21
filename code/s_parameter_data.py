@@ -44,6 +44,9 @@ class SParameterData:
     def __repr__(self):
         return f'SParameterData({self.label}, {self.data_frame}) UUID: {self.id}'
 
+    def get_full_data_frame(self):
+        return self.data_frame
+
     def get_magnitude_data_frame(self)-> pd.DataFrame:
         return self.data_frame[self.data_frame["mag_or_phase"] == "magnitude"]
 

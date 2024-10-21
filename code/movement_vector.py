@@ -5,7 +5,7 @@ from VNA_enums import DataFrameCols
 
 class MovementVector:
     def __init__(self, vector:pd.Series=None):
-        self.vector = vector
+        self.movement_vector = vector
 
 
     def create_movement_vector_for_single_data_frame(self, df: pd.DataFrame) -> pd.Series:

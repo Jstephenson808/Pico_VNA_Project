@@ -3,7 +3,7 @@ from abc import ABC, abstractmethod
 import pandas as pd
 import tsfresh
 from tsfresh import defaults
-
+from tsfresh.utilities.dataframe_functions import impute
 from classification_test import ClassificationExperiment, ClassificationExperimentParameters
 from VNA_enums import DataFrameCols
 
@@ -21,42 +21,67 @@ class TsFreshFeatureExtractor(FeatureExtractor):
                  experiment_parameters: ClassificationExperimentParameters,
                  n_jobs=defaults.N_PROCESSES,
                  ids_per_split=0,
-                 drop_cols=[DataFrameCols.LABEL.value]
+                 drop_cols=[DataFrameCols.LABEL.value],
+                 show_warnings:bool=defaults.SHOW_WARNINGS,
+                 disable_extraction_progressbar:bool=defaults.DISABLE_PROGRESSBAR
                  ):
         self.parameters = experiment_parameters
-        self.feature_extractor = tsfresh.feature_extraction
-        self.n_jobs
+        self.feature_extractor = tsfresh.extract_features
+        self.feature_selector = tsfresh.select_features
+        self.impute_features = impute
+        self.n_jobs = n_jobs
+        self.drop_cols = drop_cols
+        self.ids_per_split = ids_per_split
+        self.show_warnings = show_warnings
+        self.disable_extraction_progressbar = disable_extraction_progressbar
+
         self.extracted_features = None
-        self.split_dfs_by_id = None
+        self.selected_features = None
 
     def extract_features(self):
         data_frame = self.parameters.s_param_data.data_frame
         combined_df = data_frame.ffill()
         # s_params_mapping = {s.value:index+1 for index, s in enumerate(SParam)}
         # full_data_frame[DataFrameCols.S_PARAMETER.value].map({s.value: index for index, s in enumerate(SParam)})
-        data_frame_without_label = combined_df.drop(columns=drop_cols)
-        if ids_per_split > 0:
-            split_dfs = split_data_frame_into_id_chunks(
-                data_frame_without_label, ids_per_split
+        data_frame_without_label = combined_df.drop(columns=self.drop_cols)
+        if self.ids_per_split > 0:
+            split_dfs = self.split_data_frame_into_id_chunks(
+                data_frame_without_label, self.ids_per_split
             )
             features_list = [
-                extract_features(
+                self.feature_extractor(
                     df,
                     column_sort=DataFrameCols.TIME.value,
                     column_id=DataFrameCols.ID.value,
-                    n_jobs=n_jobs,
+                    n_jobs=self.n_jobs,
+                    disable_progressbar=self.disable_extraction_progressbar,
+                    show_warnings=self.show_warnings
                 )
                 for df in split_dfs
             ]
             extracted = pd.concat(features_list)
         else:
-            extracted = extract_features(
+            extracted = self.feature_extractor(
                 data_frame_without_label,
                 column_sort=DataFrameCols.TIME.value,
                 column_id=DataFrameCols.ID.value,
-                n_jobs=n_jobs,
+                n_jobs=self.n_jobs,
+                disable_progressbar=self.disable_extraction_progressbar,
+                show_warnings=self.show_warnings
             )
-        extracted = impute(extracted)
+        # removes any null values
+        extracted = self.impute_features(extracted)
+        self.extracted_features = extracted
+        return self.extracted_features
+
+    def select_features(self):
+        if self.extracted_features is None:
+            raise ValueError("Feature extraction has not been run")
+        if self.parameters.movement_vector is None:
+            raise ValueError("Movement vector is none")
+        self.selected_features = self.feature_selector(self.extracted_features,
+                                                       self.parameters.movement_vector,
+                                                       show_warnings=self.show_warnings)
 
     def split_data_frame_into_id_chunks(
             self,
@@ -83,6 +108,3 @@ class TsFreshFeatureExtractor(FeatureExtractor):
 
         return split_dfs_by_id
 
-
-class TsFreshFeatureExtractionParameters:
-    def __init__(self, )
