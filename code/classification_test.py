@@ -2,10 +2,11 @@ from typing import Union, List, Dict
 
 import pandas as pd
 
-from VNA_utils import mhz_to_hz
 from VNA_enums import FourPortSParams, DataFrameCols
-from code.VNA_enums import DfFilterOptions
-from s_param_data_converter import SParamDataConverter
+from VNA_enums import DfFilterOptions
+
+from feature_extractor import FeatureExtractor
+
 from s_parameter_data import SParameterData
 from movement_vector import MovementVector
 
@@ -100,12 +101,17 @@ class ClassificationExperimentParameters:
 
 class ClassificationExperiment:
 
-    def __init__(self, experiment_parameters:ClassificationExperimentParameters):
+    def __init__(self,
+                 experiment_parameters:ClassificationExperimentParameters,
+                 feature_extractor:FeatureExtractor=None):
         self.experiment_parameters = experiment_parameters
         self.experiment_results = ClassificationExperimentResults()
+        self.feature_extractor = feature_extractor
+
 
     def run_test(self):
-
+        if self.feature_extractor:
+            self.feature_extractor.extract_features()
         pass
 
     #todo what is data_frame? -> I think its s_parameter_data?
