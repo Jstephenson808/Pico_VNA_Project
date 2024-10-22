@@ -19,21 +19,12 @@ class TsFreshFeatureExtractor(FeatureExtractor):
 
     def __init__(self,
                  experiment_parameters: ClassificationExperimentParameters,
-                 n_jobs=defaults.N_PROCESSES,
-                 ids_per_split=0,
-                 drop_cols=[DataFrameCols.LABEL.value],
-                 show_warnings:bool=defaults.SHOW_WARNINGS,
-                 disable_extraction_progressbar:bool=defaults.DISABLE_PROGRESSBAR
-                 ):
+                 feature_extraction_parameters: FeatureExtractionParameters):
+        self.feature_extraction_parameters = feature_extraction_parameters
         self.parameters = experiment_parameters
         self.feature_extractor = tsfresh.extract_features
         self.feature_selector = tsfresh.select_features
         self.impute_features = impute
-        self.n_jobs = n_jobs
-        self.drop_cols = drop_cols
-        self.ids_per_split = ids_per_split
-        self.show_warnings = show_warnings
-        self.disable_extraction_progressbar = disable_extraction_progressbar
 
         self.extracted_features = None
         self.selected_features = None
@@ -43,19 +34,19 @@ class TsFreshFeatureExtractor(FeatureExtractor):
         combined_df = data_frame.ffill()
         # s_params_mapping = {s.value:index+1 for index, s in enumerate(SParam)}
         # full_data_frame[DataFrameCols.S_PARAMETER.value].map({s.value: index for index, s in enumerate(SParam)})
-        data_frame_without_label = combined_df.drop(columns=self.drop_cols)
-        if self.ids_per_split > 0:
+        data_frame_without_label = combined_df.drop(columns=self.feature_extraction_parameters.drop_cols)
+        if self.feature_extraction_parameters.ids_per_split > 0:
             split_dfs = self.split_data_frame_into_id_chunks(
-                data_frame_without_label, self.ids_per_split
+                data_frame_without_label, self.feature_extraction_parameters.ids_per_split
             )
             features_list = [
                 self.feature_extractor(
                     df,
                     column_sort=DataFrameCols.TIME.value,
                     column_id=DataFrameCols.ID.value,
-                    n_jobs=self.n_jobs,
-                    disable_progressbar=self.disable_extraction_progressbar,
-                    show_warnings=self.show_warnings
+                    n_jobs=self.feature_extraction_parameters.n_jobs,
+                    disable_progressbar=self.feature_extraction_parameters.disable_extraction_progressbar,
+                    show_warnings=self.feature_extraction_parameters.show_warnings
                 )
                 for df in split_dfs
             ]
@@ -65,9 +56,9 @@ class TsFreshFeatureExtractor(FeatureExtractor):
                 data_frame_without_label,
                 column_sort=DataFrameCols.TIME.value,
                 column_id=DataFrameCols.ID.value,
-                n_jobs=self.n_jobs,
-                disable_progressbar=self.disable_extraction_progressbar,
-                show_warnings=self.show_warnings
+                n_jobs=self.feature_extraction_parameters.n_jobs,
+                disable_progressbar=self.feature_extraction_parameters.disable_extraction_progressbar,
+                show_warnings=self.feature_extraction_parameters.show_warnings
             )
         # removes any null values
         extracted = self.impute_features(extracted)
@@ -81,7 +72,7 @@ class TsFreshFeatureExtractor(FeatureExtractor):
             raise ValueError("Movement vector is none")
         self.selected_features = self.feature_selector(self.extracted_features,
                                                        self.parameters.movement_vector,
-                                                       show_warnings=self.show_warnings)
+                                                       show_warnings=self.feature_extraction_parameters.show_warnings)
 
     def split_data_frame_into_id_chunks(
             self,
@@ -107,4 +98,22 @@ class TsFreshFeatureExtractor(FeatureExtractor):
             split_dfs_by_id.append(smaller_df)
 
         return split_dfs_by_id
+
+class FeatureExtractionParameters:
+
+    def __init__(self,
+                 n_jobs=defaults.N_PROCESSES,
+                 ids_per_split=0,
+                 drop_cols=None,
+                 show_warnings: bool = defaults.SHOW_WARNINGS,
+                 disable_extraction_progressbar: bool = defaults.DISABLE_PROGRESSBAR
+                ):
+        # default arg can't be mutable
+        if drop_cols is None:
+            drop_cols = [DataFrameCols.LABEL.value]
+        self.n_jobs = n_jobs
+        self.drop_cols = drop_cols
+        self.ids_per_split = ids_per_split
+        self.show_warnings = show_warnings
+        self.disable_extraction_progressbar = disable_extraction_progressbar
 

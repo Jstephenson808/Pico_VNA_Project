@@ -105,16 +105,14 @@ class ClassificationExperiment:
         self.experiment_results = ClassificationExperimentResults()
 
     def run_test(self):
+
         pass
 
     #todo what is data_frame? -> I think its s_parameter_data?
     def test_data_frame_classifier_frequency_window_with_report(
-            self,
-            label: str,
-            frequency_hop: int = mhz_to_hz(100)
+            self
             ) -> pd.DataFrame:
 
-        self.movement_vector.create_movement_vector_for_single_data_frame(data_frame)
         # as df format is | labels | fq1 | fq2 ......
         # need to get just the fqs which are listed
         freq_list = get_frequency_column_headings_list(data_frame)
