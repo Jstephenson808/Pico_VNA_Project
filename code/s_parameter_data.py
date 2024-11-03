@@ -10,6 +10,7 @@ from pandas.core.dtypes.generic import ABCNDFrame
 
 from VNA_utils import get_full_df_path, open_pickled_object
 from VNA_enums import DataFrameCols, DfFilterOptions
+from code.movement_vector import MovementVector
 
 
 class SParameterData:
@@ -30,13 +31,14 @@ class SParameterData:
 
 
     def __init__(self, label=None, data_frame: pd.DataFrame=None):
-        self.data_frame = data_frame
+        self.data_frame: pd.DataFrame = data_frame
         self.data_frame.columns = list(self.data_frame.columns[:5]) + [int(x) for x in self.data_frame.columns[5:]]
         if label is None:
             raise ArgumentError("Label must be provided")
-        self.label = label
-        self.data_frame_split_by_id = None
-        self.id = uuid.uuid4()
+        self.label: str = label
+        self.data_frame_split_by_id: [SParameterData] = None
+        self.id: uuid.UUID = uuid.uuid4()
+        self.movement_vector: MovementVector = None
 
     def __str__(self):
         return f'Data containing: {self.label}, UUID: {self.id}'
@@ -53,9 +55,24 @@ class SParameterData:
     def get_phase_data_frame(self)->pd.DataFrame:
         return self.data_frame[self.data_frame["mag_or_phase"] == "phase"]
 
+    def get_frequency_column_headings_list(self) -> [int]:
+        return [int(x) for x in self.data_frame.columns[5:]]
+
     def split_data_frame_into_id_chunks(
             self, ids_per_split: int
-    ) -> [pd.DataFrame]:
+    ) -> [SParameterData]:
+        """
+        Splits the full data frame into a list of SParameterData objects containing at most ids_per_split
+        objects, this is for feature extraction
+        Args:
+            ids_per_split: the max number of ids per split
+
+        Returns:
+            List of SParameterData objects split, also adds list to self.data_frame_split_by_id
+
+        """
+        if self.data_frame is None:
+            raise ArgumentError("Data frame can't be None")
 
         # Get the unique IDs
         unique_ids = self.data_frame[DataFrameCols.ID.value].unique()
@@ -70,12 +87,26 @@ class SParameterData:
 
             # Filter the original DataFrame for those IDs
             smaller_df = self.data_frame[self.data_frame[DataFrameCols.ID.value].isin(chunk_ids)]
+            label = f"{self.label} split {i}/{len(unique_ids)//ids_per_split}"
 
+            data_object = SParameterData(label, smaller_df)
             # Append the resulting DataFrame to the list
-            split_dfs_by_id.append(smaller_df)
+            split_dfs_by_id.append(data_object)
 
         self.data_frame_split_by_id = split_dfs_by_id
         return split_dfs_by_id
+
+    def create_movement_vector(self) -> MovementVector:
+        """
+        Creates a movement vector which maps each unique ID to its associated gesture for classification
+        Returns:
+            Movement vector object
+
+        """
+        if self.data_frame is None:
+            raise ArgumentError("Data frame can't be None")
+
+        return MovementVector.create_movement_vector_for_single_data_frame(df=self.data_frame)
 
 class Classifier:
     def __init__(self, full_results: SParameterData):

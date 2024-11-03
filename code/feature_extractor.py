@@ -3,7 +3,7 @@ from abc import ABC, abstractmethod
 import pandas as pd
 import tsfresh
 from tsfresh.utilities.dataframe_functions import impute
-from classification_test import ClassificationExperimentParameters
+from code.classification_experiment_parameters import ClassificationExperimentParameters
 from VNA_enums import DataFrameCols
 from feature_extraction_parameters import FeatureExtractionParameters
 
