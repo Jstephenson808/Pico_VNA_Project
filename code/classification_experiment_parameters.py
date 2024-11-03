@@ -1,8 +1,11 @@
 from typing import Dict
 
+from code.single_gesture_classifier import create_test_dict
+
+from code.frequency import Frequency
 from s_parameter_data import SParameterData
 
-from code.s_parameter_combination_list import SParameterCombinationsList
+from s_parameter_combination_list import SParameterCombinationsList
 
 from VNA_enums import DfFilterOptions, DataFrameCols
 
@@ -11,21 +14,25 @@ from movement_vector import MovementVector
 
 class ClassificationExperimentParameters:
 
-    def __init__(self,
-                 s_param_data: SParameterData,
-                 s_param_combinations_list:SParameterCombinationsList,
-                 s_param_measurement_options:DfFilterOptions,
-                 freq_hop: int
-                 ):
-        self.s_param_data = s_param_data
-        self.s_param_combinations_list = s_param_combinations_list
-        self.s_param_measurement_options = s_param_measurement_options
-        self.freq_hop = freq_hop
+    def __init__(
+        self,
+        s_param_data: SParameterData,
+        s_param_combinations_list: SParameterCombinationsList,
+        s_param_measurement_options: DfFilterOptions,
+        freq_hop: Frequency,
+    ):
+        self.s_param_data: SParameterData = s_param_data
+        self.s_param_combinations_list: SParameterCombinationsList = (
+            s_param_combinations_list
+        )
+        self.s_param_measurement_options: DfFilterOptions = s_param_measurement_options
+        self.freq_hop: Frequency = freq_hop
 
-        self.movement_vector = MovementVector()
+        self.movement_vector: MovementVector = MovementVector()
         self.movement_vector.create_movement_vector_for_single_data_frame(
-            self.s_param_data.get_full_data_frame())
-        self.test_data_frames_dict = None
+            self.s_param_data.get_full_data_frame()
+        )
+        self.test_data_frames_dict: Dict[str, SParameterData] = self.create_test_dict()
 
     def create_test_dict(self) -> Dict[str, SParameterData]:
         """
@@ -42,9 +49,15 @@ class ClassificationExperimentParameters:
         filtered_df_dict = {}
 
         # Check the filter type and set which columns to filter
-        if self.s_param_measurement_options in (DfFilterOptions.BOTH, DfFilterOptions.MAGNITUDE):
+        if self.s_param_measurement_options in (
+            DfFilterOptions.BOTH,
+            DfFilterOptions.MAGNITUDE,
+        ):
             all_Sparams_magnitude = self.s_param_data.get_magnitude_data_frame()
-        if self.s_param_measurement_options in (DfFilterOptions.BOTH, DfFilterOptions.MAGNITUDE):
+        if self.s_param_measurement_options in (
+            DfFilterOptions.BOTH,
+            DfFilterOptions.MAGNITUDE,
+        ):
             all_Sparams_phase = self.s_param_data.get_phase_data_frame()
 
         # Iterate over each sparameter set provided in sparam_sets
@@ -52,25 +65,43 @@ class ClassificationExperimentParameters:
             set_name = f"{'_'.join([s_param.value for s_param in s_param_set])}"
 
             # Filter for magnitude if specified or 'both'
-            if self.s_param_measurement_options in (DfFilterOptions.BOTH, DfFilterOptions.MAGNITUDE):
-                self.filter_df_for_s_param_set(all_Sparams_magnitude, filtered_df_dict, s_param_set, set_name)
+            if self.s_param_measurement_options in (
+                DfFilterOptions.BOTH,
+                DfFilterOptions.MAGNITUDE,
+            ):
+                self.filter_df_for_s_param_set(
+                    all_Sparams_magnitude, filtered_df_dict, s_param_set, set_name
+                )
 
             # Filter for phase if specified or 'both'
-            if self.s_param_measurement_options in (DfFilterOptions.BOTH, DfFilterOptions.MAGNITUDE):
+            if self.s_param_measurement_options in (
+                DfFilterOptions.BOTH,
+                DfFilterOptions.MAGNITUDE,
+            ):
                 filtered_df = all_Sparams_phase[
                     all_Sparams_phase[DataFrameCols.S_PARAMETER.value].isin(s_param_set)
                 ]
                 label = f"{set_name}_phase"
-                filtered_df_dict[label] = SParameterData(label=label, data_frame=filtered_df)
+                filtered_df_dict[label] = SParameterData(
+                    label=label, data_frame=filtered_df
+                )
 
             if self.s_param_measurement_options in DfFilterOptions.BOTH:
-                filtered_df = self.s_param_data.data_frame[self.s_param_data.data_frame[DataFrameCols.S_PARAMETER.value].isin(s_param_set)]
+                filtered_df = self.s_param_data.data_frame[
+                    self.s_param_data.data_frame[DataFrameCols.S_PARAMETER.value].isin(
+                        s_param_set
+                    )
+                ]
                 label = f"{set_name}_both"
-                filtered_df_dict[label] = SParameterData(label=label, data_frame=filtered_df)
+                filtered_df_dict[label] = SParameterData(
+                    label=label, data_frame=filtered_df
+                )
         self.test_data_frames_dict = filtered_df_dict
         return filtered_df_dict
 
-    def filter_df_for_s_param_set(self, all_Sparams_magnitude, filtered_df_dict, s_param_set, set_name):
+    def filter_df_for_s_param_set(
+        self, all_Sparams_magnitude, filtered_df_dict, s_param_set, set_name
+    ):
         filtered_df = all_Sparams_magnitude[
             all_Sparams_magnitude[DataFrameCols.S_PARAMETER.value].isin(s_param_set)
         ]

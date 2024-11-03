@@ -38,6 +38,42 @@ class Frequency:
     def __init__(self, freq_value_Hz):
         self.freq_value_hz = freq_value_Hz
 
+    def __repr__(self):
+        return f"Frequency Object {self.freq_value_hz}Hz"
+
+    def __str__(self):
+        return f"{self.freq_value_hz}Hz"
+
+    def __eq__(self, other):
+        return self.freq_value_hz == other.freq_value_hz
+
+    def __ne__(self, other):
+        return self.freq_value_hz != other.freq_value_hz
+
+    def __gt__(self, other):
+        return self.freq_value_hz > other.freq_value_hz
+
+    def __lt__(self, other):
+        return self.freq_value_hz < other.freq_value_hz
+
+    def __ge__(self, other):
+        return self.freq_value_hz >= other.freq_value_hz
+
+    def __le__(self, other):
+        return self.freq_value_hz <= other.freq_value_hz
+
+    def __add__(self, other):
+        return Frequency(self.freq_value_hz + other.freq_value_hz)
+
+    def __sub__(self, other):
+        return Frequency(self.freq_value_hz - other.freq_value_hz)
+
+    def __mul__(self, other):
+        return Frequency(self.freq_value_hz * other)
+
+    def __int__(self):
+        return int(self.freq_value_hz)
+
     def get_freq_hz(self):
         return self.freq_value_hz
 
