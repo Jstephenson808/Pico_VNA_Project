@@ -1,12 +1,12 @@
 import os
 from __future__ import annotations
 
+import numpy as np
+
 import uuid
 from argparse import ArgumentError
 
 import pandas as pd
-from numba.core.ir import Raise
-from pandas.core.dtypes.generic import ABCNDFrame
 
 from VNA_utils import get_full_df_path, open_pickled_object
 from VNA_enums import DataFrameCols, DfFilterOptions
@@ -45,7 +45,7 @@ class SParameterData:
         self.label: str = label
         self.data_frame_split_by_id: [SParameterData] = None
         self.id: uuid.UUID = uuid.uuid4()
-        self.movement_vector: MovementVector = None
+        self.movement_vector: MovementVector = self.create_movement_vector()
 
     def __str__(self):
         return f"Data containing: {self.label}, UUID: {self.id}"
@@ -69,7 +69,14 @@ class SParameterData:
         return self.data_frame[self.data_frame["mag_or_phase"] == "phase"]
 
     def get_frequency_column_headings_list(self) -> [Frequency]:
-        return [Frequency(x) for x in self.data_frame.columns[5:]]
+        return [Frequency(x) for x in self._get_frequency_columns()]
+
+    def _get_frequency_columns(self) -> [int]:
+        return [
+            x
+            for x in self.data_frame.columns.values
+            if isinstance(x, int) or isinstance(x, np.int64)
+        ]
 
     def split_data_frame_into_id_chunks(self, ids_per_split: int) -> [SParameterData]:
         """
@@ -108,6 +115,51 @@ class SParameterData:
 
         self.data_frame_split_by_id = split_dfs_by_id
         return split_dfs_by_id
+
+    def get_data_frame_between_frequency(
+        self, low_frequency: Frequency, high_frequency: Frequency
+    ) -> SParameterData:
+        """
+        Filter the data frame so only the fq window of interest is selected and all teh
+        :param df:
+        :param lower_bound:
+        :param upper_bound:
+        :return:
+        """
+        freq_cols: [Frequency] = [
+            Frequency(x)
+            for x in self._get_frequency_columns()
+            if low_frequency.get_freq_hz() <= x <= high_frequency.get_freq_hz()
+        ]
+        if not freq_cols:
+            raise ValueError(
+                f"The frequencies {low_frequency} and {high_frequency} are not in the range of the data"
+            )
+        return self._filter_columns_between_frequencies(freq_cols)
+
+    def _filter_columns_between_frequencies(
+        self, *, filter_frequencies: [Frequency]
+    ) -> SParameterData:
+        """
+        To account for the mix of titles, this regex is used. It will match
+        any of the column headings and then also the list of column frequencies
+        that you pass in, returning a SParameterData object.
+
+        This is a helper method for get_data_frame_between_frequency()
+        :param filter_frequencies: List of Frequency objects which you want to filter by
+        :return: SParameterData object with the filtered frequencies
+        """
+        pattern = rf"^id$|^label$|^mag_or_phase$|^s_parameter$|^time$"
+        if filter_frequencies:
+            pattern += "|" + "|".join(
+                f"^{frequency.get_freq_hz()}$" for frequency in filter_frequencies
+            )
+        filtered_df = self.data_frame.filter(regex=pattern, axis=1)
+        new_label = (
+            self.label
+            + f"filtered between {filter_frequencies[0].get_freq_hz()}Hz and {filter_frequencies[-1].get_freq_hz()}Hz"
+        )
+        return SParameterData(filtered_df, label=new_label)
 
     def create_movement_vector(self) -> MovementVector:
         """

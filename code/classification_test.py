@@ -13,27 +13,25 @@ class ClassificationExperimentLowerLevel:
         s_param_data_under_test: SParameterData,
         test_label: str,
         frequency_hop: Frequency,
+        feature_extractor: FeatureExtractor,
     ):
         self.s_param_data_under_test: SParameterData = s_param_data_under_test
         self.test_label: str = test_label
         self.frequency_hop: Frequency = frequency_hop
+        self.feature_extractor: FeatureExtractor = feature_extractor
 
         # todo this needs to be in a lower class for experiment
 
     def test_data_frame_classifier_frequency_window_with_report(self) -> pd.DataFrame:
         """
         This is a copy over from the previous implementation
-        Handles all testing and classification, feels like this should be a feq more methods really
+        Handles all testing and classification, feels like this should be a few more methods really
         Returns:
 
         """
 
         # unpack parameters for some clarity
         s_param_data: SParameterData = self.s_param_data_under_test
-
-        # as df format is | labels | fq1 | fq2 ......
-        # need to get just the fqs which are listed
-        freq_list: [Frequency] = s_param_data.get_frequency_column_headings_list()
 
         low_frequency: Frequency = s_param_data.get_minimum_frequency()
 
@@ -47,11 +45,18 @@ class ClassificationExperimentLowerLevel:
         while high_frequency <= max_frequency:
             self.print_fq_hop(high_frequency, self.test_label, low_frequency)
 
-            #
-            data_frame_fq_range_filtered = filter_cols_between_fq_range(
-                data_frame, low_frequency, high_frequency
-            )
-            fq_label = f"{label}_{hz_to_ghz(low_frequency)}_{hz_to_ghz(high_frequency)}"
+            try:
+                data_frame_fq_range_filtered = (
+                    s_param_data.get_data_frame_between_frequency(
+                        low_frequency, high_frequency
+                    )
+                )
+            except ValueError as e:
+                print(e)
+                continue
+
+            fq_label = f"{self.test_label}_{low_frequency.get_freq_ghz()}GHz_{high_frequency.get_freq_ghz()}GHz"
+            extracted_features = self.feature_extractor.extract_features()
             result, fname = feature_extract_test_filtered_data_frame(
                 data_frame_fq_range_filtered, movement_vector, fname=fq_label
             )
@@ -64,10 +69,13 @@ class ClassificationExperimentLowerLevel:
             columns=[x for x in result.keys() if "report" in x],
         )
 
-    def print_fq_hop(self, high_frequency: Frequency, label: str, low_frequency: Frequency):
+    def print_fq_hop(
+        self, high_frequency: Frequency, label: str, low_frequency: Frequency
+    ):
         print(
             f"{label}\n\r{low_frequency.get_freq_ghz()}GHz->{high_frequency.get_freq_ghz()}GHz"
         )
+
 
 # design here is that each classification test has it's own one of these objects,
 # will extract features etc for each
@@ -109,8 +117,6 @@ class ClassificationExperiment:
             )
             full_results_df = pd.concat((full_results_df, result_df))
         return ClassificationExperimentResults(full_results_df)
-
-
 
 
 class ClassificationExperimentResults:
