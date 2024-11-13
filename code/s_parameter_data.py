@@ -78,7 +78,7 @@ class SParameterData:
             if isinstance(x, int) or isinstance(x, np.int64)
         ]
 
-    def split_data_frame_into_id_chunks(self, ids_per_split: int) -> [SParameterData]:
+    def split_data_frame_into_n_id_chunks(self, ids_per_split: int) -> [SParameterData]:
         """
         Splits the full data frame into a list of SParameterData objects containing at most ids_per_split
         objects, this is for feature extraction
@@ -120,11 +120,11 @@ class SParameterData:
         self, low_frequency: Frequency, high_frequency: Frequency
     ) -> SParameterData:
         """
-        Filter the data frame so only the fq window of interest is selected and all teh
-        :param df:
-        :param lower_bound:
-        :param upper_bound:
-        :return:
+        Filter the data frame so only the fq window of interest is selected and that the
+        frequencies are in the range of the data frame
+        :param lower_bound: Lower frequency bound
+        :param upper_bound: Higher frequency bound
+        :return: SParameterData object containing just the frequencies
         """
         freq_cols: [Frequency] = [
             Frequency(x)

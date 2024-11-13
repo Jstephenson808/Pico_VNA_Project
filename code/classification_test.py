@@ -35,10 +35,11 @@ class ClassificationExperimentLowerLevel:
 
         low_frequency: Frequency = s_param_data.get_minimum_frequency()
 
+        # jump by frequency hop each time
         high_frequency: Frequency = (
-            s_param_data.get_minimum_frequency().get_freq_hz()
-            + self.experiment_parameters.freq_hop
+            s_param_data.get_minimum_frequency().get_freq_hz() + self.frequency_hop
         )
+
         max_frequency: Frequency = s_param_data.get_maximum_frequency()
         f1_scores = {}
 
@@ -56,7 +57,9 @@ class ClassificationExperimentLowerLevel:
                 continue
 
             fq_label = f"{self.test_label}_{low_frequency.get_freq_ghz()}GHz_{high_frequency.get_freq_ghz()}GHz"
-            extracted_features = self.feature_extractor.extract_features()
+            extracted_features = self.feature_extractor.extract_features(
+                data_frame_fq_range_filtered
+            )
             result, fname = feature_extract_test_filtered_data_frame(
                 data_frame_fq_range_filtered, movement_vector, fname=fq_label
             )

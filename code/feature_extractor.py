@@ -1,8 +1,10 @@
 from abc import ABC, abstractmethod
+from enum import Enum
 
 import pandas as pd
 from pandas import DataFrame
 import tsfresh
+from tsfresh import select_features
 from tsfresh.utilities.dataframe_functions import impute
 from classification_experiment_parameters import ClassificationExperimentParameters
 from VNA_enums import DataFrameCols
@@ -10,28 +12,55 @@ from s_parameter_data import SParameterData
 from feature_extraction_parameters import FeatureExtractionParameters
 
 
+class FullOrSelectedFeatures(Enum):
+    Full_Features = "Full_Features"
+    Selected_Features = "Selected_Features"
+
+
+class ExtractedFeatures:
+
+    def __init__(
+        self,
+        extracted_features: DataFrame,
+        full_or_selected_features: FullOrSelectedFeatures,
+    ):
+        self.extracted_features: DataFrame = extracted_features
+        self.full_or_selected_features: FullOrSelectedFeatures = (
+            full_or_selected_features
+        )
+
+
 class FeatureExtractor(ABC):
 
     @abstractmethod
-    def extract_features(self, s_parameter_data: SParameterData):
+    def extract_features(self, s_parameter_data: SParameterData) -> ExtractedFeatures:
         pass
 
 
 class TsFreshFeatureExtractor(FeatureExtractor):
 
     def __init__(self, feature_extraction_parameters: FeatureExtractionParameters):
-        self.feature_extraction_parameters = feature_extraction_parameters
+        self.feature_extraction_parameters: FeatureExtractionParameters = (
+            feature_extraction_parameters
+        )
         self.feature_extractor = tsfresh.extract_features
         self.feature_selector = tsfresh.select_features
         self.impute_features = impute
 
-        self.extracted_features = None
-        self.selected_features = None
+        self.extracted_features: ExtractedFeatures | None = None
+        self.selected_features: ExtractedFeatures | None = None
 
-    def extract_features(self, s_parameter_data: SParameterData) -> DataFrame:
-        return self.select_features(self.extract_features_only(s_parameter_data))
+    def extract_features(self, s_parameter_data: SParameterData) -> ExtractedFeatures:
+        self.feature_extraction_only(s_parameter_data)
+        if self.feature_extraction_parameters.select_features:
+            self.select_features()
+            return self.selected_features
+        else:
+            return self.extracted_features
 
-    def feature_extraction_only(self, s_param_data: SParameterData) -> DataFrame:
+    def feature_extraction_only(
+        self, s_param_data: SParameterData
+    ) -> ExtractedFeatures:
         data_frame: DataFrame = s_param_data.get_full_data_frame()
         combined_df = data_frame.ffill()
         # s_params_mapping = {s.value:index+1 for index, s in enumerate(SParam)}
@@ -67,6 +96,7 @@ class TsFreshFeatureExtractor(FeatureExtractor):
             )
         # removes any null values
         extracted = self.impute_features(extracted)
+        extracted = ExtractedFeatures(extracted, FullOrSelectedFeatures.Full_Features)
         self.extracted_features = extracted
         return self.extracted_features
 
