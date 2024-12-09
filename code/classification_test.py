@@ -56,10 +56,19 @@ class ClassificationExperimentLowerLevel:
                 print(e)
                 continue
 
+            # This fixes the column titles for feature extraction purposes
+            data_frame_fq_range_filtered.make_columns_have_s_param_mag_phase_titles()
+
+            # label for this fq band and test
             fq_label = f"{self.test_label}_{low_frequency.get_freq_ghz()}GHz_{high_frequency.get_freq_ghz()}GHz"
-            extracted_features = self.feature_extractor.extract_features(
-                data_frame_fq_range_filtered
+
+            # extract features from time series
+            fq_range_filtered_df_extracted_features = (
+                self.feature_extractor.extract_features(data_frame_fq_range_filtered)
             )
+
+            # now need to do the test
+
             result, fname = feature_extract_test_filtered_data_frame(
                 data_frame_fq_range_filtered, movement_vector, fname=fq_label
             )

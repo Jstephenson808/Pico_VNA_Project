@@ -175,6 +175,38 @@ class SParameterData:
             df=self.data_frame
         )
 
+    def make_columns_have_s_param_mag_phase_titles(self) -> SParameterData:
+        """
+        This function fixes something to do with the feature extraction but I genuinely cannot
+        remember what it is to be honest, use it before you call feature extraction
+        Returns:
+
+        """
+        data_frame = self.data_frame
+        freq_cols = [val for val in data_frame.columns.values if isinstance(val, int)]
+        grouped_data = data_frame.groupby(
+            ["mag_or_phase", DataFrameCols.S_PARAMETER.value]
+        )
+        new_combined_df = None
+        for keys, df in grouped_data:
+            label_to_add = ("_").join(keys)
+            new_cols = [f"{label_to_add}_{col_title}" for col_title in freq_cols]
+            df.rename(columns=dict(zip(freq_cols, new_cols)), inplace=True)
+            df = df.drop(columns=[DataFrameCols.S_PARAMETER.value, "mag_or_phase"])
+            if new_combined_df is None:
+                new_combined_df = df
+            else:
+                new_combined_df = pd.merge(
+                    new_combined_df,
+                    df,
+                    on=[
+                        DataFrameCols.ID.value,
+                        DataFrameCols.TIME.value,
+                        DataFrameCols.LABEL.value,
+                    ],
+                )
+        return new_combined_df
+
 
 class Classifier:
     def __init__(self, full_results: SParameterData):
