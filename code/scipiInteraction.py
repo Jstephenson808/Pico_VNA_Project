@@ -4,91 +4,147 @@ from time import sleep
 import pyvisa
 from datetime import datetime, timedelta
 
-from scipiCommands import save_snp_command_string
+from numba.cuda import runtime
+from pyvisa.resources import MessageBasedResource
 from scipiCommands import (
     set_snp_save_ports_command_string,
     create_directory_command_string,
     SnP,
+    await_completion,
+    load_state_command,
+    save_snp_command_string,
 )
+from VNA_utils import countdown_timer
 
 
-def countdown_timer(seconds):
-    while seconds > 0:
-        print(f"{seconds}..")
-        sleep(1)
-        seconds -= 1
-    print("Start")
+class ScipiGestureCaptureExperiment:
+    def __init__(
+        self,
+        vna_handle: MessageBasedResource,
+        test_gestures: [str],
+        runtime: timedelta,
+        experiment_countdown: timedelta,
+        test_name: str,
+        snp_format: SnP,
+        root_folder: str = "local/James/Live_Captures",
+        n_tests_per_gesture: int = 1,
+        path_to_state_to_load: str = None,
+    ):
+        self.vna_handle: MessageBasedResource = vna_handle
+        self.test_gestures: [str] = test_gestures
+        self.runtime: timedelta = runtime
+        self.experiment_countdown: timedelta = experiment_countdown
+        self.test_name: str = test_name
+        self.snp_format: SnP = snp_format
+        self.root_folder: str = root_folder
+        self.save_folder: str = None
+        self.path_to_state_to_load: str = path_to_state_to_load
+        self.n_tests_per_gesture: int = n_tests_per_gesture
 
+    def run_gesture_capture(self):
+        # load state if provided
+        if self.path_to_state_to_load:
+            self.vna_handle.write(load_state_command(self.path_to_state_to_load))
 
-NI_VISA_DLL_PATH = r"C:\Windows\System32\nivisa64.dll"
-VNA_VISA_ADDRESS = "USB0::0xF4EC::0x1700::SNA5XCED5R0097::INSTR"
+        self.set_touchstone_format()
+        self.create_directories_for_exeriment()
 
+    def create_directories_for_exeriment(self):
+        self.vna_handle.write(create_directory_command_string(self.root_folder))
+        self.save_folder = f"{self.root_folder}/{datetime.now().strftime('%y%m%d%H%M')}_{self.test_name}"
 
-RUN_TIME_DELTA = timedelta(seconds=5)
-COUNTDOWN_TIME_SECONDS = 1
-TEST_NAME = f"auto_test"
-SAVE_ROOT = (
-    f"local/James/Live_Captures/{datetime.now().strftime('%y%m%d%H%M')}_{TEST_NAME}"
-)
-snp = SnP.S4P
-n_tests = 2
-test_gestures = ["1"]
-# test_gestures = ["A", "B", "C", "1", "2", "3"]
+        print(os.path.dirname(self.save_folder))
+        self.vna_handle.write(create_directory_command_string(self.save_folder))
 
-rm = pyvisa.ResourceManager(NI_VISA_DLL_PATH)
+    def set_touchstone_format(self):
+        self.vna_handle.write(set_snp_save_ports_command_string(self.snp_format))
 
-SNA = rm.open_resource(VNA_VISA_ADDRESS)
-print(f'Connected to {SNA.query("*IDN?")}')
-
-SNA.write(set_snp_save_ports_command_string(snp))
-
-
-# create dir -> unsure what happens if dir already exists? -> may be quite unsafe
-print(os.path.dirname(SAVE_ROOT))
-SNA.write(create_directory_command_string(os.path.dirname(SAVE_ROOT)))
-SNA.write(create_directory_command_string(SAVE_ROOT))
-
-# how can I get n points, freq range from the VNA?
-
-for gesture in test_gestures:
-    print(f"Gesture: {gesture}")
-    input("Press enter to continue...")
-    current_gesture_folder = f"{SAVE_ROOT}/Gesture_{gesture}"
-    SNA.write(create_directory_command_string(current_gesture_folder))
-    for test_number in range(1, n_tests + 1):
-        # create unique folder for test
-        current_test_foler = f"{current_gesture_folder}/{test_number}"
-        SNA.write(create_directory_command_string(current_test_foler))
-
-        print(f"Test {test_number}")
-        countdown_timer(COUNTDOWN_TIME_SECONDS)
-        run_time = RUN_TIME_DELTA
-        start_time = datetime.now()
-        start_time_string = start_time.strftime("%Y_%m_%d_%H_%M_%S")
-        finish_time = start_time + run_time
-
-        current_time = datetime.now()
-        i = 0
-        while current_time < finish_time:
-            # # Trigger the instrument to start a sweep cycle
-            # SNA.write(':TRIGger:SEQuence:SINGle')
-            # Execute the *OPC? command and wait until the command returns 1 (the measurement cycle is completed).
-            while True:
-                if int(SNA.query("*OPC?")) == 1:
-                    break
-            if i % 100 == 0:
-                elapsed_time = current_time - start_time
-                print(f"Running for another {(run_time - elapsed_time)} i={i}")
-            SNA.write(
-                save_snp_command_string(
-                    f"{current_test_foler}/capture_{str(i).zfill(5)}", SnP.S4P
-                )
+    def capture_single_gesture(self, current_test_folder: str, test_number):
+        self.vna_handle.write(
+            save_snp_command_string(
+                f"{current_test_folder}/capture_{str(test_number).zfill(5)}",
+                self.snp_format,
             )
-            current_time = datetime.now()
-            i += 1
+        )
+        await_completion()
 
-# Preset the SNA again
-# SNA.write(':SYSTem:PRESet')
-#
-# # Set data format to ASCII
-# SNA.write(':FORMat:DATA ASC')
+    def print_elapsed_time(self, run_time, current_time, start_time, test_index):
+        elapsed_time = current_time - start_time
+        print(
+            f"Running for another {(run_time - elapsed_time)} test index={test_index}"
+        )
+
+    def capture_gestures(self):
+        for gesture in self.test_gestures:
+
+            print(f"Gesture: {gesture}")
+            input("Press enter to continue...")
+
+            current_gesture_folder = f"{self.save_folder}/Gesture_{gesture}"
+            self.vna_handle.write(
+                create_directory_command_string(current_gesture_folder)
+            )
+            for test_number in range(1, self.n_tests_per_gesture + 1):
+                # create unique folder for test
+                current_test_folder = f"{current_gesture_folder}/{test_number}"
+                self.vna_handle.write(
+                    create_directory_command_string(current_test_folder)
+                )
+
+                print(f"Test {test_number}")
+                countdown_timer(self.experiment_countdown.total_seconds())
+                start_time = datetime.now()
+                finish_time = start_time + self.runtime
+
+                current_time = datetime.now()
+                test_index = 0
+                while current_time < finish_time:
+                    # # Trigger the instrument to start a sweep cycle
+                    # SNA.write(':TRIGger:SEQuence:SINGle')
+                    # Execute the *OPC? command and wait until the command returns 1 (the measurement cycle is completed).
+                    self.capture_single_gesture(current_test_folder, test_index)
+
+                    if test_index % 100 == 0:
+                        self.print_elapsed_time(
+                            self.run_time, current_time, start_time, test_index
+                        )
+
+                    current_time = datetime.now()
+                    test_index += 1
+
+
+def open_vna_handle(ni_visa_dll_path, vna_visa_address):
+    rm = pyvisa.ResourceManager(ni_visa_dll_path)
+
+    sna = rm.open_resource(vna_visa_address)
+    print(f'Connected to {sna.query("*IDN?")}')
+    return sna
+
+
+if __name__ == "__main__":
+
+    NI_VISA_DLL_PATH = r"C:\Windows\System32\nivisa64.dll"
+    VNA_VISA_ADDRESS = "USB0::0xF4EC::0x1700::SNA5XCED5R0097::INSTR"
+    RUN_TIME_DELTA = timedelta(seconds=5)
+    COUNTDOWN_TIME = timedelta(seconds=1)
+    TEST_NAME = f"auto_test"
+    SAVE_ROOT = (
+        f"local/James/Live_Captures/{datetime.now().strftime('%y%m%d%H%M')}_{TEST_NAME}"
+    )
+    snp = SnP.S4P
+    n_tests = 2
+    # test_gestures = ["A", "B", "C", "1", "2", "3"]
+    test_gestures = ["1"]
+
+    vna_handle = open_vna_handle(NI_VISA_DLL_PATH, VNA_VISA_ADDRESS)
+    experiment = ScipiGestureCaptureExperiment(
+        vna_handle,
+        test_gestures,
+        RUN_TIME_DELTA,
+        COUNTDOWN_TIME,
+        TEST_NAME,
+        snp,
+        SAVE_ROOT,
+        n_tests,
+    )
+    experiment.run_gesture_capture()

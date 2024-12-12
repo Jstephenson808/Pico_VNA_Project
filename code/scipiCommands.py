@@ -56,7 +56,7 @@ def save_snp_command_string(path: str, snp: SnP):
 def await_completion(inst: Resource):
     while True:
         if int(inst.query("*OPC?")) == 1:
-            break
+            return
 
 
 def set_start_freq(channel_number: int, freq_hz: int) -> str:
@@ -120,3 +120,7 @@ def debug_command(inst: Resource):
     """
     while True:
         print(inst.read_bytes(1))
+
+
+def load_state_command(path):
+    return f':MMEMory:LOAD "{path}"'
