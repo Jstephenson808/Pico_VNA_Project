@@ -6,9 +6,12 @@ import pandas as pd
 import matplotlib
 from sklearn.metrics import ConfusionMatrixDisplay
 
-from ml_model import (extract_full_results_to_df, get_results_from_classifier_pkls,
-                      get_full_results_df_from_classifier_pkls,
-                      filter_cols_between_fq_range)
+from ml_model import (
+    extract_full_results_to_df,
+    get_results_from_classifier_pkls,
+    get_full_results_df_from_classifier_pkls,
+    filter_cols_between_fq_range,
+)
 
 matplotlib.use("TkAgg")
 from VNA_utils import (
@@ -16,7 +19,8 @@ from VNA_utils import (
     reorder_data_frame_columns,
     get_touchstones_path,
     ghz_to_hz,
-    get_frequency_column_headings_list, hz_to_ghz
+    get_frequency_column_headings_list,
+    hz_to_ghz,
 )
 
 from VNA_enums import ConfusionMatrixKey, DataFrameCols, MeasurementKey
@@ -26,10 +30,9 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 import matplotlib.ticker as mticker
 from skrf.io import touchstone
-from skrf import plotting
+from skrf import plotting, Network
 
-sns.set_theme(style="whitegrid")
-# sns.set(font_scale=2)
+sns.set_theme(style="whitegrid", font_scale=2)
 
 
 def svm_vs_dt_strip_plot(results_df: pd.DataFrame):
@@ -255,10 +258,10 @@ def max_accuracy_for_mag_sparam_categories(
     accuracy_df = results_df[results_df["gesture"] == "accuracy"]
     melted = melt_and_filter_mag_sparam(accuracy_df, include_all)
 
-    #top_n_groups = melted.groupby("type")["value"].max().nlargest(n_to_plot).index
+    # top_n_groups = melted.groupby("type")["value"].max().nlargest(n_to_plot).index
 
-    melted_df = melted.sort_values(['value'], ascending=False)[:n_to_plot]
-    melted_df['type'] = melted_df['type'].map(lambda x:x.replace('Magnitude', 'Mag'))
+    melted_df = melted.sort_values(["value"], ascending=False)[:n_to_plot]
+    melted_df["type"] = melted_df["type"].map(lambda x: x.replace("Magnitude", "Mag"))
     fig, ax = plt.subplots()
     sns.despine(bottom=True, left=True)
     pt = sns.stripplot(
@@ -282,7 +285,6 @@ def max_accuracy_for_mag_sparam_categories(
     ax.yaxis.set_minor_locator(mticker.AutoMinorLocator())
     ax.tick_params(which="both", bottom=True)
     pt.tick_params(labelsize=12)
-
 
 
 def melt_and_filter_mag_sparam(accuracy_df, include_all=False):
@@ -339,6 +341,18 @@ def plot_s_param_mag_phase_from_touchstone(touchstone_path, name):
     network.plot_s_deg()
     ax.legend(loc=(1.04, 0))
 
+
+def plot_magnitude_from_touchstone(touchstone_path, name):
+    plt.figure()
+    network: Network = touchstone.hfss_touchstone_2_network(touchstone_path)
+
+    plt.title(name)
+    plt.legend([])
+    network.plot_s_db()
+
+
+def subplot_params(network: Network):
+    plotting.subplot_params(network)
 
 
 def plot_sampling_freq(sampling_freq_results):
@@ -404,45 +418,78 @@ def gen_sweep_time_df(
 
     return pd.DataFrame.from_dict(output_dict)
 
-def make_confusion_matrix_dict_string_from_series(series: pd.Series)->str:
-    return ('_').join([series['s_param'], series['type'], series['low_frequency'], series['high_frequency']])
 
-def confusion_matrix_from_single_result(single_result_series: pd.Series,
-                                        labels,
-                                        confusion_matrix_dict,
-                                        confusion_matrix_option: ConfusionMatrixKey)->None:
+def make_confusion_matrix_dict_string_from_series(series: pd.Series) -> str:
+    return ("_").join(
+        [
+            series["s_param"],
+            series["type"],
+            series["low_frequency"],
+            series["high_frequency"],
+        ]
+    )
 
-    confusion_matrix_key = make_confusion_matrix_dict_string_from_series(single_result_series)
-    confusion_matrix = confusion_matrix_dict[confusion_matrix_key][confusion_matrix_option]
+
+def confusion_matrix_from_single_result(
+    single_result_series: pd.Series,
+    labels,
+    confusion_matrix_dict,
+    confusion_matrix_option: ConfusionMatrixKey,
+) -> None:
+
+    confusion_matrix_key = make_confusion_matrix_dict_string_from_series(
+        single_result_series
+    )
+    confusion_matrix = confusion_matrix_dict[confusion_matrix_key][
+        confusion_matrix_option
+    ]
     ConfusionMatrixDisplay(confusion_matrix, display_labels=labels).plot()
     plt.title(
         f'Confusion Matrix for {single_result_series["label"].split("_")[-1]} \n\r '
-        f'Using {single_result_series["classifier"].title()} classifier between {single_result_series["low_frequency"]} and {single_result_series["high_frequency"]} GHz')
+        f'Using {single_result_series["classifier"].title()} classifier between {single_result_series["low_frequency"]} and {single_result_series["high_frequency"]} GHz'
+    )
     plt.show()
     return
 
+
 def display_confusion_matrix_for_top_value(full_df, results_df, confusion_matrix_dict):
-    full_df.columns = [pd.to_numeric(col, errors='coerce') if col.isnumeric() else col for col in full_df.columns]
+    full_df.columns = [
+        pd.to_numeric(col, errors="coerce") if col.isnumeric() else col
+        for col in full_df.columns
+    ]
 
     accuracy_df = results_df[(results_df["gesture"] == "accuracy")]
-    accuracy_df = accuracy_df.sort_values(by='f1-score', ascending=False)
-    mag_df = accuracy_df[accuracy_df['type'] == 'magnitude']
+    accuracy_df = accuracy_df.sort_values(by="f1-score", ascending=False)
+    mag_df = accuracy_df[accuracy_df["type"] == "magnitude"]
     top_magnitude = mag_df.iloc[0]
 
+    labels = [label[-1] for label in full_df["label"].unique()]
+    confusion_matrix_from_single_result(
+        top_magnitude, labels, confusion_matrix_dict, confusion_matrix_option
+    )
 
-    labels = [label[-1] for label in full_df['label'].unique()]
-    confusion_matrix_from_single_result(top_magnitude, labels, confusion_matrix_dict, confusion_matrix_option)
 
-def plot_fq_time_series(full_df: pd.DataFrame,*, s_parameter=None, mag_or_phase=None, label=None, n_random_ids=1, target_frequency=None):
+def plot_fq_time_series(
+    full_df: pd.DataFrame,
+    *,
+    s_parameter=None,
+    mag_or_phase=None,
+    label=None,
+    n_random_ids=1,
+    target_frequency=None,
+):
     if target_frequency is None:
         raise AttributeError("No target frequency")
 
     if s_parameter is None or mag_or_phase is None or label is None:
-        raise AttributeError(f"Must include all params s_param={s_parameter}, mag_or_phase={mag_or_phase}, label={label}")
+        raise AttributeError(
+            f"Must include all params s_param={s_parameter}, mag_or_phase={mag_or_phase}, label={label}"
+        )
 
     filtered_df = full_df.query(
-        f's_parameter == "{s_parameter}" and mag_or_phase == "{mag_or_phase}" and label == "{label}"')
-    grouped_by_id = filtered_df.groupby('id')
+        f's_parameter == "{s_parameter}" and mag_or_phase == "{mag_or_phase}" and label == "{label}"'
+    )
+    grouped_by_id = filtered_df.groupby("id")
     filtered_dfs = []
     random_ids = random.sample(list(grouped_by_id.groups.keys()), n_random_ids)
     random_experiment_list = [filtered_df.query(f'id == "{id}"') for id in random_ids]
@@ -474,27 +521,38 @@ def filter_fq_cols(df, target_frequency):
 
 def get_closest_freq_column(data_frame, target_frequency):
     fq_series = get_frequency_column_headings_list(data_frame)
-    closest_fq_col = fq_series[(np.abs(np.asarray(fq_series) - target_frequency)).argmin()]
+    closest_fq_col = fq_series[
+        (np.abs(np.asarray(fq_series) - target_frequency)).argmin()
+    ]
     return closest_fq_col
 
-def plot_comparison_table(full_df, *, s_parameter=None, mag_or_phase=None, target_frequency=None):
+
+def plot_comparison_table(
+    full_df, *, s_parameter=None, mag_or_phase=None, target_frequency=None
+):
     if target_frequency is None:
         raise AttributeError("No target frequency")
 
     if s_parameter is None or mag_or_phase is None:
         raise AttributeError(
-            f"Must include all params s_param={s_parameter}, mag_or_phase={mag_or_phase}")
+            f"Must include all params s_param={s_parameter}, mag_or_phase={mag_or_phase}"
+        )
 
     filtered_df = full_df.query(
-        f's_parameter == "{s_parameter}" and mag_or_phase == "{mag_or_phase}"')
+        f's_parameter == "{s_parameter}" and mag_or_phase == "{mag_or_phase}"'
+    )
 
-    grouped_by_label = filtered_df.groupby('id')
+    grouped_by_label = filtered_df.groupby("id")
     dfs_to_plot = []
     for label_group in grouped_by_label:
 
-        grouped_by_ids = label_group.groupby('id')
+        grouped_by_ids = label_group.groupby("id")
         random_test = random.choice(list(grouped_by_ids.groups.keys()))
-        dfs_to_plot.append(filter_fq_cols(filtered_df.query(f'id == "{random_test}"'), target_frequency))
+        dfs_to_plot.append(
+            filter_fq_cols(
+                filtered_df.query(f'id == "{random_test}"'), target_frequency
+            )
+        )
 
     fig, axs = plt.subplots(nrows=len(dfs_to_plot), ncols=1, sharex=True)
 
@@ -506,75 +564,122 @@ def plot_comparison_table(full_df, *, s_parameter=None, mag_or_phase=None, targe
         plt.title(f"|{s_parameter}| Over Time at {hz_to_ghz(closest_fq)} GHz")
         plt.show()
 
-def display_confusion_matrix_for_given_accuracy_value(full_df, results_df, confusion_matrix_dict, accuracy_value, measurement: MeasurementKey, confusion_matrix_option: ConfusionMatrixKey)->None:
+
+def display_confusion_matrix_for_given_accuracy_value(
+    full_df,
+    results_df,
+    confusion_matrix_dict,
+    accuracy_value,
+    measurement: MeasurementKey,
+    confusion_matrix_option: ConfusionMatrixKey,
+) -> None:
     # allows you to index the lowest values by using -ve numbers
     if accuracy_value > 0:
         accuracy_index = accuracy_value - 1
     else:
         accuracy_index = accuracy_value
 
-    full_df.columns = [pd.to_numeric(col, errors='coerce') if col.isnumeric() else col for col in full_df.columns]
+    full_df.columns = [
+        pd.to_numeric(col, errors="coerce") if col.isnumeric() else col
+        for col in full_df.columns
+    ]
 
     accuracy_df = results_df[(results_df["gesture"] == "accuracy")]
-    accuracy_df = accuracy_df.sort_values(by='f1-score', ascending=False)
-    measurement_df = accuracy_df[accuracy_df['type'] == measurement.value]
+    accuracy_df = accuracy_df.sort_values(by="f1-score", ascending=False)
+    measurement_df = accuracy_df[accuracy_df["type"] == measurement.value]
     selected_result = measurement_df.iloc[accuracy_index]
 
-    labels = [label[-1] for label in full_df['label'].unique()]
-    confusion_matrix_from_single_result(selected_result, labels, confusion_matrix_dict, confusion_matrix_option)
+    labels = [label[-1] for label in full_df["label"].unique()]
+    confusion_matrix_from_single_result(
+        selected_result, labels, confusion_matrix_dict, confusion_matrix_option
+    )
 
-def show_top_five_and_bottom_five_confusion_matricies(full_df, results_df, confusion_matrix_dict, measurement: MeasurementKey, confusion_matrix_option: ConfusionMatrixKey)->None:
+
+def show_top_five_and_bottom_five_confusion_matricies(
+    full_df,
+    results_df,
+    confusion_matrix_dict,
+    measurement: MeasurementKey,
+    confusion_matrix_option: ConfusionMatrixKey,
+) -> None:
     for i in range(5):
-        display_confusion_matrix_for_given_accuracy_value(full_df, results_df, confusion_matrix_dict, i, measurement, confusion_matrix_option)
-    for i in range(-5,-1):
-        display_confusion_matrix_for_given_accuracy_value(full_df, results_df, confusion_matrix_dict, i, measurement, confusion_matrix_option)
+        display_confusion_matrix_for_given_accuracy_value(
+            full_df,
+            results_df,
+            confusion_matrix_dict,
+            i,
+            measurement,
+            confusion_matrix_option,
+        )
+    for i in range(-5, -1):
+        display_confusion_matrix_for_given_accuracy_value(
+            full_df,
+            results_df,
+            confusion_matrix_dict,
+            i,
+            measurement,
+            confusion_matrix_option,
+        )
 
-def plot_s_param_channels(full_df, target_freq_hz, measurement: MeasurementKey, s_params_to_plot=None):
 
-    full_df = full_df[full_df['mag_or_phase'] == measurement.value]
+def plot_s_param_channels(
+    full_df, target_freq_hz, measurement: MeasurementKey, s_params_to_plot=None
+):
 
-    #find closest fq to target
+    full_df = full_df[full_df["mag_or_phase"] == measurement.value]
+
+    # find closest fq to target
     closest_fq = find_nearest_frequency(full_df, target_freq_hz)
-    filter_id = full_df['id'].unique()[0]
-    filtered_df = full_df[full_df['id'] == filter_id]
+    filter_id = full_df["id"].unique()[0]
+    filtered_df = full_df[full_df["id"] == filter_id]
     if s_params_to_plot is None:
-        s_params_to_plot = filtered_df['s_parameter'].unique()
+        s_params_to_plot = filtered_df["s_parameter"].unique()
     fig, ax = plt.subplots(len(s_params_to_plot), 1, sharex=True)
     ax = ax.flatten()
     for axis, s_param in zip(ax, s_params_to_plot):
-        s_param_df = filtered_df[filtered_df['s_parameter'] == s_param]
-        sns.lineplot(data=s_param_df, x='time', y=closest_fq, ax=axis)
-        axis.set_title(f'{s_param}')
+        s_param_df = filtered_df[filtered_df["s_parameter"] == s_param]
+        sns.lineplot(data=s_param_df, x="time", y=closest_fq, ax=axis)
+        axis.set_title(f"{s_param}")
     plt.show()
+
 
 def find_nearest_frequency(full_df, target_frequency_hz):
     array = np.asarray(list(full_df.columns)[5:])
     idx = (np.abs(array - target_frequency_hz)).argmin()
     return array[idx]
 
+
 if __name__ == "__main__":
     sns.set(rc={"xtick.bottom": True, "ytick.left": True}, font_scale=2)
-    pkl_classifier_folder = r'C:\Users\2573758S\PycharmProjects\Pico_VNA_Project\pickles\classifiers\smd_3_patent_exp'
+    pkl_classifier_folder = r"C:\Users\2573758S\PycharmProjects\Pico_VNA_Project\pickles\classifiers\smd_3_patent_exp"
 
-    full_df = open_pickled_object(r'C:\Users\2573758S\PycharmProjects\Pico_VNA_Project\pickles\full_dfs\17_09_patent_exp_combined_df.pkl')
+    full_df = open_pickled_object(
+        r"C:\Users\2573758S\PycharmProjects\Pico_VNA_Project\pickles\full_dfs\17_09_patent_exp_combined_df.pkl"
+    )
 
     confusion_matrix_option = ConfusionMatrixKey.FULL_SVM.value
-    results_df = open_pickled_object(r'C:\Users\2573758S\PycharmProjects\Pico_VNA_Project\pickles\full_classification_results\smd_3_patent_exp.pkl')
+    results_df = open_pickled_object(
+        r"C:\Users\2573758S\PycharmProjects\Pico_VNA_Project\pickles\full_classification_results\smd_3_patent_exp.pkl"
+    )
     accuracy_df = results_df[(results_df["gesture"] == "accuracy")]
-    accuracy_df = accuracy_df.sort_values(by='f1-score', ascending=False)
-    mag_df = accuracy_df[accuracy_df['type'] == 'magnitude']
+    accuracy_df = accuracy_df.sort_values(by="f1-score", ascending=False)
+    mag_df = accuracy_df[accuracy_df["type"] == "magnitude"]
     top_magnitude = mag_df.iloc[0]
-    filtered_df_s_param = full_df[full_df['s_parameter'].isin(top_magnitude['s_param'].split('_'))]
+    filtered_df_s_param = full_df[
+        full_df["s_parameter"].isin(top_magnitude["s_param"].split("_"))
+    ]
 
-    filtered_df_fq_range = filter_cols_between_fq_range(filtered_df_s_param,
-                                                        ghz_to_hz(float(top_magnitude['low_frequency'])),
-                                                        ghz_to_hz(float(top_magnitude['high_frequency'])))
+    filtered_df_fq_range = filter_cols_between_fq_range(
+        filtered_df_s_param,
+        ghz_to_hz(float(top_magnitude["low_frequency"])),
+        ghz_to_hz(float(top_magnitude["high_frequency"])),
+    )
     confusion_matrix_dict = get_full_results_df_from_classifier_pkls(
-        pkl_classifier_folder,
-        extract="confusion_matrix")
+        pkl_classifier_folder, extract="confusion_matrix"
+    )
     display_confusion_matrix_for_top_value(full_df, results_df, confusion_matrix_dict)
 
-    #pickle_object(results_df, path=r'C:\Users\2573758S\PycharmProjects\Pico_VNA_Project\pickles\full_classification_results', file_name='smd_3_patent_exp.pkl')
+    # pickle_object(results_df, path=r'C:\Users\2573758S\PycharmProjects\Pico_VNA_Project\pickles\full_classification_results', file_name='smd_3_patent_exp.pkl')
     #
     # #
     # # # replace experiment names for graphing
@@ -593,15 +698,15 @@ if __name__ == "__main__":
     # sampling_freq_results = gen_sweep_time_df()
     # plot_sampling_freq(sampling_freq_results)
 
-    #Show plot
+    # Show plot
     # top_classifier_for_each_band(results_df, include_ALL_sparams=False)
     # max_accuracy_for_mag_sparam_categories(results_df)
     # freq_band_line_plot(results_df)
     # svm_vs_dt_strip_plot(results_df)
     # svm_vs_dtree_violin_plot(results_df)
     # full_vs_filtered_features_plot(results_df)
-    #plot_s_param_mag_phase_from_touchstone(os.path.join(get_touchstones_path(), 'cp1_soil2_dry.s2p'), 'Watch Short Antenna')
-    #plot_s_param_mag_phase_from_touchstone(os.path.join(get_touchstones_path(), 'watch_L_short_band_short_short_wires_140khz_1001pts.s2p'), 'Flex Antenna')
+    # plot_s_param_mag_phase_from_touchstone(os.path.join(get_touchstones_path(), 'cp1_soil2_dry.s2p'), 'Watch Short Antenna')
+    # plot_s_param_mag_phase_from_touchstone(os.path.join(get_touchstones_path(), 'watch_L_short_band_short_short_wires_140khz_1001pts.s2p'), 'Flex Antenna')
 
-    #plt.show()
+    # plt.show()
     # ax.legend(title='Classifier', labels=['SVM', 'D Tree'])
