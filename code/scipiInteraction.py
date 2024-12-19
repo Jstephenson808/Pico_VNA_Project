@@ -32,7 +32,7 @@ class ScipiGestureCaptureExperiment:
     ):
         self.vna_handle: MessageBasedResource = vna_handle
         self.test_gestures: [str] = test_gestures
-        self.runtime: timedelta = runtime
+        self.run_time: timedelta = runtime
         self.experiment_countdown: timedelta = experiment_countdown
         self.test_name: str = test_name
         self.snp_format: SnP = snp_format
@@ -48,6 +48,12 @@ class ScipiGestureCaptureExperiment:
 
         self.set_touchstone_format()
         self.create_directories_for_exeriment()
+        self.capture_gestures()
+
+    def await_completion(self):
+        while True:
+            if int(self.vna_handle.query("*OPC?")) == 1:
+                return
 
     def create_directories_for_exeriment(self):
         self.vna_handle.write(create_directory_command_string(self.root_folder))
@@ -66,7 +72,7 @@ class ScipiGestureCaptureExperiment:
                 self.snp_format,
             )
         )
-        await_completion()
+        self.await_completion()
 
     def print_elapsed_time(self, run_time, current_time, start_time, test_index):
         elapsed_time = current_time - start_time
@@ -94,7 +100,7 @@ class ScipiGestureCaptureExperiment:
                 print(f"Test {test_number}")
                 countdown_timer(self.experiment_countdown.total_seconds())
                 start_time = datetime.now()
-                finish_time = start_time + self.runtime
+                finish_time = start_time + self.run_time
 
                 current_time = datetime.now()
                 test_index = 0
@@ -125,18 +131,24 @@ if __name__ == "__main__":
 
     NI_VISA_DLL_PATH = r"C:\Windows\System32\nivisa64.dll"
     VNA_VISA_ADDRESS = "USB0::0xF4EC::0x1700::SNA5XCED5R0097::INSTR"
-    RUN_TIME_DELTA = timedelta(seconds=5)
-    COUNTDOWN_TIME = timedelta(seconds=1)
-    TEST_NAME = f"auto_test"
+
+    COUNTDOWN_TIME = timedelta(seconds=3)
+    TEST_NAME = f"liquid_metal_glove_6ges_25reps"
+    snp = SnP.S4P
+    STATE_PATH = "local/James/Calibration/glove_experiment_setup_201pts_100M_500M.csa"
+
+    test_gestures = ["A", "B", "C", "1", "2", "3"]
+
     SAVE_ROOT = (
         f"local/James/Live_Captures/{datetime.now().strftime('%y%m%d%H%M')}_{TEST_NAME}"
     )
-    snp = SnP.S4P
-    n_tests = 2
-    # test_gestures = ["A", "B", "C", "1", "2", "3"]
-    test_gestures = ["1"]
 
     vna_handle = open_vna_handle(NI_VISA_DLL_PATH, VNA_VISA_ADDRESS)
+
+    RUN_TIME_DELTA = timedelta(seconds=5)
+    n_tests = 25
+    TEST_NAME = f"liquid_metal_glove_6ges_25rps"
+
     experiment = ScipiGestureCaptureExperiment(
         vna_handle,
         test_gestures,
@@ -146,5 +158,6 @@ if __name__ == "__main__":
         snp,
         SAVE_ROOT,
         n_tests,
+        path_to_state_to_load=STATE_PATH,
     )
     experiment.run_gesture_capture()
