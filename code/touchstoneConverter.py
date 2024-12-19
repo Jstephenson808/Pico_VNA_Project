@@ -33,9 +33,6 @@ class ExperimentTouchstones:
         self.experiment_name: str = experiment_name
         self.exeriment_dates: [datetime] = self.get_dates_from_folder_names()
 
-    def get_experiment_name(self):
-
-
     def get_dates_from_folder_names(self):
         directory = os.listdir(self.experiment_folder_path)
         return [
