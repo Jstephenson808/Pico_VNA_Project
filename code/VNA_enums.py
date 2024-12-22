@@ -1,35 +1,43 @@
 from enum import Enum
 
+
 class MeasurementKey(Enum):
     PHASE = "phase"
     MAGNITUDE = "magnitude"
     BOTH = "both"
 
-class ConfusionMatrixKey(Enum):
-    FILTERED_DT = 'filtered_dt_confusion_matrix'
-    FULL_DT = 'full_dt_confusion_matrix'
-    FULL_SVM = 'full_svm_confusion_matrix'
-    FILTERED_SVM = 'filtered_svm_confusion_matrix'
 
 class ConfusionMatrixKey(Enum):
-    FILTERED_DT = 'filtered_dt_confusion_matrix'
-    FULL_DT = 'full_dt_confusion_matrix'
-    FULL_SVM = 'full_svm_confusion_matrix'
-    FILTERED_SVM = 'filtered_svm_confusion_matrix'
+    FILTERED_DT = "filtered_dt_confusion_matrix"
+    FULL_DT = "full_dt_confusion_matrix"
+    FULL_SVM = "full_svm_confusion_matrix"
+    FILTERED_SVM = "filtered_svm_confusion_matrix"
+
+
+class ConfusionMatrixKey(Enum):
+    FILTERED_DT = "filtered_dt_confusion_matrix"
+    FULL_DT = "full_dt_confusion_matrix"
+    FULL_SVM = "full_svm_confusion_matrix"
+    FILTERED_SVM = "filtered_svm_confusion_matrix"
+
 
 class Movements(Enum):
     BEND = "bend"
+
 
 class DfFilterOptions(Enum):
     PHASE = "phase"
     MAGNITUDE = "magnitude"
     BOTH = "both"
 
+
 class DateFormats(Enum):
     CURRENT = "%Y_%m_%d_%H_%M_%S"
     ORIGINAL = "%Y_%m_%d_%H_%M_%S.%f"
     DATE_FOLDER = "%Y_%m_%d"
     MILLISECONDS = "%Y_%m_%d_%H_%M_%S.%f"
+    VNA_FOLDER_DATE_FROMAT = "%y%m%d%H%M"
+
 
 class MeasureSParam(Enum):
     S11 = "S11"

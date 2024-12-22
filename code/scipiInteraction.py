@@ -139,9 +139,7 @@ if __name__ == "__main__":
 
     test_gestures = ["A", "B", "C", "1", "2", "3"]
 
-    SAVE_ROOT = (
-        f"local/James/Live_Captures/{datetime.now().strftime('%y%m%d%H%M')}_{TEST_NAME}"
-    )
+    SAVE_ROOT = f"local/James/Live_Captures/{TEST_NAME}"
 
     vna_handle = open_vna_handle(NI_VISA_DLL_PATH, VNA_VISA_ADDRESS)
 
