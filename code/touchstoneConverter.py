@@ -1,6 +1,7 @@
 import math
 import os.path
 import re
+from abc import abstractmethod, ABC
 
 import numpy as np
 import pandas as pd
@@ -14,7 +15,7 @@ from VNA_utils import open_full_results_df
 
 class TouchstoneConverter:
 
-    def __init__(self, touchstone_folder_path):
+    def __init__(self, *, touchstone_folder_path):
         # structure should be:
         # experiment name
         # -- experiment date + name
@@ -32,8 +33,10 @@ class TouchstoneConverter:
 
         return [
             ExperimentFolder(
-                os.path.join(self.touchstone_folder_path, experiment_name),
-                experiment_name,
+                experiment_folder_path=os.path.join(
+                    self.touchstone_folder_path, experiment_name
+                ),
+                experiment_name=experiment_name,
             )
             for experiment_name in experiment_names
         ]
@@ -46,13 +49,28 @@ class TouchstoneConverter:
             )
 
 
+# class ExperimentFolder(ABC):
+#
+#     @abstractmethod
+#     def __init__(self, experiment_folder_path, experiment_name):
+#         pass
+#
+#     @abstractmethod
+#     def extract_data_for_each_experiment(self):
+#         """
+#         extracts the data from each folder for an experiment
+#         Returns:
+#
+#         """
+
+
 class ExperimentFolder:
     """
     This class contains the folder for a given experiment label, within this folder is the date labeled
     experiment folders
     """
 
-    def __init__(self, experiment_folder_path, experiment_name):
+    def __init__(self, *, experiment_folder_path, experiment_name):
         self.experiment_folder_path = experiment_folder_path
         self.experiment_name: str = experiment_name
         self.experiment_folder = os.listdir(self.experiment_folder_path)
@@ -69,7 +87,12 @@ class ExperimentFolder:
 
     def open_individual_experiment_folder(self):
         return [
-            IndividualExperiment(folder, self.experiment_name)
+            IndividualExperiment(
+                individual_experiment_folder=os.path.join(
+                    self.experiment_folder_path, folder
+                ),
+                experiment_name=self.experiment_name,
+            )
             for folder in self.experiment_folder
         ]
 
@@ -87,14 +110,19 @@ class ExperimentFolder:
 
 class IndividualExperiment:
     """
-    This folder contains all the experiment repeats related to the one experiment title, these are timestamped
+    This folder contains all the captured gestures for a given experiment
     """
 
-    def __init__(self, individual_experiment_folder, experiment_name):
+    def __init__(self, *, individual_experiment_folder, experiment_name):
         self.individual_experiment_folder = individual_experiment_folder
         self.experiment_name = experiment_name
         self.experiment_timestamp = self.get_experiment_timestamp()
-        self.gestures_folders: [GesturesFolder] = self.open_gestures_folder()
+        self.gestures_folders: [GestureFolder] = self.open_gestures_folder()
+
+    def get_gesture_name(self, gesture_folder):
+        pattern = r"Gesture_(.*)"
+        compiled_pattern = re.compile(pattern)
+        return re.search(compiled_pattern, gesture_folder).group(1)
 
     def get_experiment_timestamp(self):
         return datetime.strptime(
@@ -107,12 +135,15 @@ class IndividualExperiment:
 
     def open_gestures_folder(self):
         return [
-            GesturesFolder(
-                os.path.join(self.individual_experiment_folder, path),
-                self.experiment_name,
-                self.experiment_timestamp,
+            GestureFolder(
+                gesture_folder_path=os.path.join(
+                    self.individual_experiment_folder, folder_name
+                ),
+                experiment_name=self.experiment_name,
+                timestamp=self.experiment_timestamp,
+                gesture_label=self.get_gesture_name(folder_name),
             )
-            for path in self.get_gesture_folder_list()
+            for folder_name in self.get_gesture_folder_list()
         ]
 
     def extract_data_for_individual_experiment(self):
@@ -127,65 +158,18 @@ class IndividualExperiment:
         return full_experiment_data_frame
 
 
-class GesturesFolder:
-    """
-    This folder contains folders with all the captured gestures for a given individual experiment.
-    """
-
-    def __init__(self, gesture_folder_path, experiment_name, timestamp):
-        self.gestures_folder_path = gesture_folder_path
-        self.experiment_name = experiment_name
-        self.timestamp = timestamp
-        self.folder_list = self.set_folder_list()
-        self.gesture_label_list = self.get_gesture_list()
-        self.gesture_folders: [GesturesFolder] = self.open_gesture_folder()
-        self.data_frame = None
-
-    def set_folder_list(self):
-        return os.listdir(self.gestures_folder_path)
-
-    def get_gesture_list(self):
-        pattern = r"Gesture_(.*)"
-        compiled_pattern = re.compile(pattern)
-        gesture_labels = [
-            re.search(compiled_pattern, gesture).group(1)
-            for gesture in self.folder_list
-        ]
-        return gesture_labels
-
-    def open_gesture_folder(self):
-        return [
-            GestureFolder(
-                os.path.join(self.gestures_folder_path, gesture_folder),
-                self.experiment_name,
-                gesture_label,
-                self.timestamp,
-            )
-            for gesture_folder, gesture_label in zip(
-                self.folder_list, self.gesture_label_list
-            )
-        ]
-
-    def extract_data_for_individual_gesture(self) -> pd.DataFrame:
-        data_frame = None
-        for gesture_folder in self.gesture_folders:
-            new_data_frame = gesture_folder.extract_data_for_each_gesture_repeat()
-            data_frame = pd.concat([data_frame, new_data_frame])
-        return data_frame
-
-
 class GestureFolder:
     """
-    This folder contains all the repeats for a given gesture for a
-    specific experiment the folder names contain the number of the repeat
-    in the format 1 -> n_repeats
+    This folder contains all the repeats for a given gesture
     """
 
-    def __init__(self, gesture_path, experiment_name, gesture_label, timestamp):
-        self.gesture_path = gesture_path
+    def __init__(
+        self, *, gesture_folder_path, experiment_name, timestamp, gesture_label
+    ):
+        self.gesture_folder_path = gesture_folder_path
         self.experiment_name = experiment_name
-        self.gesture_label = gesture_label
         self.timestamp = timestamp
+        self.gesture_label = gesture_label
         self.individual_gesture_tests: [IndividualGestureCapture] = (
             self.open_individual_gesture_test()
         )
@@ -194,16 +178,19 @@ class GestureFolder:
     def open_individual_gesture_test(self):
         return [
             IndividualGestureCapture(
-                os.path.join(self.gesture_path, folder),
-                self.experiment_name,
-                self.gesture_label,
-                self.timestamp,
-                folder,
+                individual_gesture_folder_path=os.path.join(
+                    self.gesture_folder_path, folder
+                ),
+                experiment_name=self.experiment_name,
+                gesture_label=self.gesture_label,
+                timestamp=self.timestamp,
+                # folder name is repeat number
+                repeat_number=int(folder),
             )
-            for folder in os.listdir(self.gesture_path)
+            for folder in os.listdir(self.gesture_folder_path)
         ]
 
-    def extract_data_for_each_gesture_repeat(self) -> pd.DataFrame:
+    def extract_data_for_individual_gesture(self) -> pd.DataFrame:
         data_frame = None
         for gesture_test in self.individual_gesture_tests:
             new_data_frame = gesture_test.extract_data_from_individual_gesture_capture()
@@ -214,6 +201,7 @@ class GestureFolder:
 class IndividualGestureCapture:
     def __init__(
         self,
+        *,
         individual_gesture_folder_path,
         experiment_name,
         gesture_label,
@@ -224,14 +212,14 @@ class IndividualGestureCapture:
         self.experiment_name = experiment_name
         self.gesture_label = gesture_label
         self.timestamp: datetime = timestamp
-        self.repeat_number = repeat_number
+        self.repeat_number: int = repeat_number
         self.touchstone_files: [TouchstoneFile] = self.open_touchstones()
         self.data_frame = self.create_empty_data_frame()
 
     def sort_folder(self):
         return sorted(
             os.listdir(self.individual_gesture_folder_path),
-            key=lambda x: int(x.split("_")[1]),
+            key=lambda x: int(x.split("_")[1].split(".")[0]),
         )
 
     def get_path_to_touchstone(self, touchstone_fname):
@@ -241,12 +229,11 @@ class IndividualGestureCapture:
         sorted_folder = self.sort_folder()
         return [
             TouchstoneFile(
-                self.get_path_to_touchstone(fname),
-                self.experiment_name,
-                self.timestamp,
-                self.gesture_label,
-                self.timestamp,
-                self.repeat_number,
+                touchstone_path=self.get_path_to_touchstone(fname),
+                experiment_name=self.experiment_name,
+                timestamp=self.timestamp,
+                gesture_label=self.gesture_label,
+                repeat_number=self.repeat_number,
             )
             for fname in sorted_folder
         ]
@@ -263,12 +250,13 @@ class IndividualGestureCapture:
         ]
         times = self.space_out_touchstone_recording_times(times)
         zero_referenced_times = self.zero_ref_recording_time(times)
-        # as the files were sorted at the start this is
+
+        # as the files were sorted at the start this is safe
         for time, zero_referenced_time, touchstone in zip(
             times, zero_referenced_times, self.touchstone_files
         ):
             touchstone.touchstone_time_recorded = time
-            touchstone.zero_referenced_time_recorded = zero_referenced_time
+            touchstone.zero_referenced_time = zero_referenced_time
 
         ##### end atomic section #####
 
@@ -278,13 +266,13 @@ class IndividualGestureCapture:
         )
         for touchstone_file in self.touchstone_files:
             print(f"{i} of {len(self.touchstone_files)}")
-            self.data_frame, times = (
+            self.data_frame = (
                 touchstone_file.extract_values_from_touchstone_files_to_df(
-                    self.data_frame, times
+                    self.data_frame
                 )
             )
             i += 1
-        return df
+        return self.data_frame
 
     def zero_ref_recording_time(self, datetimes: [datetime]):
         start_time: datetime = datetimes[0]
@@ -341,7 +329,13 @@ class IndividualGestureCapture:
 
 class TouchstoneFile:
     def __init__(
-        self, touchstone_path, experiment_name, gesture_label, timestamp, repeat_number
+        self,
+        *,
+        touchstone_path,
+        experiment_name,
+        gesture_label,
+        timestamp,
+        repeat_number,
     ):
         self.touchstone_path = touchstone_path
         self.touchstone_network = Network(self.touchstone_path)
@@ -389,6 +383,15 @@ class TouchstoneFile:
     def extract_values_from_touchstone_files_to_df(
         self, df: pd.DataFrame
     ) -> pd.DataFrame:
+        """
+        This takes in a dataframe and will add the current touchstone's data to that dataframe, returning it to the caller.
+        It is intentded to be used in a for loop of all files in a folder to build up a single df for all touchstones
+        Args:
+            df:
+
+        Returns:
+
+        """
 
         # id for the experiment as a whole
         experiment_id = self.create_experiment_id()
@@ -464,11 +467,7 @@ def zero_ref_time_column(df):
 
 if __name__ == "__main__":
     # iterate through whole folder
-    path = r"D:\Nik\phantom\moving"
-    # label is the same for each
-    label = "rotating_test"
-    df = extract_data_from_touchstone_folder(path, label)
+    path = r"C:\Users\2573758S\OneDrive - University of Glasgow\PhD\Experiments\Glove Gesture Experiment\Touchstones\Live Capture Touchstones"
 
-    full_df = open_full_results_df(
-        r"C:\Users\js637s.CAMPUS\PycharmProjects\Pico_VNA_Project\pickles\full_dfs\full_combined_df_2024_08_09.pkl"
-    )
+    converter = TouchstoneConverter(touchstone_folder_path=path)
+    converter.extract_all_touchstone_data_to_dataframe()
