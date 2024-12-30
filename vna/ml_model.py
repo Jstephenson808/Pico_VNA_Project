@@ -30,7 +30,8 @@ from tsfresh.utilities.dataframe_functions import impute
 from tsfresh import extract_features, select_features
 from tsfresh import defaults
 
-#todo class -> picoVNA converter
+
+# todo class -> picoVNA converter
 def pivot_data_frame_for_s_param(
     s_param: str, data_frame: pd.DataFrame, mag_or_phase: DataFrameCols
 ) -> pd.DataFrame:
@@ -71,7 +72,8 @@ def pivot_data_frame_for_s_param(
     new_df = new_df[reordered_columns]
     return new_df
 
-#todo move to vnaData -> this is a converter method
+
+# todo move to vnaData -> this is a converter method
 def csv_directory_to_ml_data_frame(directory: str) -> pd.DataFrame:
     """
     converts a given directory containing .csv data
@@ -103,7 +105,9 @@ def csv_directory_to_ml_data_frame(directory: str) -> pd.DataFrame:
 
 def combine_dfs_with_labels(directory_list, labels) -> pd.DataFrame:
     ids = [i for i in range(len(directory_list))]
-    new_df = csv_directory_to_ml_data_frame(directory_list.pop(0), labels.pop(0), ids.pop(0))
+    new_df = csv_directory_to_ml_data_frame(
+        directory_list.pop(0), labels.pop(0), ids.pop(0)
+    )
     for dir, label, sample_id in zip(directory_list, labels, ids):
         temp_df = csv_directory_to_ml_data_frame(dir, label, sample_id)
         new_df = pd.concat((new_df, temp_df), ignore_index=True)
@@ -504,7 +508,9 @@ def get_list_of_in_bounds_fq(df, lower_bound_fq_hz, upper_bound_fq_hz):
     """
     cols = list(df.columns.values)
     # Filter out non-integer values
-    filtered_list = [x for x in cols if isinstance(x, int) or isinstance(x, numpy.int64)]
+    filtered_list = [
+        x for x in cols if isinstance(x, int) or isinstance(x, numpy.int64)
+    ]
     # Filter the list based on the provided bounds
     freq_cols = [
         x for x in filtered_list if lower_bound_fq_hz <= x <= upper_bound_fq_hz
@@ -534,13 +540,15 @@ def feature_extract_test_filtered_data_frame(
     n_jobs=defaults.N_PROCESSES,
 ):
     df_fixed = make_columns_have_s_param_mag_phase_titles(filtered_data_frame)
-    classifiers = extract_features_and_test(df_fixed, movement_vector, n_jobs=n_jobs, ids_per_split=100)
+    classifiers = extract_features_and_test(
+        df_fixed, movement_vector, n_jobs=n_jobs, ids_per_split=100
+    )
     if save:
         if fname is None:
             fname = f"classifier_{datetime.now().date().strftime(DateFormats.DATE_FOLDER.value)}"
         else:
             fname = f"{fname}_{datetime.now().date().strftime(DateFormats.DATE_FOLDER.value)}"
-        pickle_object(classifiers, path=get_classifiers_path(), file_name=fname)
+        pickle_object(classifiers, folder_path=get_classifiers_path(), file_name=fname)
     return classifiers, fname
 
 
@@ -639,7 +647,9 @@ def extract_full_results_to_df(
                 classifier_dict, report_keys, label
             )
         if extract == "confusion_matrix":
-            confusion_dict = {key: val for key, val in classifier_dict.items() if extract in key}
+            confusion_dict = {
+                key: val for key, val in classifier_dict.items() if extract in key
+            }
             partial_results_df = pd.DataFrame.from_dict(confusion_dict)
         full_results_data_frame = pd.concat(
             (full_results_data_frame, partial_results_df), ignore_index=True
@@ -649,13 +659,18 @@ def extract_full_results_to_df(
         full_results_data_frame = fix_measurement_column(full_results_data_frame)
     return full_results_data_frame
 
+
 def extract_confusion_matrix_from_results(pickle_fnames, folder_path=get_pickle_path()):
     confusion_matrix_dict = {}
     for pickle_fname in pickle_fnames:
         path = os.path.join(folder_path, pickle_fname)
         classifier_dict = open_pickled_object(path)
         label = get_label_from_pkl_path(path)
-        confusion_dict = {key: val for key, val in classifier_dict.items() if "confusion_matrix" in key}
+        confusion_dict = {
+            key: val
+            for key, val in classifier_dict.items()
+            if "confusion_matrix" in key
+        }
         confusion_matrix_dict[label] = confusion_dict
     return confusion_matrix_dict
 

@@ -39,6 +39,11 @@ class DateFormats(Enum):
     VNA_FOLDER_DATE_FROMAT = "%y%m%d%H%M"
 
 
+class MagnitudeOrPhase(Enum):
+    Magnitude = "magnitude"
+    Phase = "phase"
+
+
 class MeasureSParam(Enum):
     S11 = "S11"
     S21 = "S21"

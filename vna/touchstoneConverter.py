@@ -11,6 +11,7 @@ from skrf.io.touchstone import Touchstone
 from datetime import datetime, timedelta
 from VNA_enums import DateFormats
 from VNA_utils import open_full_results_df
+from vna.VNA_utils import retype_str_fq_columns_to_int, pickle_object
 
 
 class TouchstoneConverter:
@@ -41,11 +42,18 @@ class TouchstoneConverter:
             for experiment_name in experiment_names
         ]
 
+    def save_data_frame(self):
+        experiment_names_string = ("_").join(self.get_experiment_names())
+        pickle_object(self.output_data_frame, file_name=experiment_names_string)
+
     def extract_all_touchstone_data_to_dataframe(self):
         for experiment_folder in self.experiment_folders:
             experiment_data_frame = experiment_folder.extract_data_for_each_experiment()
             self.output_data_frame = pd.concat(
                 [self.output_data_frame, experiment_data_frame]
+            )
+            self.output_data_frame = retype_str_fq_columns_to_int(
+                self.output_data_frame
             )
 
 

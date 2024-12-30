@@ -12,6 +12,7 @@ from ml_model import (
     get_full_results_df_from_classifier_pkls,
     filter_cols_between_fq_range,
 )
+from vna.VNA_enums import SParam
 
 matplotlib.use("TkAgg")
 from VNA_utils import (
@@ -23,7 +24,12 @@ from VNA_utils import (
     hz_to_ghz,
 )
 
-from VNA_enums import ConfusionMatrixKey, DataFrameCols, MeasurementKey
+from VNA_enums import (
+    ConfusionMatrixKey,
+    DataFrameCols,
+    MeasurementKey,
+    MagnitudeOrPhase,
+)
 from VNA_utils import pickle_object, open_pickled_object
 import os
 import seaborn as sns
@@ -470,14 +476,28 @@ def display_confusion_matrix_for_top_value(full_df, results_df, confusion_matrix
 
 
 def plot_fq_time_series(
-    full_df: pd.DataFrame,
+    single_gesture_data_frame: pd.DataFrame,
     *,
-    s_parameter=None,
-    mag_or_phase=None,
+    s_parameter: SParam = None,
+    mag_or_phase: MagnitudeOrPhase = None,
     label=None,
     n_random_ids=1,
     target_frequency=None,
 ):
+    """
+    Takes in a data frame which contains the results for a single gesture from a single experiment,
+    provide the parameters you want to plot and a label for the plot.
+    Args:
+        single_gesture_data_frame:
+        s_parameter:
+        mag_or_phase:
+        label:
+        n_random_ids:
+        target_frequency:
+
+    Returns:
+
+    """
     if target_frequency is None:
         raise AttributeError("No target frequency")
 
@@ -486,8 +506,8 @@ def plot_fq_time_series(
             f"Must include all params s_param={s_parameter}, mag_or_phase={mag_or_phase}, label={label}"
         )
 
-    filtered_df = full_df.query(
-        f's_parameter == "{s_parameter}" and mag_or_phase == "{mag_or_phase}" and label == "{label}"'
+    filtered_df = single_gesture_data_frame.query(
+        f's_parameter == "{s_parameter.value}" and mag_or_phase == "{mag_or_phase.value}" and label == "{label}"'
     )
     grouped_by_id = filtered_df.groupby("id")
     filtered_dfs = []

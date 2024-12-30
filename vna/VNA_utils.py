@@ -83,47 +83,47 @@ def get_root_folder_path():
     return path
 
 
-def get_results_path():
+def get_results_path() -> str:
     path = os.path.join(get_root_folder_path(), VNA_defaults.RESULTS_FOLDER)
     os.makedirs(path, exist_ok=True)
     return path
 
 
-def get_data_path():
+def get_data_path() -> str:
     path = os.path.join(get_results_path(), VNA_defaults.DATA_FOLDER)
     os.makedirs(path, exist_ok=True)
     return path
 
 
-def get_pickle_path():
+def get_pickle_path() -> str:
     path = os.path.join(get_root_folder_path(), VNA_defaults.PICKLE_FOLDER)
     os.makedirs(path, exist_ok=True)
     return path
 
 
-def get_full_df_path():
+def get_full_df_path() -> str:
     path = os.path.join(get_pickle_path(), VNA_defaults.COMBINED_DF_FOLDER)
     os.makedirs(path, exist_ok=True)
     return path
 
 
-def get_classifier_path():
+def get_classifier_path() -> str:
     path = os.path.join(get_pickle_path(), VNA_defaults.CLASSIFIER_FOLDER)
     os.makedirs(path, exist_ok=True)
     return path
 
 
-def get_calibration_path():
+def get_calibration_path() -> str:
     path = os.path.join(get_root_folder_path(), VNA_defaults.CALIBRATION_FOLDER)
     os.makedirs(path, exist_ok=True)
     return path
 
 
-def get_classifiers_path():
+def get_classifiers_path() -> str:
     return os.path.join(get_pickle_path(), "classifiers")
 
 
-def get_full_dfs_path():
+def get_full_dfs_path() -> str:
     return os.path.join(get_pickle_path(), "full_dfs")
 
 
@@ -131,11 +131,24 @@ def get_frequency_column_headings_list(df: pd.DataFrame) -> [int]:
     return [int(x) for x in df.columns[5:]]
 
 
-def get_full_results_df_path():
+def retype_str_fq_columns_to_int(df: pd.DataFrame) -> pd.DataFrame:
+    new_fq_col_headings = [
+        int(col_heading) for col_heading in get_frequency_column_headings_list(df)
+    ]
+    new_col_headings = get_none_fq_columns(df) + new_fq_col_headings
+    df.columns = new_col_headings
+    return df
+
+
+def get_none_fq_columns(df: pd.DataFrame):
+    return list(df.columns[:5])
+
+
+def get_full_results_df_path() -> str:
     return os.path.join(get_pickle_path(), "full_results_dfs")
 
 
-def get_touchstones_path():
+def get_touchstones_path() -> str:
     return os.path.join(get_results_path(), VNA_defaults.TOUCHSTONES_FOLDER)
 
 
@@ -154,13 +167,19 @@ def input_movement_label() -> str:
     return label
 
 
-def pickle_object(object_to_pickle,*, path:str, file_name:str):
-    os.makedirs(path, exist_ok=True)
+def pickle_object(
+    object_to_pickle, *, folder_path: str = get_pickle_path(), file_name: str
+):
+    os.makedirs(folder_path, exist_ok=True)
     if ".pkl" not in file_name[-4:]:
         file_name = f"{file_name}.pkl"
-    path = os.path.join(path, file_name)
-    with open(path, "wb") as f:
+    folder_path = os.path.join(folder_path, file_name)
+    with open(folder_path, "wb") as f:
         pickle.dump(object_to_pickle, f)
+
+
+def open_pickled_object_in_pickle_folder(file_name: str):
+    return open_pickled_object(os.path.join(get_pickle_path(), file_name))
 
 
 def open_pickled_object(path):
