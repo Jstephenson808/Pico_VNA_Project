@@ -12,7 +12,8 @@ from ml_model import (
     get_full_results_df_from_classifier_pkls,
     filter_cols_between_fq_range,
 )
-from vna.VNA_enums import SParam
+from vna.VNA_enums import SParam2Port
+from vna.scipiCommands import SParam
 
 matplotlib.use("TkAgg")
 from VNA_utils import (
@@ -22,6 +23,7 @@ from VNA_utils import (
     ghz_to_hz,
     get_frequency_column_headings_list,
     hz_to_ghz,
+    convert_to_dbm,
 )
 
 from VNA_enums import (
@@ -522,7 +524,7 @@ def plot_fq_time_series(
         closest_fq = get_closest_freq_column(filtered_df, target_frequency)
         ax.plot(
             filtered_df[DataFrameCols.TIME.value],
-            filtered_df[closest_fq],
+            filtered_df[closest_fq].apply(convert_to_dbm),
         )
     ax.set_ylabel(f"|{s_parameter}|")
     ax.set_xlabel("Time (s)")

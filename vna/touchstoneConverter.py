@@ -474,8 +474,4 @@ def zero_ref_time_column(df):
 
 
 if __name__ == "__main__":
-    # iterate through whole folder
-    path = r"C:\Users\2573758S\OneDrive - University of Glasgow\PhD\Experiments\Glove Gesture Experiment\Touchstones\Live Capture Touchstones"
-
-    converter = TouchstoneConverter(touchstone_folder_path=path)
-    converter.extract_all_touchstone_data_to_dataframe()
+    pass

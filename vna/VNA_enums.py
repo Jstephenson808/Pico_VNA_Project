@@ -51,7 +51,7 @@ class MeasureSParam(Enum):
     ALL = "All"
 
 
-class SParam(Enum):
+class SParam2Port(Enum):
     S11 = "S11"
     S12 = "S12"
     S22 = "S22"

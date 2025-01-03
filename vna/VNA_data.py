@@ -13,7 +13,7 @@ from VNA_enums import DataFrameCols
 
 matplotlib.use("TkAgg")
 from matplotlib import pyplot as plt
-from VNA_enums import DataFrameCols, DateFormats, SParam, MeasurementFormat
+from VNA_enums import DataFrameCols, DateFormats, SParam2Port, MeasurementFormat
 from VNA_exceptions import NotValidCSVException, NotValidSParamException
 from VNA_utils import get_root_folder_path, hz_to_ghz, ghz_to_hz, timer_func
 
@@ -184,7 +184,6 @@ class VnaData:
         """
         self.data_frame, self.date_time = VnaData.read_df_from_csv(self.csv_path)
 
-
     def get_first_index_of_time(self, target_time, target_magnitude=None):
         """
         This function will return the index which is after the target time, it can additionally be passed
@@ -222,7 +221,7 @@ class VnaData:
         assert all(col.value in data_frame.columns for col in DataFrameCols)
 
     def extract_freq_df(
-        self, target_frequency: int, s_param: SParam = None
+        self, target_frequency: int, s_param: SParam2Port = None
     ) -> pd.DataFrame:
         """
         Takes in a target frequency and optional sparam,
@@ -245,7 +244,7 @@ class VnaData:
         return df.sort_values(by=[DataFrameCols.TIME.value])
 
     def extract_time_df(
-        self, target_time_seconds: float, s_param: SParam = None
+        self, target_time_seconds: float, s_param: SParam2Port = None
     ) -> pd.DataFrame:
         """
         Takes in a target frequency and optional sparam,
@@ -286,7 +285,7 @@ class VnaData:
             "graph",
             datetime.now().date().strftime(DateFormats.DATE_FOLDER.value),
         ),
-        plot_s_param: SParam = None,
+        plot_s_param: SParam2Port = None,
         data_frame_column_to_plot: DataFrameCols = DataFrameCols.MAGNITUDE,
         save_to_file=True,
     ):
@@ -355,14 +354,14 @@ class VnaData:
         idx = (np.abs(array - target_time_in_seconds)).argmin()
         return array[idx]
 
-    def validate_s_param(self, plot_s_param: SParam) -> bool:
-        if (plot_s_param is None) or (plot_s_param not in SParam):
+    def validate_s_param(self, plot_s_param: SParam2Port) -> bool:
+        if (plot_s_param is None) or (plot_s_param not in SParam2Port):
             raise NotValidSParamException(f"{plot_s_param} is not valid")
         return True
 
-    def handle_none_param(self, plot_s_param: None) -> SParam | None:
+    def handle_none_param(self, plot_s_param: None) -> SParam2Port | None:
         plot_s_param_string = self.data_frame[DataFrameCols.S_PARAMETER.value].values[0]
-        for param_enum in SParam:
+        for param_enum in SParam2Port:
             if param_enum.value == plot_s_param_string:
                 plot_s_param = param_enum
                 break
@@ -377,7 +376,7 @@ class VnaData:
             "graph",
             datetime.now().date().strftime(DateFormats.DATE_FOLDER.value),
         ),
-        plot_s_param: SParam = None,
+        plot_s_param: SParam2Port = None,
         data_frame_column_to_plot: DataFrameCols = DataFrameCols.MAGNITUDE,
         save_to_file=True,
     ):
@@ -413,7 +412,9 @@ class VnaData:
             self.save_graph_to_file(output_folder_path, target_frequency_GHz)
         plt.show()
 
-    def save_graph_to_file(self, output_folder_path, target_frequency_GHz, format='svg'):
+    def save_graph_to_file(
+        self, output_folder_path, target_frequency_GHz, format="svg"
+    ):
         os.makedirs(output_folder_path, exist_ok=True)
         plt.savefig(
             os.path.join(
@@ -441,13 +442,13 @@ class VnaData:
         return frequencies, data
 
     def vna_data_string_to_dict(
-            self,
-            elapsed_time: timedelta,
-            magnitude_data_string: str,
-            phase_data_string: str,
-            s_parameter: SParam,
-            label: str,
-            id,
+        self,
+        elapsed_time: timedelta,
+        magnitude_data_string: str,
+        phase_data_string: str,
+        s_parameter: SParam2Port,
+        label: str,
+        id,
     ) -> dict:
         """
         Converts the strings returned by the VNA .get_data method into a data frame
@@ -473,16 +474,15 @@ class VnaData:
         }
         return data_dict
 
-
     def add_measurement_to_dict_list(
-            self,
-            *,
-            s_param: SParam,
-            magnitude_data_string: str,
-            phase_data_string: str,
-            elapsed_time: timedelta,
-            label: str,
-            id
+        self,
+        *,
+        s_param: SParam2Port,
+        magnitude_data_string: str,
+        phase_data_string: str,
+        elapsed_time: timedelta,
+        label: str,
+        id,
     ):
         """
         Gets current measurement strings (logmag and phase) for the given S param from VNA and converts it
@@ -504,22 +504,32 @@ class VnaData:
     @timer_func
     def dict_list_to_df(self):
 
-        self.data_frame = pd.concat([pd.DataFrame.from_dict(dict_it) for dict_it in self.dict_list], ignore_index=True)
+        self.data_frame = pd.concat(
+            [pd.DataFrame.from_dict(dict_it) for dict_it in self.dict_list],
+            ignore_index=True,
+        )
 
-    def plot_freq_specturm_at_a_time(self, time:timedelta, plot_s_param=None, data_frame_column_to_plot=DataFrameCols.MAGNITUDE,output_folder_path=os.path.join(
+    def plot_freq_specturm_at_a_time(
+        self,
+        time: timedelta,
+        plot_s_param=None,
+        data_frame_column_to_plot=DataFrameCols.MAGNITUDE,
+        output_folder_path=os.path.join(
             get_root_folder_path(),
             "results",
             "graph",
             datetime.now().date().strftime(DateFormats.DATE_FOLDER.value),
-        ), save_to_file=True):
+        ),
+        save_to_file=True,
+    ):
         """
-                Plots a single frequency from the internal data frame, saves it to the provided folder
-                :param target_frequency: frequency in Hz to be plotted
-                :param output_folder_path: string for the output folder, defaults to /results/graphs
-                :param plot_s_param: optional enum indicating Sparam to be plotted
-                :param data_frame_column_to_plot:
-                :return:
-                """
+        Plots a single frequency from the internal data frame, saves it to the provided folder
+        :param target_frequency: frequency in Hz to be plotted
+        :param output_folder_path: string for the output folder, defaults to /results/graphs
+        :param plot_s_param: optional enum indicating Sparam to be plotted
+        :param data_frame_column_to_plot:
+        :return:
+        """
 
         # if no sparam is given just pick the first value of SParam
         if plot_s_param == None:
@@ -543,7 +553,7 @@ class VnaData:
 
 
 def pivot_data_frame_for_s_param(
-        s_param: str, data_frame: pd.DataFrame, mag_or_phase: DataFrameCols
+    s_param: str, data_frame: pd.DataFrame, mag_or_phase: DataFrameCols
 ) -> pd.DataFrame:
     """
     Takes in a data_frame in DataFrameFormats format and returns a dataframe which
@@ -555,7 +565,7 @@ def pivot_data_frame_for_s_param(
     :return: pivoted dataframe with the columns reordered
     """
     if (mag_or_phase is not DataFrameCols.MAGNITUDE) and (
-            mag_or_phase is not DataFrameCols.PHASE
+        mag_or_phase is not DataFrameCols.PHASE
     ):
         raise ValueError(
             f"mag_or_phase must be one of those, currently is {mag_or_phase}"
@@ -572,27 +582,29 @@ def pivot_data_frame_for_s_param(
     new_df[DataFrameCols.ID.value] = data_frame[DataFrameCols.ID.value]
     new_df[DataFrameCols.LABEL.value] = data_frame[DataFrameCols.LABEL.value]
     reordered_columns = [
-                            DataFrameCols.ID.value,
-                            DataFrameCols.LABEL.value,
-                            "mag_or_phase",
-                            DataFrameCols.S_PARAMETER.value,
-                            DataFrameCols.TIME.value,
-                        ] + list(new_df.columns[1:-4])
+        DataFrameCols.ID.value,
+        DataFrameCols.LABEL.value,
+        "mag_or_phase",
+        DataFrameCols.S_PARAMETER.value,
+        DataFrameCols.TIME.value,
+    ] + list(new_df.columns[1:-4])
 
     new_df = new_df[reordered_columns]
     return new_df
 
+
 def plot_min_freq_over_time(min_data):
     plt.figure(figsize=(12, 6))
-    plt.plot(min_data['frequency'], label='Minimum Frequency')
-    plt.title('Minimum Frequency Over Time')
-    plt.xlabel('Time')
-    plt.ylabel('Frequency')
+    plt.plot(min_data["frequency"], label="Minimum Frequency")
+    plt.title("Minimum Frequency Over Time")
+    plt.xlabel("Time")
+    plt.ylabel("Frequency")
     plt.legend()
     plt.grid(True)
     plt.show()
 
     return
+
 
 def csv_dir_to_fq_df(directory: str) -> pd.DataFrame:
     csvs = os.listdir(directory)
@@ -625,46 +637,58 @@ def pivot_csv_data_frame(data):
 
 
 def filter_and_find_min(df, id_val, label_val, mag_or_phase_val, s_param_val):
-    filtered_df = df[(df['id'] == id_val) &
-                     (df['label'] == label_val) &
-                     (df['mag_or_phase'] == mag_or_phase_val) &
-                     (df['s_parameter'] == s_param_val)]
+    filtered_df = df[
+        (df["id"] == id_val)
+        & (df["label"] == label_val)
+        & (df["mag_or_phase"] == mag_or_phase_val)
+        & (df["s_parameter"] == s_param_val)
+    ]
 
-    grouped = filtered_df.groupby('time')
+    grouped = filtered_df.groupby("time")
 
     # Find the minimum value in each row for each unique time
-    min_values = grouped.apply(lambda x: x.iloc[:, 5:].min(axis=1), include_groups=False)
+    min_values = grouped.apply(
+        lambda x: x.iloc[:, 5:].min(axis=1), include_groups=False
+    )
 
     # Find the corresponding frequency for each minimum value
-    min_frequencies = grouped.apply(lambda x: x.iloc[:, 5:].idxmin(axis=1), include_groups=False)
+    min_frequencies = grouped.apply(
+        lambda x: x.iloc[:, 5:].idxmin(axis=1), include_groups=False
+    )
 
     # Combine the results into a single DataFrame or Series
-    result = pd.DataFrame({'min_value': min_values, 'frequency': min_frequencies})
+    result = pd.DataFrame({"min_value": min_values, "frequency": min_frequencies})
 
-    result.set_index(result._get_label_or_level_values('time'), inplace=True)
-    result.index.name = 'time'
+    result.set_index(result._get_label_or_level_values("time"), inplace=True)
+    result.index.name = "time"
 
     return result
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
 
     # targets = []
-    data = VnaData(r'C:\Users\James\OneDrive - University of Glasgow\Glasgow\Year 2\Web App Dev 2\Workspace\picosdk-picovna-python-examples\results\data\flex\wfa-140KHz-1001pts-10Mto4G_1\single_flex-antenna-watch-140KHz-1001pts-10Mto4G_1_2024_04_12_16_51_46_S11_S21_S12_S22_2_secs.csv')
+    data = VnaData(
+        r"C:\Users\James\OneDrive - University of Glasgow\Glasgow\Year 2\Web App Dev 2\Workspace\picosdk-picovna-python-examples\results\data\flex\wfa-140KHz-1001pts-10Mto4G_1\single_flex-antenna-watch-140KHz-1001pts-10Mto4G_1_2024_04_12_16_51_46_S11_S21_S12_S22_2_secs.csv"
+    )
     data.data_frame = pivot_csv_data_frame(data)
-    min_data = filter_and_find_min(data.data_frame,
-                        '2024_04_12_16_51_48',
-                        'single_flex-antenna-watch-140KHz-1001pts-10Mto4G_1',
-                        'magnitude',
-                        'S11')
+    min_data = filter_and_find_min(
+        data.data_frame,
+        "2024_04_12_16_51_48",
+        "single_flex-antenna-watch-140KHz-1001pts-10Mto4G_1",
+        "magnitude",
+        "S11",
+    )
     plot_min_freq_over_time(min_data)
-    #data.single_freq_plotter(ghz_to_hz(0.4), plot_s_param=SParam.S11, data_frame_column_to_plot=DataFrameCols.PHASE)
+    # data.single_freq_plotter(ghz_to_hz(0.4), plot_s_param=SParam.S11, data_frame_column_to_plot=DataFrameCols.PHASE)
     # combined_df = combine_data_frames_from_csv_folder(r'D:\James\documents\OneDrive - University of Glasgow\Glasgow\Year 2\Web App Dev 2\Workspace\picosdk-picovna-python-examples\results\data\flex')
     # combined_df['label'] = combined_df['label'].map(lambda x: x.split('_')[2])
-    #targets = []
-    data = VnaData(r"C:\Users\mww19a\PycharmProjects\Pico_VNA_Project\results\data\single_Test_dipole1_xx\single_Test_dipole1_xx_2024_08_09_14_20_34_S11_S21_S12_S22_10_secs.csv")
-    data.single_freq_plotter(ghz_to_hz(0.4), plot_s_param=SParam.S11, data_frame_column_to_plot=DataFrameCols.MAGNITUDE)
-
-
-
-
-
+    # targets = []
+    data = VnaData(
+        r"C:\Users\mww19a\PycharmProjects\Pico_VNA_Project\results\data\single_Test_dipole1_xx\single_Test_dipole1_xx_2024_08_09_14_20_34_S11_S21_S12_S22_10_secs.csv"
+    )
+    data.single_freq_plotter(
+        ghz_to_hz(0.4),
+        plot_s_param=SParam2Port.S11,
+        data_frame_column_to_plot=DataFrameCols.MAGNITUDE,
+    )

@@ -8,13 +8,12 @@ from datetime import datetime, timedelta
 
 from VNA_enums import (
     MeasurementFormat,
-    SParam,
+    SParam2Port,
     MeasureSParam,
     DateFormats,
 )
 from VNA_exceptions import (
     VNAError,
-
 )
 
 
@@ -22,9 +21,9 @@ from VNA_utils import (
     get_data_path,
     get_root_folder_path,
     countdown_timer,
-    input_movement_label, timer_func
+    input_movement_label,
+    timer_func,
 )
-
 
 
 class VNA:
@@ -52,7 +51,6 @@ class VNA:
         self.vna_object = win32com.client.gencache.EnsureDispatch(vna_string)
         self.output_data = vna_data
 
-
     def connect(self):
         """
         wrapper to connect to the VNA
@@ -61,8 +59,12 @@ class VNA:
         print("Connecting VNA")
         search_vna = self.vna_object.FND()
         if search_vna == 0:
-            raise VNAError("Connection Failed, do you have Pico VNA Open? Or restart the device")
-        print(f"VNA {str(search_vna)} Loaded,\n\rif you stop the program without closing the connection you will need to restart the VNA")
+            raise VNAError(
+                "Connection Failed, do you have Pico VNA Open? Or restart the device"
+            )
+        print(
+            f"VNA {str(search_vna)} Loaded,\n\rif you stop the program without closing the connection you will need to restart the VNA"
+        )
 
     def close_connection(self):
         """
@@ -84,7 +86,7 @@ class VNA:
         print(f"Result {ans}")
 
     def get_data(
-        self, s_parameter: SParam, data_format: MeasurementFormat, point=0
+        self, s_parameter: SParam2Port, data_format: MeasurementFormat, point=0
     ) -> str:
         """
         wrapper for getting data from the VNA after measurement
@@ -95,12 +97,10 @@ class VNA:
         """
         return self.vna_object.GetData(s_parameter.value, data_format.value, point)
 
-
-
     def generate_output_path(
         self,
         output_folder: str,
-        s_params_saved: [SParam],
+        s_params_saved: [SParam2Port],
         run_time: timedelta,
         fname="",
         label="",
@@ -127,17 +127,15 @@ class VNA:
         filename = f"{label_fname}{datetime.now().strftime(DateFormats.CURRENT.value)}_{s_params}_{run_time.seconds}_secs.csv"
         return os.path.join(get_root_folder_path(), output_folder, label, filename)
 
-
-
-    #@timer_func
+    # @timer_func
     def measure_wrapper(self, str):
         return self.vna_object.Measure(str)
 
-    #@timer_func
+    # @timer_func
     def take_measurement(
         self,
         s_params_measure: MeasureSParam,
-        s_params_output: [SParam],
+        s_params_output: [SParam2Port],
         elapsed_time: timedelta,
         label: str,
         id,
@@ -154,31 +152,28 @@ class VNA:
 
         for s_param in s_params_output:
 
-
             self.output_data.add_measurement_to_dict_list(
                 s_param=s_param,
                 magnitude_data_string=self.get_data(s_param, MeasurementFormat.LOGMAG),
                 phase_data_string=self.get_data(s_param, MeasurementFormat.PHASE),
                 elapsed_time=elapsed_time,
                 label=label,
-                id=id
+                id=id,
             )
 
-
-
     def measure_n_times(
-            self,
-            *,
-            run_time: timedelta,
-            n_measures=1,
-            print_elapsed_time=False,
-            s_params_measure: MeasureSParam = MeasureSParam.ALL,
-            s_params_output: [SParam] = None,
-            file_name: str = "",
-            output_dir=get_data_path(),
-            label=None,
-            countdown_seconds=2,
-            save_interval = 10000
+        self,
+        *,
+        run_time: timedelta,
+        n_measures=1,
+        print_elapsed_time=False,
+        s_params_measure: MeasureSParam = MeasureSParam.ALL,
+        s_params_output: [SParam2Port] = None,
+        file_name: str = "",
+        output_dir=get_data_path(),
+        label=None,
+        countdown_seconds=2,
+        save_interval=10000,
     ):
         """
         nb * means these are key word args only, this is for clarity
@@ -212,7 +207,7 @@ class VNA:
 
         # this the output s parameter, which is RETRIEVED from the VNA
         if s_params_output == None:
-            s_params_output = [SParam.S11]
+            s_params_output = [SParam2Port.S11]
 
         # connect and load calibration
         self.connect()
@@ -251,7 +246,9 @@ class VNA:
                     sampling_fq = 1 / dt.total_seconds()
                 prev_time = current_time
                 if print_elapsed_time:
-                    print(f"Running for another {(run_time - elapsed_time)} dt={dt} sfq={sampling_fq}")
+                    print(
+                        f"Running for another {(run_time - elapsed_time)} dt={dt} sfq={sampling_fq}"
+                    )
                 # method to take measurements and add them to the data frame
                 self.take_measurement(
                     s_params_measure,
@@ -270,6 +267,5 @@ class VNA:
             print(f"Saving at end of run")
             self.output_data.dict_list_to_df()
             self.output_data.data_frame.to_csv(self.output_data.csv_path, index=False)
-
 
         self.close_connection()

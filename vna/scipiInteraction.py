@@ -15,6 +15,7 @@ from scipiCommands import (
     save_snp_command_string,
 )
 from VNA_utils import countdown_timer
+from vna.scipiCommands import set_trace_measurement_parameter_command_string, SParam
 
 
 class ScipiGestureCaptureExperiment:
@@ -29,6 +30,7 @@ class ScipiGestureCaptureExperiment:
         root_folder: str = "local/James/Live_Captures",
         n_tests_per_gesture: int = 1,
         path_to_state_to_load: str = None,
+        s_parameters_to_record: [SParam] = None,
     ):
         self.vna_handle: MessageBasedResource = vna_handle
         self.test_gestures: [str] = test_gestures
@@ -40,12 +42,16 @@ class ScipiGestureCaptureExperiment:
         self.save_folder: str = None
         self.path_to_state_to_load: str = path_to_state_to_load
         self.n_tests_per_gesture: int = n_tests_per_gesture
+        if s_parameters_to_record is None:
+            s_parameters_to_record = [sparam for sparam in SParam]
+        self.s_parameters_to_record: [SParam] = s_parameters_to_record
 
     def run_gesture_capture(self):
         # load state if provided
         if self.path_to_state_to_load:
             self.vna_handle.write(load_state_command(self.path_to_state_to_load))
 
+        self.add_all_sparam_measures_to_channel()
         self.set_touchstone_format()
         self.create_directories_for_exeriment()
         self.capture_gestures()
@@ -55,12 +61,29 @@ class ScipiGestureCaptureExperiment:
             if int(self.vna_handle.query("*OPC?")) == 1:
                 return
 
+    def add_all_sparam_measures_to_channel(self, channel_number=1):
+        for trace_number, s_param in enumerate(self.s_parameters_to_record, start=1):
+            self.add_measurement(
+                channel_number=channel_number,
+                trace_number=trace_number,
+                s_param=s_param,
+            )
+
     def create_directories_for_exeriment(self):
         self.vna_handle.write(create_directory_command_string(self.root_folder))
         self.save_folder = f"{self.root_folder}/{datetime.now().strftime('%y%m%d%H%M')}_{self.test_name}"
 
         print(os.path.dirname(self.save_folder))
         self.vna_handle.write(create_directory_command_string(self.save_folder))
+
+    def add_measurement(self, channel_number: int, trace_number: int, s_param: SParam):
+        self.vna_handle.write(
+            set_trace_measurement_parameter_command_string(
+                channel_number=channel_number,
+                trace_number=trace_number,
+                s_param=s_param,
+            )
+        )
 
     def set_touchstone_format(self):
         self.vna_handle.write(set_snp_save_ports_command_string(self.snp_format))
@@ -132,7 +155,7 @@ if __name__ == "__main__":
     NI_VISA_DLL_PATH = r"C:\Windows\System32\nivisa64.dll"
     VNA_VISA_ADDRESS = "USB0::0xF4EC::0x1700::SNA5XCED5R0097::INSTR"
 
-    COUNTDOWN_TIME = timedelta(seconds=3)
+    COUNTDOWN_TIME = timedelta(seconds=1)
     TEST_NAME = f"liquid_metal_glove_6ges_25reps"
     snp = SnP.S4P
     STATE_PATH = "local/James/Calibration/glove_experiment_setup_201pts_100M_500M.csa"
@@ -144,8 +167,8 @@ if __name__ == "__main__":
     vna_handle = open_vna_handle(NI_VISA_DLL_PATH, VNA_VISA_ADDRESS)
 
     RUN_TIME_DELTA = timedelta(seconds=5)
-    n_tests = 25
-    TEST_NAME = f"liquid_metal_glove_6ges_25rps"
+    n_tests = 1
+    TEST_NAME = f"test"
 
     experiment = ScipiGestureCaptureExperiment(
         vna_handle,

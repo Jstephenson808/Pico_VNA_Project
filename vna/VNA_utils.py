@@ -2,6 +2,7 @@ import os
 import pickle
 from time import time, sleep
 
+import numpy as np
 import pandas as pd
 
 import VNA_exceptions
@@ -208,3 +209,7 @@ def get_label_from_pkl_path(path):
     "all_Sparams_magnitude_0.01_0.11_2024_04_02.pkl"
     """
     return os.path.basename(path)[::-1].split("_", maxsplit=3)[-1][::-1]
+
+
+def convert_to_dbm(scatteringValue: float):
+    return 20 * np.log10(scatteringValue)

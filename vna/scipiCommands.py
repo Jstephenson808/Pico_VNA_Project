@@ -124,3 +124,9 @@ def debug_command(inst: Resource):
 
 def load_state_command(path):
     return f':MMEMory:LOAD "{path}"'
+
+
+def set_trace_measurement_parameter_command_string(
+    channel_number: int, trace_number: int, s_param: SParam
+):
+    return f":CALCulate{channel_number}:PARameter{trace_number}:DEFine {s_param.value}"
