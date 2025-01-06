@@ -148,7 +148,7 @@ def create_test_dict(
 
 
 def test_classifier_for_all_measured_params(
-    combined_df: pd.DataFrame, sparam_sets, filter_type: DfFilterOptions
+    combined_df: pd.DataFrame, sparam_sets, filter_type: DfFilterOptions, fq_hop
 ) -> pd.DataFrame:
     """
     return report
@@ -156,7 +156,7 @@ def test_classifier_for_all_measured_params(
     filtered_df_dict = create_test_dict(
         combined_df, sparam_sets=sparam_sets, filter_type=filter_type
     )
-    return test_classifier_from_df_dict(filtered_df_dict)
+    return test_classifier_from_df_dict(filtered_df_dict, frequency_hop=fq_hop)
 
 
 # todo refactor this mess

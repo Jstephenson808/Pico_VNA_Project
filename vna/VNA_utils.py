@@ -211,5 +211,11 @@ def get_label_from_pkl_path(path):
     return os.path.basename(path)[::-1].split("_", maxsplit=3)[-1][::-1]
 
 
-def convert_to_dbm(scatteringValue: float):
-    return 20 * np.log10(scatteringValue)
+def convert_magnitude_to_db(magnitude_value: float):
+    return 20 * np.log10(magnitude_value)
+
+
+def convert_magnitude_rows_to_db(data_frame: pd.DataFrame):
+    magnitude = data_frame.query("mag_or_phase == 'magnitude'")
+    frequency_values: pd.DataFrame = magnitude.iloc[:, 5:]
+    frequency_values.apply(convert_magnitude_to_db, axis=1)

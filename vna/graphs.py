@@ -1,9 +1,12 @@
 import random
+from cProfile import label
 from itertools import product
 
 import numpy as np
 import pandas as pd
 import matplotlib
+from matplotlib.axes import Axes
+from matplotlib.cm import get_cmap
 from sklearn.metrics import ConfusionMatrixDisplay
 
 from ml_model import (
@@ -23,7 +26,7 @@ from VNA_utils import (
     ghz_to_hz,
     get_frequency_column_headings_list,
     hz_to_ghz,
-    convert_to_dbm,
+    convert_magnitude_to_db,
 )
 
 from VNA_enums import (
@@ -524,11 +527,132 @@ def plot_fq_time_series(
         closest_fq = get_closest_freq_column(filtered_df, target_frequency)
         ax.plot(
             filtered_df[DataFrameCols.TIME.value],
-            filtered_df[closest_fq].apply(convert_to_dbm),
+            filtered_df[closest_fq].apply(convert_magnitude_to_db),
         )
     ax.set_ylabel(f"|{s_parameter}|")
     ax.set_xlabel("Time (s)")
     plt.title(f"|{s_parameter}| Over Time at {hz_to_ghz(closest_fq)} GHz")
+    plt.show()
+
+
+def plot_fq_time_series_as_subplot(
+    ax: Axes,
+    single_gesture_data_frame: pd.DataFrame,
+    *,
+    s_parameter: SParam = None,
+    mag_or_phase: MagnitudeOrPhase = None,
+    label=None,
+    n_random_ids=1,
+    target_frequency=None,
+    color="blue",
+    title=False,
+):
+    """
+    Takes in a data frame which contains the results for a single gesture from a single experiment,
+    provide the parameters you want to plot and a label for the plot.
+    Args:
+        single_gesture_data_frame:
+        s_parameter:
+        mag_or_phase:
+        label:
+        n_random_ids:
+        target_frequency:
+
+    Returns:
+
+    """
+    if target_frequency is None:
+        raise AttributeError("No target frequency")
+
+    if s_parameter is None or mag_or_phase is None or label is None:
+        raise AttributeError(
+            f"Must include all params s_param={s_parameter}, mag_or_phase={mag_or_phase}, label={label}"
+        )
+
+    filtered_df = single_gesture_data_frame.query(
+        f's_parameter == "{s_parameter.value}" and mag_or_phase == "{mag_or_phase.value}" and label == "{label}"'
+    )
+    grouped_by_id = filtered_df.groupby("id")
+    gesture = label.split("_")[-1]
+    filtered_dfs = []
+    random_ids = random.sample(list(grouped_by_id.groups.keys()), n_random_ids)
+    random_experiment_list = [filtered_df.query(f'id == "{id}"') for id in random_ids]
+
+    for random_experiment_df in random_experiment_list:
+        filtered_dfs.append(filter_fq_cols(random_experiment_df, target_frequency))
+
+    for filtered_df in filtered_dfs:
+        closest_fq = get_closest_freq_column(filtered_df, target_frequency)
+        ax.plot(
+            filtered_df[DataFrameCols.TIME.value],
+            filtered_df[closest_fq].apply(convert_magnitude_to_db),
+            label=gesture,
+            color=color,
+        )
+    if title:
+        ax.set_title(f"{gesture}")
+    return ax
+
+
+#
+# def add_fig_legend(fig, group_labels, loc="lower center", ncol=4):
+#     # Get colours for current style
+#     colours = plt.rcParams["axes.prop_cycle"].by_key()["color"]
+#     # Set up handles (the bits that are drawn in the legend)
+#     handles = []
+#     for group_idx in range(len(group_labels)):
+#         # Create a simple patch that is the correct colour
+#         colour = colours[group_idx]
+#         handles.append(Patch(edgecolor=colour, facecolor=colour, fill=True))
+#     # Acutally create our figure legend, using the handles and labels
+#     fig.legend(handles=handles, labels=group_labels, loc=loc, ncol=ncol)
+
+
+def plot_multiple_gestures_on_time_series(
+    *,
+    data_frame: pd.DataFrame,
+    experiment_label,
+    gestures,
+    target_s_param: SParam,
+    mag_or_phase: MagnitudeOrPhase = MagnitudeOrPhase.Magnitude,
+    target_frequency,
+    n_random_ids=1,
+    c_map_label="viridis",
+):
+    c_map = get_cmap(c_map_label)
+    plot_labels = [f"{experiment_label}_{gesture}" for gesture in gestures]
+    fig, axes = plt.subplots(nrows=len(plot_labels), ncols=1, sharex=True, sharey=True)
+    fig.suptitle(
+        f"|{target_s_param.value}| Over Time at {hz_to_ghz(target_frequency)} GHz"
+    )
+    if len(plot_labels) > 1:
+        axes = axes.flat
+    plotted_axes = []
+    for i, (plot_label, ax) in enumerate(zip(plot_labels, axes)):
+        color = c_map(i / len(plot_labels))
+        plotted_axes.append(
+            plot_fq_time_series_as_subplot(
+                ax,
+                data_frame,
+                s_parameter=target_s_param,
+                mag_or_phase=mag_or_phase,
+                label=plot_label,
+                n_random_ids=n_random_ids,
+                target_frequency=target_frequency,
+                color=color,
+            )
+        )
+
+    collected_handles, collected_labels = [], []
+    for ax in plotted_axes:
+        handles, labels = ax.get_legend_handles_labels()
+        collected_handles.extend(handles)
+        collected_labels.extend(labels)
+
+    fig.supxlabel("Time (s)")
+    fig.supylabel(f"|{target_s_param.value}|")
+    fig.legend(handles=collected_handles, labels=collected_labels)
+    # plt.tight_layout()
     plt.show()
 
 
