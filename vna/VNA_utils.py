@@ -5,8 +5,8 @@ from time import time, sleep
 import numpy as np
 import pandas as pd
 
-import VNA_exceptions
-import VNA_defaults
+import vna.VNA_exceptions as VNA_exceptions
+import vna.VNA_defaults as VNA_defaults
 
 
 def countdown_timer(seconds):
@@ -215,7 +215,10 @@ def convert_magnitude_to_db(magnitude_value: float):
     return 20 * np.log10(magnitude_value)
 
 
-def convert_magnitude_rows_to_db(data_frame: pd.DataFrame):
+def convert_magnitude_cols_to_db(data_frame: pd.DataFrame) -> pd.DataFrame:
+    data_frame = data_frame.reset_index(drop=True)
     magnitude = data_frame.query("mag_or_phase == 'magnitude'")
     frequency_values: pd.DataFrame = magnitude.iloc[:, 5:]
-    frequency_values.apply(convert_magnitude_to_db, axis=1)
+    txd_values = frequency_values.map(convert_magnitude_to_db)
+    data_frame.update(txd_values)
+    return data_frame

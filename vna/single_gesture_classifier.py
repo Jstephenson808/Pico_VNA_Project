@@ -193,6 +193,9 @@ if __name__ == "__main__":
     #
     # s_param_combinations_list = [['S12', 'S13', 'S14'], ['S34','S23','S42']]
     #
+
+    # S21 fist ->
+
     # #todo need to add svm or dtree label to output dict
     full_results_df = test_classifier_for_all_measured_params(
         full_df, s_param_combinations_list, DfFilterOptions.BOTH

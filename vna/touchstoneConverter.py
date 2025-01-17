@@ -47,6 +47,7 @@ class TouchstoneConverter:
         pickle_object(self.output_data_frame, file_name=experiment_names_string)
 
     def extract_all_touchstone_data_to_dataframe(self):
+        print("Started Conversion")
         for experiment_folder in self.experiment_folders:
             experiment_data_frame = experiment_folder.extract_data_for_each_experiment()
             self.output_data_frame = pd.concat(
@@ -219,7 +220,8 @@ class IndividualGestureCapture:
         self.individual_gesture_folder_path = individual_gesture_folder_path
         self.experiment_name = experiment_name
         self.gesture_label = gesture_label
-        self.timestamp: datetime = timestamp
+        self.experiment_timestamp: datetime = timestamp
+        self.gesture_capture_timestamp: datetime = None
         self.repeat_number: int = repeat_number
         self.touchstone_files: [TouchstoneFile] = self.open_touchstones()
         self.data_frame = self.create_empty_data_frame()
@@ -239,7 +241,6 @@ class IndividualGestureCapture:
             TouchstoneFile(
                 touchstone_path=self.get_path_to_touchstone(fname),
                 experiment_name=self.experiment_name,
-                timestamp=self.timestamp,
                 gesture_label=self.gesture_label,
                 repeat_number=self.repeat_number,
             )
@@ -256,6 +257,7 @@ class IndividualGestureCapture:
         times = [
             touchstone.touchstone_time_recorded for touchstone in self.touchstone_files
         ]
+        self.gesture_capture_timestamp = times[0]
         times = self.space_out_touchstone_recording_times(times)
         zero_referenced_times = self.zero_ref_recording_time(times)
 
@@ -265,12 +267,13 @@ class IndividualGestureCapture:
         ):
             touchstone.touchstone_time_recorded = time
             touchstone.zero_referenced_time = zero_referenced_time
+            touchstone.gesture_capture_timestamp = self.gesture_capture_timestamp
 
         ##### end atomic section #####
 
         i = 0
         print(
-            f"Experiment {self.experiment_name} Timestamp {self.timestamp.strftime('%d/%m/%Y, %H:%M:%S')} Gesture {self.gesture_label}"
+            f"Experiment {self.experiment_name} Timestamp {self.experiment_timestamp.strftime('%d/%m/%Y, %H:%M:%S')} Gesture {self.gesture_label}"
         )
         for touchstone_file in self.touchstone_files:
             print(f"{i} of {len(self.touchstone_files)}")
@@ -342,14 +345,14 @@ class TouchstoneFile:
         touchstone_path,
         experiment_name,
         gesture_label,
-        timestamp,
+        timestamp=None,
         repeat_number,
     ):
         self.touchstone_path = touchstone_path
         self.touchstone_network = Network(self.touchstone_path)
         self.experiment_name = experiment_name
         self.gesture_label = gesture_label
-        self.experiment_timestamp: datetime = timestamp
+        self.gesture_capture_timestamp: datetime = timestamp
         self.repeat_number = repeat_number
         self.touchstone_number = self.get_touchstone_number()
         self.touchstone_time_recorded: datetime = (
@@ -386,7 +389,7 @@ class TouchstoneFile:
                 pass
 
     def create_experiment_id(self):
-        return f"{self.experiment_name}_{self.experiment_timestamp.strftime(DateFormats.VNA_FOLDER_DATE_FROMAT.value)}"
+        return f"{self.experiment_name}_{self.gesture_capture_timestamp.strftime(DateFormats.CURRENT.value)}"
 
     def extract_values_from_touchstone_files_to_df(
         self, df: pd.DataFrame

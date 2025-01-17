@@ -583,9 +583,13 @@ def plot_fq_time_series_as_subplot(
 
     for filtered_df in filtered_dfs:
         closest_fq = get_closest_freq_column(filtered_df, target_frequency)
+        if mag_or_phase == MagnitudeOrPhase.MAG:
+            time_series = filtered_df[closest_fq].apply(convert_magnitude_to_db)
+        else:
+            time_series = filtered_df[closest_fq]
         ax.plot(
             filtered_df[DataFrameCols.TIME.value],
-            filtered_df[closest_fq].apply(convert_magnitude_to_db),
+            time_series,
             label=gesture,
             color=color,
         )
@@ -793,6 +797,70 @@ def find_nearest_frequency(full_df, target_frequency_hz):
     array = np.asarray(list(full_df.columns)[5:])
     idx = (np.abs(array - target_frequency_hz)).argmin()
     return array[idx]
+
+
+def plot_3d_time_series(data_frame_to_plot: pd.DataFrame, seaborn_style="whitegrid"):
+    sns.set_style("whitegrid")
+    frequency_cols = list(data_frame_to_plot.columns[6:])
+
+    # this is iterated over to place the lines in the 3rd D
+    plotting_indexes = np.linspace(0, 1, len(frequency_cols))
+    time = data_frame_to_plot["time"]
+
+    ax = plt.figure().add_subplot(projection="3d")
+
+    norm = colors.Normalize(vmin=min(plotting_indexes), vmax=max(plotting_indexes))
+    cmap = cm.viridis  # Choose a colormap (you can try 'plasma', 'inferno', etc.)
+
+    i = 0
+    for plotting_index, frequency_col in zip(plotting_indexes, frequency_cols):
+        if i % 1 == 0:
+            y = data_frame_to_plot[frequency_col]
+
+            # y.apply(lambda val:val-list(y)[0])
+            color = cmap(norm(plotting_index))
+            ax.plot(
+                time,
+                y,
+                zs=hz_to_mhz(frequency_col),
+                color=color,
+                zdir="y",
+                label=f"{frequency_col}Hz",
+            )
+        i += 1
+    # ax.set_xlim(0, 1)
+    # ax.set_ylim(0, 1)
+    # ax.set_zlim(0, 1)
+    ax.set_xlabel("Time (s)")
+    ax.set_ylabel("Frequency (MHz)")
+    ax.set_zlabel("|S11|")
+    ax.yaxis.set_major_locator(ticker.MaxNLocator(nbins=5))
+
+    ax.invert_xaxis()
+    # Customize the view angle so it's easier to see that the scatter points lie
+    # on the plane y=0
+    ax.view_init(elev=20, azim=30, roll=0)
+
+    plt.show()
+
+
+def scale_3d_plot(ax: Axes, x_scale=1, y_scale=1, z_scale=1) -> Axes:
+    """
+    Scaling is done from here...
+    """
+    x_scale = 10
+    y_scale = 4.5
+    z_scale = 4.5
+
+    scale = np.diag([x_scale, y_scale, z_scale, 1.0])
+    scale = scale * (1.0 / scale.max())
+    scale[3, 3] = 1.0
+
+    def short_proj():
+        return np.dot(Axes3D.get_proj(ax), scale)
+
+    ax.get_proj = short_proj
+    return ax
 
 
 if __name__ == "__main__":
