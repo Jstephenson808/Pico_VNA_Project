@@ -257,8 +257,10 @@ class IndividualGestureCapture:
         times = [
             touchstone.touchstone_time_recorded for touchstone in self.touchstone_files
         ]
+        print(f"{self.gesture_label=}\n{times=}")
         self.gesture_capture_timestamp = times[0]
         times = self.space_out_touchstone_recording_times(times)
+        print(f"Spaced out times={times}")
         zero_referenced_times = self.zero_ref_recording_time(times)
 
         # as the files were sorted at the start this is safe

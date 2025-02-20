@@ -219,6 +219,6 @@ def convert_magnitude_cols_to_db(data_frame: pd.DataFrame) -> pd.DataFrame:
     data_frame = data_frame.reset_index(drop=True)
     magnitude = data_frame.query("mag_or_phase == 'magnitude'")
     frequency_values: pd.DataFrame = magnitude.iloc[:, 5:]
-    txd_values = frequency_values.map(convert_magnitude_to_db)
+    txd_values = 20 * np.log10(frequency_values)
     data_frame.update(txd_values)
     return data_frame

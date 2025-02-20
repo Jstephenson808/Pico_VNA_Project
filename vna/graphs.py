@@ -5,8 +5,10 @@ from itertools import product
 import numpy as np
 import pandas as pd
 import matplotlib
+from matplotlib import colors, cm, ticker
 from matplotlib.axes import Axes
 from matplotlib.cm import get_cmap
+from matplotlib.pyplot import ylabel
 from sklearn.metrics import ConfusionMatrixDisplay
 
 from ml_model import (
@@ -27,6 +29,7 @@ from VNA_utils import (
     get_frequency_column_headings_list,
     hz_to_ghz,
     convert_magnitude_to_db,
+    hz_to_mhz,
 )
 
 from VNA_enums import (
@@ -314,26 +317,40 @@ def melt_and_filter_mag_sparam(accuracy_df, include_all=False):
     return melted
 
 
-def best_parameter_measurement_violin(results_df, n_to_plot=6, include_all=False):
+def get_mean_frequency_band_from_results(results_df):
     accuracy_df = results_df[results_df["gesture"] == "accuracy"]
-    accuracy_df.loc[:, "type"] = accuracy_df["type"] + "_" + accuracy_df["s_param"]
-    melted = melt_and_filter_mag_sparam(accuracy_df, include_all)
-    top_n_groups = melted.groupby("type")["value"].mean().nlargest(n_to_plot).index
+    return hz_to_mhz(
+        ghz_to_hz(
+            (
+                accuracy_df["high_frequency"].astype(float)
+                - accuracy_df["low_frequency"].astype(float)
+            ).mean()
+        )
+    )
 
+
+def bar_graph_accuracy_comparison(results_df, n_to_plot=6, include_all=False):
+    accuracy_df = results_df[results_df["gesture"] == "accuracy"]
+    band = round(get_mean_frequency_band_from_results(accuracy_df) / 5) * 5
+
+    melted = melt_and_filter_mag_sparam(accuracy_df, include_all)
+    melted["type"] = melted["type"].str.replace("Magnitude ", "|") + "|"
+    top_n_groups = melted.groupby("type")["value"].mean().nlargest(n_to_plot).index
     melted_df = melted[melted["type"].isin(top_n_groups)]
     fig, ax = plt.subplots()
-    sns.boxplot(data=melted_df, x="type", y="value", hue="label")
+    sns.boxplot(data=melted_df, x="value", y="type", hue="label")
     # sns.move_legend(
     #     ax, loc="lower right", ncol=2, frameon=True, columnspacing=1, handletextpad=0, title="Classifier",
     #     labels=['SVM', 'D Tree']
     # )
     ax.set(
-        xlabel="Experiment",
-        ylabel="Classifier Accuracy",
-        title=f"SVM vs Decision Tree Classification Accuracy \n Showing The Top {n_to_plot} S Parameter Combinations By Mean Accuracy",
+        xlabel="Classifier Accuracy",
+        ylabel="",
+        title=f"Comparison of Dipole vs Glove Antenna Far Field \n Wireless Readout Using {melted['type'][0]} and a {band}MHz Channel",
     )
 
-    legend = plt.legend(loc="lower right")
+    legend = plt.legend(loc="best")
+    plt.show()
 
 
 def plot_s_param_mag_phase_from_touchstone(touchstone_path, name):
@@ -446,38 +463,56 @@ def confusion_matrix_from_single_result(
     labels,
     confusion_matrix_dict,
     confusion_matrix_option: ConfusionMatrixKey,
+    convert_to_percent_of_true_labels=False,
 ) -> None:
 
     confusion_matrix_key = make_confusion_matrix_dict_string_from_series(
         single_result_series
     )
     confusion_matrix = confusion_matrix_dict[confusion_matrix_key][
-        confusion_matrix_option
+        confusion_matrix_option.value
     ]
+    if convert_to_percent_of_true_labels:
+        confusion_matrix = np.round(
+            confusion_matrix / confusion_matrix.sum(axis=1, keepdims=True) * 100, 0
+        ).astype(int)
+
     ConfusionMatrixDisplay(confusion_matrix, display_labels=labels).plot()
     plt.title(
-        f'Confusion Matrix for {single_result_series["label"].split("_")[-1]} \n\r '
-        f'Using {single_result_series["classifier"].title()} classifier between {single_result_series["low_frequency"]} and {single_result_series["high_frequency"]} GHz'
+        f'Confusion Matrix Using {single_result_series["classifier"].title()} classifier \n'
+        f'Between {single_result_series["low_frequency"]} and {single_result_series["high_frequency"]} GHz'
     )
     plt.show()
     return
 
 
-def display_confusion_matrix_for_top_value(full_df, results_df, confusion_matrix_dict):
-    full_df.columns = [
-        pd.to_numeric(col, errors="coerce") if col.isnumeric() else col
-        for col in full_df.columns
-    ]
+def display_confusion_matrix_for_top_n_values(
+    full_df,
+    results_df,
+    confusion_matrix_dict,
+    confusion_matrix_option=ConfusionMatrixKey.FILTERED_SVM,
+    n=1,
+    convert_to_percent_of_true_labels=False,
+):
+    # full_df.columns = [
+    #     pd.to_numeric(col, errors="coerce") if col.isnumeric() else col
+    #     for col in full_df.columns
+    # ]
 
     accuracy_df = results_df[(results_df["gesture"] == "accuracy")]
     accuracy_df = accuracy_df.sort_values(by="f1-score", ascending=False)
     mag_df = accuracy_df[accuracy_df["type"] == "magnitude"]
-    top_magnitude = mag_df.iloc[0]
+    labels = sorted(list(set([label[-1] for label in full_df["label"].unique()])))
 
-    labels = [label[-1] for label in full_df["label"].unique()]
-    confusion_matrix_from_single_result(
-        top_magnitude, labels, confusion_matrix_dict, confusion_matrix_option
-    )
+    for i in range(n):
+        top_magnitude = mag_df.iloc[i]
+        confusion_matrix_from_single_result(
+            top_magnitude,
+            labels,
+            confusion_matrix_dict,
+            confusion_matrix_option,
+            convert_to_percent_of_true_labels,
+        )
 
 
 def plot_fq_time_series(
@@ -583,7 +618,7 @@ def plot_fq_time_series_as_subplot(
 
     for filtered_df in filtered_dfs:
         closest_fq = get_closest_freq_column(filtered_df, target_frequency)
-        if mag_or_phase == MagnitudeOrPhase.MAG:
+        if mag_or_phase == MagnitudeOrPhase.Magnitude:
             time_series = filtered_df[closest_fq].apply(convert_magnitude_to_db)
         else:
             time_series = filtered_df[closest_fq]
@@ -799,13 +834,26 @@ def find_nearest_frequency(full_df, target_frequency_hz):
     return array[idx]
 
 
-def plot_3d_time_series(data_frame_to_plot: pd.DataFrame, seaborn_style="whitegrid"):
-    sns.set_style("whitegrid")
-    frequency_cols = list(data_frame_to_plot.columns[6:])
+def plot_3d_time_series(
+    data_frame_to_plot: pd.DataFrame,
+    seaborn_style="darkgrid",
+):
+    # at some point I want to make these vary with respect to magnitude
+    s_parameter = data_frame_to_plot["s_parameter"][0]
+
+    gesture = data_frame_to_plot["label"][0].split("_")[-1]
+
+    group = data_frame_to_plot.iloc[:, 4:].groupby("time")
+
+    # sns.set_style(seaborn_style, {"axes.grid": False})
+    frequency_cols = list(
+        map(int, map(hz_to_mhz, list(data_frame_to_plot.columns[5:])))
+    )
 
     # this is iterated over to place the lines in the 3rd D
-    plotting_indexes = np.linspace(0, 1, len(frequency_cols))
+    plotting_indexes = np.linspace(0, data_frame_to_plot["time"].max(), len(group))
     time = data_frame_to_plot["time"]
+    times_normalized = time - time.min()
 
     ax = plt.figure().add_subplot(projection="3d")
 
@@ -813,34 +861,30 @@ def plot_3d_time_series(data_frame_to_plot: pd.DataFrame, seaborn_style="whitegr
     cmap = cm.viridis  # Choose a colormap (you can try 'plasma', 'inferno', etc.)
 
     i = 0
-    for plotting_index, frequency_col in zip(plotting_indexes, frequency_cols):
-        if i % 1 == 0:
-            y = data_frame_to_plot[frequency_col]
+    for plotting_index, (group_name, df) in reversed(
+        list(zip(plotting_indexes, group))
+    ):
+        y = df.iloc[:, 1:].values[0]
 
-            # y.apply(lambda val:val-list(y)[0])
-            color = cmap(norm(plotting_index))
-            ax.plot(
-                time,
-                y,
-                zs=hz_to_mhz(frequency_col),
-                color=color,
-                zdir="y",
-                label=f"{frequency_col}Hz",
-            )
-        i += 1
-    # ax.set_xlim(0, 1)
-    # ax.set_ylim(0, 1)
-    # ax.set_zlim(0, 1)
-    ax.set_xlabel("Time (s)")
-    ax.set_ylabel("Frequency (MHz)")
-    ax.set_zlabel("|S11|")
+        color = cmap(norm(plotting_index))
+        ax.plot(
+            frequency_cols,
+            y,
+            zs=plotting_index,
+            color=color,
+            zdir="x",
+            label=f"{group_name}s",
+        )
+
+    ax.set_xlabel("Time (s)", labelpad=30)
+    ax.set_ylabel("Frequency (MHz)", labelpad=15)
+    ax.set_zlabel(f"|{s_parameter}|", labelpad=15)
+    ax.set_title(f"|{s_parameter}| \n Gesture {gesture}", y=0.95)
     ax.yaxis.set_major_locator(ticker.MaxNLocator(nbins=5))
 
     ax.invert_xaxis()
-    # Customize the view angle so it's easier to see that the scatter points lie
-    # on the plane y=0
+    ax.set_box_aspect([8, 5, 3])
     ax.view_init(elev=20, azim=30, roll=0)
-
     plt.show()
 
 
@@ -891,7 +935,9 @@ if __name__ == "__main__":
     confusion_matrix_dict = get_full_results_df_from_classifier_pkls(
         pkl_classifier_folder, extract="confusion_matrix"
     )
-    display_confusion_matrix_for_top_value(full_df, results_df, confusion_matrix_dict)
+    display_confusion_matrix_for_top_n_values(
+        full_df, results_df, confusion_matrix_dict
+    )
 
     # pickle_object(results_df, path=r'C:\Users\2573758S\PycharmProjects\Pico_VNA_Project\pickles\full_classification_results', file_name='smd_3_patent_exp.pkl')
     #
