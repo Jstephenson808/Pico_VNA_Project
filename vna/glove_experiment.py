@@ -192,40 +192,40 @@ def get_s_param_data(results_df, s_param):
 #     folder_path=get_pickle_path(),
 #     file_name="narrow_band_liquid_dipole_results.pkl",
 # )
-
-narrow_band_df = open_pickled_object(
-    r"C:\Users\js637s.CAMPUS\PycharmProjects\Pico_VNA_Project\pickles\narrow_band_liquid_dipole_results.pkl"
-)
-glove_experiment_results = open_pickled_object(
-    r"C:\Users\js637s.CAMPUS\PycharmProjects\Pico_VNA_Project\pickles\full_classification_results\glove_experiment.pkl"
-)
-
-all_results = pd.concat([glove_experiment_results, narrow_band_df])
-all_results["s_param"] = (
-    all_results["s_param"]
-    .str.replace("gloveExperiment_", "")
-    .str.replace("liquid_dipole_18000000_", "")
-    .str.replace("liquid_dipole_9000000_", "")
-)
-
-all_results["label"] = (
-    all_results["label"]
-    .str.replace("liquid_metal_glove_6ges_25reps", "Glove Antenna")
-    .str.replace("single_liquidAntennaSM3", "Dipole Antenna")
-)
-
-
-accuracy = all_results[(all_results["gesture"] == "accuracy")]
-magnitude_only = accuracy[(accuracy["type"] == "magnitude")]
-
-magnitude_s11 = get_s_param_data(magnitude_only, "S11")
-magnitude_s21 = get_s_param_data(magnitude_only, "S21")
-magnitude_s31 = get_s_param_data(magnitude_only, "S31")
-magnitude_s21_s31_s41 = get_s_param_data(magnitude_only, "S21_S31_S41")
-
-bar_graph_accuracy_comparison(magnitude_s11)
-bar_graph_accuracy_comparison(magnitude_s21)
-bar_graph_accuracy_comparison(magnitude_s21_s31_s41)
+#
+# narrow_band_df = open_pickled_object(
+#     r"C:\Users\js637s.CAMPUS\PycharmProjects\Pico_VNA_Project\pickles\narrow_band_liquid_dipole_results.pkl"
+# )
+# glove_experiment_results = open_pickled_object(
+#     r"C:\Users\js637s.CAMPUS\PycharmProjects\Pico_VNA_Project\pickles\full_classification_results\glove_experiment.pkl"
+# )
+#
+# all_results = pd.concat([glove_experiment_results, narrow_band_df])
+# all_results["s_param"] = (
+#     all_results["s_param"]
+#     .str.replace("gloveExperiment_", "")
+#     .str.replace("liquid_dipole_18000000_", "")
+#     .str.replace("liquid_dipole_9000000_", "")
+# )
+#
+# all_results["label"] = (
+#     all_results["label"]
+#     .str.replace("liquid_metal_glove_6ges_25reps", "Glove Antenna")
+#     .str.replace("single_liquidAntennaSM3", "Dipole Antenna")
+# )
+#
+#
+# accuracy = all_results[(all_results["gesture"] == "accuracy")]
+# magnitude_only = accuracy[(accuracy["type"] == "magnitude")]
+#
+# magnitude_s11 = get_s_param_data(magnitude_only, "S11")
+# magnitude_s21 = get_s_param_data(magnitude_only, "S21")
+# magnitude_s31 = get_s_param_data(magnitude_only, "S31")
+# magnitude_s21_s31_s41 = get_s_param_data(magnitude_only, "S21_S31_S41")
+#
+# bar_graph_accuracy_comparison(magnitude_s11)
+# bar_graph_accuracy_comparison(magnitude_s21)
+# bar_graph_accuracy_comparison(magnitude_s21_s31_s41)
 
 
 # results_without_repeat = open_pickled_object_in_pickle_folder(

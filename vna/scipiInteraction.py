@@ -51,8 +51,8 @@ class ScipiGestureCaptureExperiment:
         if self.path_to_state_to_load:
             self.vna_handle.write(load_state_command(self.path_to_state_to_load))
 
-        self.add_all_sparam_measures_to_channel()
-        self.set_touchstone_format()
+        # self.add_all_sparam_measures_to_channel()
+        # self.set_touchstone_format()
         self.create_directories_for_exeriment()
         self.capture_gestures()
 
@@ -155,20 +155,22 @@ if __name__ == "__main__":
     NI_VISA_DLL_PATH = r"C:\Windows\System32\nivisa64.dll"
     VNA_VISA_ADDRESS = "USB0::0xF4EC::0x1700::SNA5XCED5R0097::INSTR"
 
-    COUNTDOWN_TIME = timedelta(seconds=1)
-    TEST_NAME = f"liquid_metal_glove_6ges_25reps"
+    COUNTDOWN_TIME = timedelta(seconds=2)
+    TEST_NAME = f"liquid_metal_glove_11ges_25reps"
     snp = SnP.S4P
-    STATE_PATH = "local/James/Calibration/glove_experiment_setup_201pts_100M_500M.csa"
+    STATE_PATH = (
+        "local/James/Calibration/glove_experiment_setup_201pts_150M_400M_port_ext.csa"
+    )
 
-    test_gestures = ["A", "B", "C", "1", "2", "3"]
+    test_gestures = ["A", "B", "C", "I", "L", "Y", "ILY", "1", "2", "3", "8"]
 
     SAVE_ROOT = f"local/James/Live_Captures/{TEST_NAME}"
 
     vna_handle = open_vna_handle(NI_VISA_DLL_PATH, VNA_VISA_ADDRESS)
 
     RUN_TIME_DELTA = timedelta(seconds=5)
-    n_tests = 1
-    TEST_NAME = f"test"
+    n_tests = 25
+    TEST_NAME = f"gestures_2"
 
     experiment = ScipiGestureCaptureExperiment(
         vna_handle,

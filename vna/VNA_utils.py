@@ -108,6 +108,16 @@ def get_full_df_path() -> str:
     return path
 
 
+def get_temp_folder_path() -> str:
+    path = os.path.join(get_root_folder_path(), VNA_defaults.TEMP_FOLDER)
+    os.makedirs(path, exist_ok=True)
+    return path
+
+
+def get_temp_file_path(temp_fname):
+    return os.path.join(get_temp_folder_path(), temp_fname)
+
+
 def get_classifier_path() -> str:
     path = os.path.join(get_pickle_path(), VNA_defaults.CLASSIFIER_FOLDER)
     os.makedirs(path, exist_ok=True)

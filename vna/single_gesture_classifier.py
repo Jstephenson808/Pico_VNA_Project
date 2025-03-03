@@ -1,4 +1,10 @@
 import os
+import pathlib
+
+from click import option
+from pylint.exceptions import InvalidArgsError
+
+from vna.VNA_utils import get_temp_folder_path, get_temp_file_path
 
 os.environ["OMP_NUM_THREADS"] = "1"
 os.environ["MKL_NUM_THREADS"] = "1"
@@ -67,12 +73,14 @@ def print_fq_hop(high_frequency, label, low_frequency):
 
 
 def test_classifier_from_df_dict(
-    df_dict: {}, frequency_hop=mhz_to_hz(100)
+    df_dict: {}, frequency_hop=mhz_to_hz(100), temp_fname="temp.txt"
 ) -> pd.DataFrame:
     """
     This returns a report and save classifier to pkl path
     """
     full_results_df = None
+    with open(get_temp_file_path(temp_fname), "r") as f:
+        parameters = [line.strip().split() for line in f.readlines()]
     for label, data_frame in df_dict.items():
         print(f"testing {label}")
         result_df = test_data_frame_classifier_frequency_window_with_report(
@@ -101,8 +109,60 @@ def filter_sparam_combinations(data: pd.DataFrame, *, mag_or_phase) -> {}:
 
 def create_test_dict(
     combined_df: pd.DataFrame,
+    sparam_sets: list[list[str]] = None,
+    filter_type: DfFilterOptions = DfFilterOptions.BOTH,
+    temp_txt_file_path=None,
+) -> dict:
+    if temp_txt_file_path:
+        if pathlib.Path(temp_txt_file_path).exists():
+            return
+        else:
+            raise InvalidArgsError
+    else:
+        return create_test_dict_initial(combined_df, sparam_sets, filter_type)
+
+
+def create_test_dict_with_temp_txt_file(combined_df: pd.DataFrame, temp_txt_file_path):
+    with open(temp_txt_file_path, "r") as f:
+        temp_file_data = [line.strip().split(" ") for line in f.readlines()]
+    split_data = [
+        item[0].rsplit("_", maxsplit=1) + [item[1]] for item in temp_file_data
+    ]
+    # this extracts the sparam sets from the data
+    s_parameter_sets = list(
+        map(list, set(map(tuple, [item[0].split("_") for item in split_data])))
+    )
+    frequency_dict = {}
+    phase_mag_set = set()
+    for item in split_data:
+        s_param_set = item[0]
+        phase_mag = item[1]
+        # set will contain phase mag options
+        phase_mag_set.add(phase_mag)
+        frequency = item[2]
+        if s_param_set not in frequency_dict:
+            frequency_dict[s_param_set] = [frequency]
+        else:
+            frequency_dict[s_param_set].append(frequency)
+    if DfFilterOptions.BOTH.value in phase_mag_set:
+        option = DfFilterOptions.BOTH
+    else:
+        if "magnitude" in phase_mag_set:
+            option = DfFilterOptions.MAGNITUDE
+        else:
+            option = DfFilterOptions.PHASE
+    return {
+        "option": option,
+        "sparam_sets": s_parameter_sets,
+        "freq_dict": frequency_dict,
+    }
+
+
+def create_test_dict_initial(
+    combined_df: pd.DataFrame,
     sparam_sets: list[list[str]],
     filter_type: DfFilterOptions = DfFilterOptions.BOTH,
+    filter_freqs: [int] = None,
 ) -> dict:
     """
     This function creates the test dict for the classifier, allowing filtering by specific S-parameter sets
@@ -144,6 +204,12 @@ def create_test_dict(
                 combined_df[DataFrameCols.S_PARAMETER.value].isin(sparam_set)
             ]
 
+    # this will remove any freqs which are not in the set
+    if filter_freqs:
+        for key, df in enumerate(filtered_df_dict):
+            df = filter_columns(df, filter_freqs)
+            filtered_df_dict[key] = df
+
     return filtered_df_dict
 
 
@@ -153,9 +219,20 @@ def test_classifier_for_all_measured_params(
     """
     return report
     """
+    temp_file_name = "temp"
     filtered_df_dict = create_test_dict(
         combined_df, sparam_sets=sparam_sets, filter_type=filter_type
     )
+    # to generate .txt file needs to contain
+    with open(os.path.join(get_temp_folder_path(), f"{temp_file_name}.txt"), "w") as f:
+        for sparam_set, data_frame in filtered_df_dict.items():
+            fq_list = get_frequency_column_headings_list(data_frame)
+            min_freq = min(fq_list)
+            max_freq = max(fq_list)
+            while (min_freq + fq_hop) < max_freq:
+                f.write(f"{sparam_set} {min_freq}\n")
+                min_freq += fq_hop
+
     return test_classifier_from_df_dict(filtered_df_dict, frequency_hop=fq_hop)
 
 
@@ -183,22 +260,21 @@ if __name__ == "__main__":
     # set up all sparams -> permutations
     #
 
-    # s_parameter = "S11"
-    # mag_or_phase = "magnitude"
-    # label = "single_LIQUID_DIPOLE_SD1_B"
-    # full_results_df_fname = "sd1_401_75KHz_full_combined_df_2024_07_24.pkl"
+    s_parameter = "S11"
+    mag_or_phase = "magnitude"
+    label = "single_LIQUID_DIPOLE_SD1_B"
+    full_results_df_fname = "sd1_401_75KHz_full_combined_df_2024_07_24.pkl"
 
-    # full_df = open_full_results_df("17_09_patent_exp_combined_df.pkl")
-    # full_df.columns = list(full_df.columns[:5]) + [int(x) for x in full_df.columns[5:]]
-    #
-    # s_param_combinations_list = [['S12', 'S13', 'S14'], ['S34','S23','S42']]
-    #
+    full_df = open_full_results_df("full_combined_df_2024_08_09.pkl")
+    full_df.columns = list(full_df.columns[:5]) + [int(x) for x in full_df.columns[5:]]
+
+    s_param_combinations_list = [["S12", "S13", "S14"], ["S34", "S23", "S42"]]
 
     # S21 fist ->
 
     # #todo need to add svm or dtree label to output dict
     full_results_df = test_classifier_for_all_measured_params(
-        full_df, s_param_combinations_list, DfFilterOptions.BOTH
+        full_df, s_param_combinations_list, DfFilterOptions.BOTH, mhz_to_hz(100)
     )
     # # combine dfs
     # full_df_fname = os.listdir(os.path.join(get_pickle_path(), "full_dfs"))[0]
@@ -209,6 +285,6 @@ if __name__ == "__main__":
     #     full_results_df, path=os.path.join(get_pickle_path(), "classifier_results"), file_name=f"full_results_17_09_patent_exp"
     # )
 
-    open_pickled_object(
-        r"C:\Users\js637s.CAMPUS\PycharmProjects\Pico_VNA_Project\pickles\full_results_17_09_patent_exp.pkl"
-    )
+    # open_pickled_object(
+    #     r"C:\Users\js637s.CAMPUS\PycharmProjects\Pico_VNA_Project\pickles\full_results_17_09_patent_exp.pkl"
+    # )

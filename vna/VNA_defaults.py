@@ -1,9 +1,9 @@
 ROOT_FOLDER = "Pico_VNA_Project"
-#ROOT_FOLDER = "picosdk-picovna-python-examples"
+# ROOT_FOLDER = "picosdk-picovna-python-examples"
 
 # Folder names
 CALIBRATION_FOLDER = "calibrations"
-
+TEMP_FOLDER = "temp"
 
 PICKLE_FOLDER = "pickles"
 # Joined to PICKLE_FOLDER
