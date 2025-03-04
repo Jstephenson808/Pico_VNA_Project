@@ -1,10 +1,15 @@
+import itertools
 import os
 import pathlib
 
 from click import option
+from numpy.distutils.exec_command import temp_file_name
 from pylint.exceptions import InvalidArgsError
 
-from vna.VNA_utils import get_temp_folder_path, get_temp_file_path
+from vna.VNA_utils import (
+    get_experiment_plans_folder_path,
+    get_experiment_plan_file_path,
+)
 
 os.environ["OMP_NUM_THREADS"] = "1"
 os.environ["MKL_NUM_THREADS"] = "1"
@@ -79,7 +84,7 @@ def test_classifier_from_df_dict(
     This returns a report and save classifier to pkl path
     """
     full_results_df = None
-    with open(get_temp_file_path(temp_fname), "r") as f:
+    with open(get_experiment_plan_file_path(temp_fname), "r") as f:
         parameters = [line.strip().split() for line in f.readlines()]
     for label, data_frame in df_dict.items():
         print(f"testing {label}")
@@ -213,6 +218,35 @@ def create_test_dict_initial(
     return filtered_df_dict
 
 
+def generate_experiment_plan_file(
+    sparam_sets,
+    filter_type: DfFilterOptions,
+    fq_hop,
+    fq_list,
+    experiment_plan_filename="experiment",
+):
+    if not experiment_plan_filename.endswith(".txt"):
+        experiment_plan_filename += ".txt"
+    if filter_type is DfFilterOptions.BOTH:
+        filter_option = [DfFilterOptions.MAGNITUDE.value, DfFilterOptions.PHASE.value]
+    else:
+        filter_option = [filter_type.value]
+
+    experiment_perutations = itertools.product(sparam_sets, filter_option)
+
+    with open(
+        os.path.join(get_experiment_plans_folder_path(), f"{experiment_plan_filename}"),
+        "w",
+    ) as f:
+        for sparam_set, filter_option in experiment_perutations:
+            min_freq = min(fq_list)
+            max_freq = max(fq_list)
+            current_freq = min_freq
+            while (current_freq + fq_hop) < max_freq:
+                f.write(f"{('_').join(sparam_set)} {filter_option} {current_freq}\n")
+                current_freq += fq_hop
+
+
 def test_classifier_for_all_measured_params(
     combined_df: pd.DataFrame, sparam_sets, filter_type: DfFilterOptions, fq_hop
 ) -> pd.DataFrame:
@@ -220,18 +254,10 @@ def test_classifier_for_all_measured_params(
     return report
     """
     temp_file_name = "temp"
+
     filtered_df_dict = create_test_dict(
         combined_df, sparam_sets=sparam_sets, filter_type=filter_type
     )
-    # to generate .txt file needs to contain
-    with open(os.path.join(get_temp_folder_path(), f"{temp_file_name}.txt"), "w") as f:
-        for sparam_set, data_frame in filtered_df_dict.items():
-            fq_list = get_frequency_column_headings_list(data_frame)
-            min_freq = min(fq_list)
-            max_freq = max(fq_list)
-            while (min_freq + fq_hop) < max_freq:
-                f.write(f"{sparam_set} {min_freq}\n")
-                min_freq += fq_hop
 
     return test_classifier_from_df_dict(filtered_df_dict, frequency_hop=fq_hop)
 
@@ -249,6 +275,15 @@ def combine_results_and_test(
     return test_classifier_for_all_measured_params(
         combined_df, sparam_sets, filter_option
     )
+
+
+def extract_from_temp_file(file_path):
+    with open(file_path, "rt") as f:
+        lines = f.readlines()
+    s_param_set = set()
+    mag_or_phase_set = set()
+    for line in lines:
+        pass
 
 
 # function to run tests on a series of folders which contain results .csvs
@@ -270,12 +305,27 @@ if __name__ == "__main__":
 
     s_param_combinations_list = [["S12", "S13", "S14"], ["S34", "S23", "S42"]]
 
+    freq_hop = mhz_to_hz(100)
+
     # S21 fist ->
 
+    temp_file_name = full_results_df_fname.split(".pkl")[0] + ".txt"
+
+    if not os.path.exists(
+        os.path.join(get_experiment_plans_folder_path(), f"{temp_file_name}")
+    ):
+        generate_experiment_plan_file(
+            sparam_sets=s_param_combinations_list,
+            filter_type=DfFilterOptions.BOTH,
+            fq_hop=freq_hop,
+            fq_list=get_frequency_column_headings_list(full_df),
+            experiment_plan_filename=temp_file_name,
+        )
+
     # #todo need to add svm or dtree label to output dict
-    full_results_df = test_classifier_for_all_measured_params(
-        full_df, s_param_combinations_list, DfFilterOptions.BOTH, mhz_to_hz(100)
-    )
+    # full_results_df = test_classifier_for_all_measured_params(
+    #     full_df, s_param_combinations_list, DfFilterOptions.BOTH, mhz_to_hz(100)
+    # )
     # # combine dfs
     # full_df_fname = os.listdir(os.path.join(get_pickle_path(), "full_dfs"))[0]
     # experiment = "watch_small_antenna_1001_140KHz"

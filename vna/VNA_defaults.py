@@ -3,7 +3,7 @@ ROOT_FOLDER = "Pico_VNA_Project"
 
 # Folder names
 CALIBRATION_FOLDER = "calibrations"
-TEMP_FOLDER = "temp"
+EXPERIMENT_PLANS_FOLDER = "experiment_plans"
 
 PICKLE_FOLDER = "pickles"
 # Joined to PICKLE_FOLDER
