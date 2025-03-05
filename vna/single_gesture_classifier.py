@@ -111,60 +111,60 @@ def filter_sparam_combinations(data: pd.DataFrame, *, mag_or_phase) -> {}:
     return s_param_dict
 
 
+# def create_test_dict(
+#     combined_df: pd.DataFrame,
+#     sparam_sets: list[list[str]] = None,
+#     filter_type: DfFilterOptions = DfFilterOptions.BOTH,
+#     temp_txt_file_path=None,
+# ) -> dict:
+#     if temp_txt_file_path:
+#         if pathlib.Path(temp_txt_file_path).exists():
+#             return
+#         else:
+#             raise InvalidArgsError
+#     else:
+#         return create_test_dict_initial(combined_df, sparam_sets, filter_type)
+#
+#
+# def create_test_dict_with_temp_txt_file(combined_df: pd.DataFrame, temp_txt_file_path):
+#     with open(temp_txt_file_path, "r") as f:
+#         temp_file_data = [line.strip().split(" ") for line in f.readlines()]
+#     split_data = [
+#         item[0].rsplit("_", maxsplit=1) + [item[1]] for item in temp_file_data
+#     ]
+#     # this extracts the sparam sets from the data
+#     s_parameter_sets = list(
+#         map(list, set(map(tuple, [item[0].split("_") for item in split_data])))
+#     )
+#     frequency_dict = {}
+#     phase_mag_set = set()
+#     for item in split_data:
+#         s_param_set = item[0]
+#         phase_mag = item[1]
+#         # set will contain phase mag options
+#         phase_mag_set.add(phase_mag)
+#         frequency = item[2]
+#         if s_param_set not in frequency_dict:
+#             frequency_dict[s_param_set] = [frequency]
+#         else:
+#             frequency_dict[s_param_set].append(frequency)
+#     if DfFilterOptions.BOTH.value in phase_mag_set:
+#         option = DfFilterOptions.BOTH
+#     else:
+#         if "magnitude" in phase_mag_set:
+#             option = DfFilterOptions.MAGNITUDE
+#         else:
+#             option = DfFilterOptions.PHASE
+#     return {
+#         "option": option,
+#         "sparam_sets": s_parameter_sets,
+#         "freq_dict": frequency_dict,
+#     }
+
+
 def create_test_dict(
     combined_df: pd.DataFrame,
-    sparam_sets: list[list[str]] = None,
-    filter_type: DfFilterOptions = DfFilterOptions.BOTH,
-    temp_txt_file_path=None,
-) -> dict:
-    if temp_txt_file_path:
-        if pathlib.Path(temp_txt_file_path).exists():
-            return
-        else:
-            raise InvalidArgsError
-    else:
-        return create_test_dict_initial(combined_df, sparam_sets, filter_type)
-
-
-def create_test_dict_with_temp_txt_file(combined_df: pd.DataFrame, temp_txt_file_path):
-    with open(temp_txt_file_path, "r") as f:
-        temp_file_data = [line.strip().split(" ") for line in f.readlines()]
-    split_data = [
-        item[0].rsplit("_", maxsplit=1) + [item[1]] for item in temp_file_data
-    ]
-    # this extracts the sparam sets from the data
-    s_parameter_sets = list(
-        map(list, set(map(tuple, [item[0].split("_") for item in split_data])))
-    )
-    frequency_dict = {}
-    phase_mag_set = set()
-    for item in split_data:
-        s_param_set = item[0]
-        phase_mag = item[1]
-        # set will contain phase mag options
-        phase_mag_set.add(phase_mag)
-        frequency = item[2]
-        if s_param_set not in frequency_dict:
-            frequency_dict[s_param_set] = [frequency]
-        else:
-            frequency_dict[s_param_set].append(frequency)
-    if DfFilterOptions.BOTH.value in phase_mag_set:
-        option = DfFilterOptions.BOTH
-    else:
-        if "magnitude" in phase_mag_set:
-            option = DfFilterOptions.MAGNITUDE
-        else:
-            option = DfFilterOptions.PHASE
-    return {
-        "option": option,
-        "sparam_sets": s_parameter_sets,
-        "freq_dict": frequency_dict,
-    }
-
-
-def create_test_dict_initial(
-    combined_df: pd.DataFrame,
-    sparam_sets: list[list[str]],
+    s_param_to_freq_dict: dict,
     filter_type: DfFilterOptions = DfFilterOptions.BOTH,
     filter_freqs: [int] = None,
 ) -> dict:
@@ -182,29 +182,34 @@ def create_test_dict_initial(
     filtered_df_dict = {}
 
     # Check the filter type and set which columns to filter
-    if filter_type.value in ["both", "magnitude"]:
-        all_Sparams_magnitude = combined_df[combined_df["mag_or_phase"] == "magnitude"]
-    if filter_type.value in ["both", "phase"]:
-        all_Sparams_phase = combined_df[combined_df["mag_or_phase"] == "phase"]
+
+    all_Sparams_magnitude = combined_df[combined_df["mag_or_phase"] == "magnitude"]
+    all_Sparams_phase = combined_df[combined_df["mag_or_phase"] == "phase"]
 
     # Iterate over each sparameter set provided in sparam_sets
-    for i, sparam_set in enumerate(sparam_sets):
-        set_name = f"{('_').join(sparam_set)}"
+    for set_name_filter, freq_plan in s_param_to_freq_dict.items():
+        set_name, filter_type = set_name_filter.split(" ")
+        sparam_set = set_name.split("_")
 
         # Filter for magnitude if specified or 'both'
-        if filter_type.value in ["both", "magnitude"]:
-            filtered_df_dict[f"{set_name}_magnitude"] = all_Sparams_magnitude[
+        if filter_type in ["both", "magnitude"]:
+            filtered_all_sparams_magnitude = filter_columns(
+                all_Sparams_magnitude, freq_plan
+            )
+            filtered_df_dict[f"{set_name}_magnitude"] = filtered_all_sparams_magnitude[
                 all_Sparams_magnitude[DataFrameCols.S_PARAMETER.value].isin(sparam_set)
             ]
 
         # Filter for phase if specified or 'both'
-        if filter_type.value in ["both", "phase"]:
-            filtered_df_dict[f"{set_name}_phase"] = all_Sparams_phase[
+        if filter_type in ["both", "phase"]:
+            filtered_all_sparams_phase = filter_columns(all_Sparams_phase, freq_plan)
+            filtered_df_dict[f"{set_name}_phase"] = filtered_all_sparams_phase[
                 all_Sparams_phase[DataFrameCols.S_PARAMETER.value].isin(sparam_set)
             ]
 
-        if filter_type.value in ["both"]:
-            filtered_df_dict[f"{set_name}_both"] = combined_df[
+        if filter_type in ["both"]:
+            filtered_combined_df = filter_columns(combined_df, freq_plan)
+            filtered_df_dict[f"{set_name}_both"] = filtered_combined_df[
                 combined_df[DataFrameCols.S_PARAMETER.value].isin(sparam_set)
             ]
 
@@ -219,19 +224,18 @@ def create_test_dict_initial(
 
 def generate_experiment_plan_file(
     sparam_sets,
-    filter_type: DfFilterOptions,
     fq_hop,
     fq_list,
     experiment_plan_filename="experiment",
+    filter_options: [DfFilterOptions] = None,
 ):
+    if filter_options is None:
+        filter_options = [DfFilterOptions.MAGNITUDE]
+
     if not experiment_plan_filename.endswith(".txt"):
         experiment_plan_filename += ".txt"
-    if filter_type is DfFilterOptions.BOTH:
-        filter_option = [DfFilterOptions.MAGNITUDE.value, DfFilterOptions.PHASE.value]
-    else:
-        filter_option = [filter_type.value]
 
-    experiment_perutations = itertools.product(sparam_sets, filter_option)
+    experiment_perutations = itertools.product(sparam_sets, filter_options)
 
     with open(
         os.path.join(get_experiment_plans_folder_path(), f"{experiment_plan_filename}"),
@@ -247,15 +251,17 @@ def generate_experiment_plan_file(
 
 
 def test_classifier_for_all_measured_params(
-    combined_df: pd.DataFrame, sparam_sets, filter_type: DfFilterOptions, fq_hop
+    combined_df: pd.DataFrame,
+    s_param_to_freq_dict,
+    filter_type: DfFilterOptions,
+    fq_hop,
 ) -> pd.DataFrame:
     """
     return report
     """
-    temp_file_name = "temp"
 
     filtered_df_dict = create_test_dict(
-        combined_df, sparam_sets=sparam_sets, filter_type=filter_type
+        combined_df, s_param_to_freq_dict=s_param_to_freq_dict, filter_type=filter_type
     )
 
     return test_classifier_from_df_dict(filtered_df_dict, frequency_hop=fq_hop)
@@ -282,18 +288,24 @@ def extract_from_temp_file(file_path):
     s_param_set = set()
     mag_or_phase_set = set()
     freq_set = set()
+    s_param_to_freq_dict = {}
     for line in lines:
         s_params, mag_or_phase, frequency = line.strip().split(" ")
+        s_param_filter_string = f"{s_params} {mag_or_phase}"
         s_param_set.add(s_params)
         mag_or_phase_set.add(DfFilterOptions(mag_or_phase))
         freq_set.add(int(frequency))
+        if s_param_filter_string not in s_param_to_freq_dict:
+            s_param_to_freq_dict[s_param_filter_string] = [frequency]
+        else:
+            s_param_to_freq_dict[s_param_filter_string].append(frequency)
     frequency_hop = int(mean([b - a for a, b in pairwise(sorted(list(freq_set)))]))
     s_param_list = [s_params.split("_") for s_params in list(s_param_set)]
     if (DfFilterOptions.BOTH in mag_or_phase_set) or (len(mag_or_phase_set) > 1):
         mag_or_phase = DfFilterOptions.BOTH
     else:
         mag_or_phase = mag_or_phase_set.pop()
-    return s_param_list, frequency_hop, mag_or_phase
+    return s_param_list, frequency_hop, mag_or_phase, s_param_to_freq_dict
 
 
 # function to run tests on a series of folders which contain results .csvs
@@ -332,14 +344,14 @@ if __name__ == "__main__":
             fq_list=get_frequency_column_headings_list(full_df),
             experiment_plan_filename=temp_file_name,
         )
-    s_param_combinations_list, freq_hop, mag_or_phase = extract_from_temp_file(
-        temp_file_path
+    s_param_combinations_list, freq_hop, mag_or_phase, s_param_to_freq_dict = (
+        extract_from_temp_file(temp_file_path)
     )
 
     # #todo need to add svm or dtree label to output dict
-    # full_results_df = test_classifier_for_all_measured_params(
-    #     full_df, s_param_combinations_list, DfFilterOptions.BOTH, mhz_to_hz(100)
-    # )
+    full_results_df = test_classifier_for_all_measured_params(
+        full_df, s_param_to_freq_dict, mag_or_phase, mhz_to_hz(100)
+    )
     # # combine dfs
     # full_df_fname = os.listdir(os.path.join(get_pickle_path(), "full_dfs"))[0]
     # experiment = "watch_small_antenna_1001_140KHz"
