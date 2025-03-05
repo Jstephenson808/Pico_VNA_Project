@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 import random
 
-from VNA_utils import (
+from vna.VNA_utils import (
     open_pickled_object,
     open_full_results_df,
     get_pickle_path,
@@ -147,13 +147,23 @@ def get_s_param_data(results_df, s_param):
     return results_df[results_df["s_param"] == s_param]
 
 
-## extract repeats to df
-# converter = TouchstoneConverter(
-#     touchstone_folder_path=r"C:\Users\2573758S\OneDrive - University of Glasgow\PhD\Experiments\Glove Gesture Experiment\Touchstones\Live Capture Touchstones"
-# )
-# converter.extract_all_touchstone_data_to_dataframe()
-#
-# results_df = converter.output_data_frame
+EXPERIMENT_NAME = "glove_gesture_experiment_2_201pts_75reps_150M_400M_11ges"
+
+try:
+    results_df = open_pickled_object_in_pickle_folder(EXPERIMENT_NAME)
+except FileNotFoundError:
+    # extract repeats to df
+    converter = TouchstoneConverter(
+        touchstone_folder_path=r"C:\Users\2573758S\OneDrive - University of Glasgow\PhD\Experiments\Glove Gesture Experiment\Touchstones\Experiment 2"
+    )
+    converter.extract_all_touchstone_data_to_dataframe()
+
+    results_df = converter.output_data_frame
+    pickle_object(
+        results_df,
+        folder_path=get_pickle_path(),
+        file_name="glove_gesture_experiment_2_201pts_75reps_150M_400M_11ges",
+    )
 
 # plot_confusion_matrix(target_s_param="gloveExperiment_S21")
 # results_df = open_pickled_object_in_pickle_folder(

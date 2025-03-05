@@ -2,8 +2,6 @@ import itertools
 import os
 import pathlib
 
-from click import option
-from numpy.distutils.exec_command import temp_file_name
 from pylint.exceptions import InvalidArgsError
 
 from vna.VNA_utils import (
@@ -15,7 +13,8 @@ os.environ["OMP_NUM_THREADS"] = "1"
 os.environ["MKL_NUM_THREADS"] = "1"
 os.environ["OPENBLAS_NUM_THREADS"] = "1"
 
-from itertools import combinations
+from itertools import combinations, pairwise
+from statistics import mean
 from random import random, choice, sample
 
 import numpy as np
@@ -282,8 +281,19 @@ def extract_from_temp_file(file_path):
         lines = f.readlines()
     s_param_set = set()
     mag_or_phase_set = set()
+    freq_set = set()
     for line in lines:
-        pass
+        s_params, mag_or_phase, frequency = line.strip().split(" ")
+        s_param_set.add(s_params)
+        mag_or_phase_set.add(DfFilterOptions(mag_or_phase))
+        freq_set.add(int(frequency))
+    frequency_hop = int(mean([b - a for a, b in pairwise(sorted(list(freq_set)))]))
+    s_param_list = [s_params.split("_") for s_params in list(s_param_set)]
+    if (DfFilterOptions.BOTH in mag_or_phase_set) or (len(mag_or_phase_set) > 1):
+        mag_or_phase = DfFilterOptions.BOTH
+    else:
+        mag_or_phase = mag_or_phase_set.pop()
+    return s_param_list, frequency_hop, mag_or_phase
 
 
 # function to run tests on a series of folders which contain results .csvs
@@ -310,10 +320,11 @@ if __name__ == "__main__":
     # S21 fist ->
 
     temp_file_name = full_results_df_fname.split(".pkl")[0] + ".txt"
+    temp_file_path = os.path.join(
+        get_experiment_plans_folder_path(), f"{temp_file_name}"
+    )
 
-    if not os.path.exists(
-        os.path.join(get_experiment_plans_folder_path(), f"{temp_file_name}")
-    ):
+    if not os.path.exists(temp_file_path):
         generate_experiment_plan_file(
             sparam_sets=s_param_combinations_list,
             filter_type=DfFilterOptions.BOTH,
@@ -321,6 +332,9 @@ if __name__ == "__main__":
             fq_list=get_frequency_column_headings_list(full_df),
             experiment_plan_filename=temp_file_name,
         )
+    s_param_combinations_list, freq_hop, mag_or_phase = extract_from_temp_file(
+        temp_file_path
+    )
 
     # #todo need to add svm or dtree label to output dict
     # full_results_df = test_classifier_for_all_measured_params(

@@ -190,6 +190,8 @@ def pickle_object(
 
 
 def open_pickled_object_in_pickle_folder(file_name: str):
+    if not file_name.endswith(".pkl"):
+        file_name += ".pkl"
     return open_pickled_object(os.path.join(get_pickle_path(), file_name))
 
 
