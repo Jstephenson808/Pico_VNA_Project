@@ -15,8 +15,7 @@ from ml_model import (
     get_full_results_df_from_classifier_pkls,
     filter_cols_between_fq_range,
 )
-from vna.VNA_enums import SParam2Port
-from vna.scipiCommands import SParam
+from vna.VNA_enums import SParam2Port, SParam
 
 matplotlib.use("TkAgg")
 from VNA_utils import (

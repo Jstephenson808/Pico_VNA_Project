@@ -1,24 +1,7 @@
 from enum import Enum
 from pyvisa import Resource
 
-
-class SParam(Enum):
-    S11 = "S11"
-    S21 = "S21"
-    S31 = "S31"
-    S41 = "S41"
-    S12 = "S12"
-    S22 = "S22"
-    S32 = "S32"
-    S42 = "S42"
-    S13 = "S13"
-    S23 = "S23"
-    S33 = "S33"
-    S43 = "S43"
-    S14 = "S14"
-    S24 = "S24"
-    S34 = "S34"
-    S44 = "S44"
+from vna.VNA_enums import SParam
 
 
 class SnP(Enum):

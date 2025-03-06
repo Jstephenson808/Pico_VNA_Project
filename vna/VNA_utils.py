@@ -5,8 +5,8 @@ from time import time, sleep
 import numpy as np
 import pandas as pd
 
-import VNA_exceptions
-import VNA_defaults
+import vna.VNA_exceptions as VNA_exceptions
+import vna.VNA_defaults as VNA_defaults
 
 
 def countdown_timer(seconds):
@@ -128,9 +128,8 @@ def get_full_dfs_path() -> str:
     return os.path.join(get_pickle_path(), "full_dfs")
 
 
-def get_frequency_column_headings_list(df: pd.DataFrame) -> [int]:
-    return [int(x) for x in df.columns[5:]]
-
+def get_frequency_column_headings_list(df: pd.DataFrame) -> []:
+    return df.columns[5:]
 
 def retype_str_fq_columns_to_int(df: pd.DataFrame) -> pd.DataFrame:
     new_fq_col_headings = [
@@ -188,6 +187,14 @@ def open_pickled_object(path):
         unpickled = pickle.load(f)
     return unpickled
 
+def save_intermediate_results_df(label, df):
+    try:
+        intermediate_results = open_pickled_object(os.path.join(get_pickle_path(), "temp_results", f"{label}.pkl"))
+        intermediate_results = pd.concat([intermediate_results, df])
+        pickle_object(intermediate_results, folder_path=os.path.join(get_pickle_path(), "temp_results"), file_name=f"{label}.pkl")
+    except FileNotFoundError:
+        pickle_object(df, folder_path=os.path.join(get_pickle_path(), "temp_results"),
+                      file_name=f"{label}.pkl")
 
 def open_full_results_df(file_name, folder=None) -> pd.DataFrame:
     """

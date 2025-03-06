@@ -15,7 +15,8 @@ from scipiCommands import (
     save_snp_command_string,
 )
 from VNA_utils import countdown_timer
-from vna.scipiCommands import set_trace_measurement_parameter_command_string, SParam
+from vna.scipiCommands import set_trace_measurement_parameter_command_string
+from vna.VNA_enums import SParam
 
 
 class ScipiGestureCaptureExperiment:

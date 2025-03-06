@@ -16,8 +16,7 @@ from VNA_utils import (
     hz_to_ghz,
     get_frequency_column_headings_list,
     open_pickled_object,
-    get_full_df_path,
-    open_full_results_df,
+save_intermediate_results_df
 )
 from matplotlib import pyplot as plt
 
@@ -67,18 +66,20 @@ def print_fq_hop(high_frequency, label, low_frequency):
 
 
 def test_classifier_from_df_dict(
-    df_dict: {}, frequency_hop=mhz_to_hz(100)
+    df_dict: {}, frequency_hop=mhz_to_hz(100), experiment_label="noLabel"
 ) -> pd.DataFrame:
     """
     This returns a report and save classifier to pkl path
     """
     full_results_df = None
+    fname = f"{experiment_label}_results.pkl"
     for label, data_frame in df_dict.items():
         print(f"testing {label}")
         result_df = test_data_frame_classifier_frequency_window_with_report(
             data_frame, label, frequency_hop=frequency_hop
         )
         full_results_df = pd.concat((full_results_df, result_df))
+        save_intermediate_results_df(experiment_label, full_results_df)
     return full_results_df
 
 
@@ -103,6 +104,7 @@ def create_test_dict(
     combined_df: pd.DataFrame,
     sparam_sets: list[list[str]],
     filter_type: DfFilterOptions = DfFilterOptions.BOTH,
+    label = None
 ) -> dict:
     """
     This function creates the test dict for the classifier, allowing filtering by specific S-parameter sets
@@ -125,7 +127,10 @@ def create_test_dict(
 
     # Iterate over each sparameter set provided in sparam_sets
     for i, sparam_set in enumerate(sparam_sets):
-        set_name = f"{('_').join(sparam_set)}"
+        if label:
+            set_name = f"{label}_{('_').join(sparam_set)}"
+        else:
+            set_name = f"{('_').join(sparam_set)}"
 
         # Filter for magnitude if specified or 'both'
         if filter_type.value in ["both", "magnitude"]:
@@ -148,15 +153,15 @@ def create_test_dict(
 
 
 def test_classifier_for_all_measured_params(
-    combined_df: pd.DataFrame, sparam_sets, filter_type: DfFilterOptions, fq_hop
+    combined_df: pd.DataFrame, sparam_sets, filter_type: DfFilterOptions, fq_hop=mhz_to_hz(100), label=None
 ) -> pd.DataFrame:
     """
     return report
     """
     filtered_df_dict = create_test_dict(
-        combined_df, sparam_sets=sparam_sets, filter_type=filter_type
+        combined_df, sparam_sets=sparam_sets, filter_type=filter_type, label=label
     )
-    return test_classifier_from_df_dict(filtered_df_dict, frequency_hop=fq_hop)
+    return test_classifier_from_df_dict(filtered_df_dict, frequency_hop=fq_hop, experiment_label=label)
 
 
 # todo refactor this mess

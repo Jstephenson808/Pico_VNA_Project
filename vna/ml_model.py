@@ -295,22 +295,27 @@ def extract_features_and_test(
         extracted, feature_vector, test_size=0.4
     )
 
+    scaler_full_dt = StandardScaler()
+    X_full_train_scaled = scaler_full_dt.fit_transform(X_full_train)
+    X_full_test_scaled = scaler_full_dt.transform(X_full_test)
+
     classifier_full = DecisionTreeClassifier()
-    classifier_full.fit(X_full_train, y_train)
-    classifier_full_y_pred = classifier_full.predict(X_full_test)
+    classifier_full.fit(X_full_train_scaled, y_train)
+    classifier_full_y_pred = classifier_full.predict(X_full_test_scaled)
     decision_tree_full_dict = classification_report(
         y_test, classifier_full_y_pred, output_dict=True
     )
     decision_tree_full_confusion_matrix = confusion_matrix(
         y_test, classifier_full_y_pred
     )
-    ConfusionMatrixDisplay(decision_tree_full_confusion_matrix).plot()
+    # ConfusionMatrixDisplay(decision_tree_full_confusion_matrix).plot()
     print(classification_report(y_test, classifier_full_y_pred))
 
     X_filtered_train, X_filtered_test = (
         X_full_train[features_filtered.columns],
         X_full_test[features_filtered.columns],
     )
+
     dt_classifier_filtered = DecisionTreeClassifier()
     dt_classifier_filtered.fit(X_filtered_train, y_train)
     dt_classifier_filtered_y_pred = dt_classifier_filtered.predict(X_filtered_test)
