@@ -4,6 +4,7 @@ import pathlib
 
 from pylint.exceptions import InvalidArgsError
 
+from vna.VNA_defaults import TRAIN_TEST_SEED_VALUE
 from vna.VNA_utils import (
     get_experiment_plans_folder_path,
     get_experiment_plan_file_path,
@@ -15,10 +16,11 @@ os.environ["OPENBLAS_NUM_THREADS"] = "1"
 
 from itertools import combinations, pairwise
 from statistics import mean
-from random import random, choice, sample
+from random import random, choice, sample, randint
 
 import numpy as np
 
+from VNA_defaults import CONFIRM_TEMP_FILE
 from ml_model import *
 from VNA_enums import DfFilterOptions
 from VNA_utils import (
@@ -39,8 +41,22 @@ def extract_report_dictionary_from_test_results(result_dict):
     return extract_gesture_metric_values(result_dict, columns)
 
 
+def open_experiment_plan_and_delete_classified_data(file_path, line_to_delete):
+    with open(file_path, "r") as file:
+        lines = file.readlines()
+
+    with open(file_path, "w") as file:
+        for line in lines:
+            if line.strip() != line_to_delete:
+                file.write(line)
+
+
 def test_data_frame_classifier_frequency_window_with_report(
-    data_frame: pd.DataFrame, label: str, frequency_hop: int = mhz_to_hz(100)
+    data_frame: pd.DataFrame,
+    label: str,
+    frequency_hop: int = mhz_to_hz(100),
+    random_seed=None,
+    experiment_plan_path=None,
 ) -> pd.DataFrame:
     #
     movement_vector = create_movement_vector_for_single_data_frame(data_frame)
@@ -62,7 +78,14 @@ def test_data_frame_classifier_frequency_window_with_report(
         )
         fq_label = f"{label}_{hz_to_ghz(low_frequency)}_{hz_to_ghz(high_frequency)}"
         result, fname = feature_extract_test_filtered_data_frame(
-            data_frame_fq_range_filtered, movement_vector, fname=fq_label
+            data_frame_fq_range_filtered,
+            movement_vector,
+            fname=fq_label,
+            random_seed=random_seed,
+        )
+        classified_data_label = " ".join(label.rsplit("_", 1) + [f"{low_frequency}"])
+        open_experiment_plan_and_delete_classified_data(
+            experiment_plan_path, classified_data_label
         )
         f1_scores[fq_label] = extract_report_dictionary_from_test_results(result)
         low_frequency += frequency_hop
@@ -77,18 +100,21 @@ def print_fq_hop(high_frequency, label, low_frequency):
 
 
 def test_classifier_from_df_dict(
-    df_dict: {}, frequency_hop=mhz_to_hz(100), temp_fname="temp.txt"
+    df_dict: {}, frequency_hop=mhz_to_hz(100), experiment_plan_path=None
 ) -> pd.DataFrame:
     """
     This returns a report and save classifier to pkl path
     """
     full_results_df = None
-    with open(get_experiment_plan_file_path(temp_fname), "r") as f:
-        parameters = [line.strip().split() for line in f.readlines()]
+    random_seed_value = TRAIN_TEST_SEED_VALUE
     for label, data_frame in df_dict.items():
         print(f"testing {label}")
         result_df = test_data_frame_classifier_frequency_window_with_report(
-            data_frame, label, frequency_hop=frequency_hop
+            data_frame,
+            label,
+            frequency_hop=frequency_hop,
+            random_seed=random_seed_value,
+            experiment_plan_path=experiment_plan_path,
         )
         full_results_df = pd.concat((full_results_df, result_df))
     return full_results_df
@@ -255,6 +281,7 @@ def test_classifier_for_all_measured_params(
     s_param_to_freq_dict,
     filter_type: DfFilterOptions,
     fq_hop,
+    experiment_plan_path,
 ) -> pd.DataFrame:
     """
     return report
@@ -264,7 +291,11 @@ def test_classifier_for_all_measured_params(
         combined_df, s_param_to_freq_dict=s_param_to_freq_dict, filter_type=filter_type
     )
 
-    return test_classifier_from_df_dict(filtered_df_dict, frequency_hop=fq_hop)
+    return test_classifier_from_df_dict(
+        filtered_df_dict,
+        frequency_hop=fq_hop,
+        experiment_plan_path=experiment_plan_path,
+    )
 
 
 # todo refactor this mess
@@ -332,25 +363,44 @@ if __name__ == "__main__":
     # S21 fist ->
 
     temp_file_name = full_results_df_fname.split(".pkl")[0] + ".txt"
-    temp_file_path = os.path.join(
+    experiment_plan_file_path = os.path.join(
         get_experiment_plans_folder_path(), f"{temp_file_name}"
     )
 
-    if not os.path.exists(temp_file_path):
+    if not os.path.exists(experiment_plan_file_path):
         generate_experiment_plan_file(
             sparam_sets=s_param_combinations_list,
-            filter_type=DfFilterOptions.BOTH,
             fq_hop=freq_hop,
             fq_list=get_frequency_column_headings_list(full_df),
             experiment_plan_filename=temp_file_name,
+            filter_options=[DfFilterOptions.BOTH],
         )
+    if CONFIRM_TEMP_FILE:
+        choice = input(
+            f"Experiment will continue with the experiment plan located at: "
+            f"\n{experiment_plan_file_path} "
+            f"\ntype N to cancel this and generate a new one,"
+            f"\nor press any other key to continue...................."
+        )
+        if choice == "N":
+            generate_experiment_plan_file(
+                sparam_sets=s_param_combinations_list,
+                fq_hop=freq_hop,
+                fq_list=get_frequency_column_headings_list(full_df),
+                experiment_plan_filename=temp_file_name,
+                filter_options=[DfFilterOptions.BOTH],
+            )
     s_param_combinations_list, freq_hop, mag_or_phase, s_param_to_freq_dict = (
-        extract_from_temp_file(temp_file_path)
+        extract_from_temp_file(experiment_plan_file_path)
     )
 
     # #todo need to add svm or dtree label to output dict
     full_results_df = test_classifier_for_all_measured_params(
-        full_df, s_param_to_freq_dict, mag_or_phase, mhz_to_hz(100)
+        full_df,
+        s_param_to_freq_dict,
+        mag_or_phase,
+        mhz_to_hz(100),
+        experiment_plan_file_path,
     )
     # # combine dfs
     # full_df_fname = os.listdir(os.path.join(get_pickle_path(), "full_dfs"))[0]

@@ -260,6 +260,7 @@ def extract_features_and_test(
     drop_cols=[DataFrameCols.LABEL.value],
     n_jobs=defaults.N_PROCESSES,
     ids_per_split=0,
+    random_seed=None,
 ):
     combined_df = full_data_frame.ffill()
     # s_params_mapping = {s.value:index+1 for index, s in enumerate(SParam)}
@@ -292,7 +293,7 @@ def extract_features_and_test(
     features_filtered = select_features(extracted, feature_vector)
 
     X_full_train, X_full_test, y_train, y_test = train_test_split(
-        extracted, feature_vector, test_size=0.4
+        extracted, feature_vector, test_size=0.4, random_state=random_seed
     )
 
     classifier_full = DecisionTreeClassifier()
@@ -325,7 +326,7 @@ def extract_features_and_test(
     # print("SVM".center(80, "="))
     # Splitting the data into training and testing sets
     X_full_train, X_full_test, y_train, y_test = train_test_split(
-        extracted, feature_vector, test_size=0.4
+        extracted, feature_vector, test_size=0.4, random_state=random_seed
     )
 
     # Standardizing the feature vectors
@@ -535,13 +536,18 @@ def filter_columns(df, frequencies):
 def feature_extract_test_filtered_data_frame(
     filtered_data_frame,
     movement_vector,
+    random_seed=None,
     save=True,
     fname=None,
     n_jobs=defaults.N_PROCESSES,
 ):
     df_fixed = make_columns_have_s_param_mag_phase_titles(filtered_data_frame)
     classifiers = extract_features_and_test(
-        df_fixed, movement_vector, n_jobs=n_jobs, ids_per_split=100
+        df_fixed,
+        movement_vector,
+        n_jobs=n_jobs,
+        ids_per_split=100,
+        random_seed=random_seed,
     )
     if save:
         if fname is None:
