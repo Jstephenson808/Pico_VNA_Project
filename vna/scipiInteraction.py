@@ -9,13 +9,13 @@ from pyvisa.resources import MessageBasedResource
 from scipiCommands import (
     set_snp_save_ports_command_string,
     create_directory_command_string,
-    SnP,
     await_completion,
     load_state_command,
     save_snp_command_string,
 )
 from VNA_utils import countdown_timer
-from vna.scipiCommands import set_trace_measurement_parameter_command_string, SParam
+from vna.scipiCommands import set_trace_measurement_parameter_command_string
+from vna.VNA_enums import SParam, SnP
 
 
 class ScipiGestureCaptureExperiment:

@@ -200,6 +200,14 @@ def open_pickled_object(path):
         unpickled = pickle.load(f)
     return unpickled
 
+def save_intermediate_results_df(label, df):
+    try:
+        intermediate_results = open_pickled_object(os.path.join(get_pickle_path(), "temp_results", f"{label}.pkl"))
+        intermediate_results = pd.concat([intermediate_results, df])
+        pickle_object(intermediate_results, folder_path=os.path.join(get_pickle_path(), "temp_results"), file_name=f"{label}.pkl")
+    except FileNotFoundError:
+        pickle_object(df, folder_path=os.path.join(get_pickle_path(), "temp_results"),
+                      file_name=f"{label}.pkl")
 
 def open_full_results_df(file_name, folder=None) -> pd.DataFrame:
     """
@@ -227,10 +235,7 @@ def convert_magnitude_to_db(magnitude_value: float):
     return 20 * np.log10(magnitude_value)
 
 
-def convert_magnitude_cols_to_db(data_frame: pd.DataFrame) -> pd.DataFrame:
-    data_frame = data_frame.reset_index(drop=True)
+def convert_magnitude_rows_to_db(data_frame: pd.DataFrame):
     magnitude = data_frame.query("mag_or_phase == 'magnitude'")
     frequency_values: pd.DataFrame = magnitude.iloc[:, 5:]
-    txd_values = 20 * np.log10(frequency_values)
-    data_frame.update(txd_values)
-    return data_frame
+    frequency_values.apply(convert_magnitude_to_db, axis=1)

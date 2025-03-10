@@ -1,6 +1,6 @@
 from datetime import timedelta
 
-from vna.scipiCommands import SnP
+from vna.VNA_enums import SnP
 from vna.scipiInteraction import open_vna_handle, ScipiGestureCaptureExperiment
 
 NI_VISA_DLL_PATH = r"C:\Windows\System32\nivisa64.dll"

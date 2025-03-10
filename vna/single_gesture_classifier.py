@@ -28,8 +28,7 @@ from VNA_utils import (
     hz_to_ghz,
     get_frequency_column_headings_list,
     open_pickled_object,
-    get_full_df_path,
-    open_full_results_df,
+save_intermediate_results_df
 )
 from matplotlib import pyplot as plt
 
@@ -100,7 +99,7 @@ def print_fq_hop(high_frequency, label, low_frequency):
 
 
 def test_classifier_from_df_dict(
-    df_dict: {}, frequency_hop=mhz_to_hz(100), experiment_plan_path=None
+    df_dict: {}, frequency_hop=mhz_to_hz(100), experiment_plan_path=None,
 ) -> pd.DataFrame:
     """
     This returns a report and save classifier to pkl path
@@ -117,6 +116,7 @@ def test_classifier_from_df_dict(
             experiment_plan_path=experiment_plan_path,
         )
         full_results_df = pd.concat((full_results_df, result_df))
+        save_intermediate_results_df(experiment_label, full_results_df)
     return full_results_df
 
 
@@ -191,7 +191,6 @@ def filter_sparam_combinations(data: pd.DataFrame, *, mag_or_phase) -> {}:
 def create_test_dict(
     combined_df: pd.DataFrame,
     s_param_to_freq_dict: dict,
-    filter_type: DfFilterOptions = DfFilterOptions.BOTH,
     filter_freqs: [int] = None,
 ) -> dict:
     """
@@ -261,13 +260,13 @@ def generate_experiment_plan_file(
     if not experiment_plan_filename.endswith(".txt"):
         experiment_plan_filename += ".txt"
 
-    experiment_perutations = itertools.product(sparam_sets, filter_options)
+    experiment_permutations = itertools.product(sparam_sets, [filter_option.value for filter_option in filter_options])
 
     with open(
         os.path.join(get_experiment_plans_folder_path(), f"{experiment_plan_filename}"),
         "w",
     ) as f:
-        for sparam_set, filter_option in experiment_perutations:
+        for sparam_set, filter_option in experiment_permutations:
             min_freq = min(fq_list)
             max_freq = max(fq_list)
             current_freq = min_freq
@@ -279,7 +278,6 @@ def generate_experiment_plan_file(
 def test_classifier_for_all_measured_params(
     combined_df: pd.DataFrame,
     s_param_to_freq_dict,
-    filter_type: DfFilterOptions,
     fq_hop,
     experiment_plan_path,
 ) -> pd.DataFrame:
@@ -288,7 +286,7 @@ def test_classifier_for_all_measured_params(
     """
 
     filtered_df_dict = create_test_dict(
-        combined_df, s_param_to_freq_dict=s_param_to_freq_dict, filter_type=filter_type
+        combined_df, s_param_to_freq_dict=s_param_to_freq_dict,
     )
 
     return test_classifier_from_df_dict(
@@ -343,74 +341,74 @@ def extract_from_temp_file(file_path):
 
 
 if __name__ == "__main__":
-
-    # improve saving of full results so that can happen
-    # set up all sparams -> permutations
+    pass
+    # # improve saving of full results so that can happen
+    # # set up all sparams -> permutations
+    # #
     #
-
-    s_parameter = "S11"
-    mag_or_phase = "magnitude"
-    label = "single_LIQUID_DIPOLE_SD1_B"
-    full_results_df_fname = "sd1_401_75KHz_full_combined_df_2024_07_24.pkl"
-
-    full_df = open_full_results_df("full_combined_df_2024_08_09.pkl")
-    full_df.columns = list(full_df.columns[:5]) + [int(x) for x in full_df.columns[5:]]
-
-    s_param_combinations_list = [["S12", "S13", "S14"], ["S34", "S23", "S42"]]
-
-    freq_hop = mhz_to_hz(100)
-
-    # S21 fist ->
-
-    temp_file_name = full_results_df_fname.split(".pkl")[0] + ".txt"
-    experiment_plan_file_path = os.path.join(
-        get_experiment_plans_folder_path(), f"{temp_file_name}"
-    )
-
-    if not os.path.exists(experiment_plan_file_path):
-        generate_experiment_plan_file(
-            sparam_sets=s_param_combinations_list,
-            fq_hop=freq_hop,
-            fq_list=get_frequency_column_headings_list(full_df),
-            experiment_plan_filename=temp_file_name,
-            filter_options=[DfFilterOptions.BOTH],
-        )
-    if CONFIRM_TEMP_FILE:
-        choice = input(
-            f"Experiment will continue with the experiment plan located at: "
-            f"\n{experiment_plan_file_path} "
-            f"\ntype N to cancel this and generate a new one,"
-            f"\nor press any other key to continue...................."
-        )
-        if choice == "N":
-            generate_experiment_plan_file(
-                sparam_sets=s_param_combinations_list,
-                fq_hop=freq_hop,
-                fq_list=get_frequency_column_headings_list(full_df),
-                experiment_plan_filename=temp_file_name,
-                filter_options=[DfFilterOptions.BOTH],
-            )
-    s_param_combinations_list, freq_hop, mag_or_phase, s_param_to_freq_dict = (
-        extract_from_temp_file(experiment_plan_file_path)
-    )
-
-    # #todo need to add svm or dtree label to output dict
-    full_results_df = test_classifier_for_all_measured_params(
-        full_df,
-        s_param_to_freq_dict,
-        mag_or_phase,
-        mhz_to_hz(100),
-        experiment_plan_file_path,
-    )
-    # # combine dfs
-    # full_df_fname = os.listdir(os.path.join(get_pickle_path(), "full_dfs"))[0]
-    # experiment = "watch_small_antenna_1001_140KHz"
-    # full_results_df = combine_results_and_test(os.path.join(get_data_path(), experiment))
+    # s_parameter = "S11"
+    # mag_or_phase = "magnitude"
+    # label = "single_LIQUID_DIPOLE_SD1_B"
+    # full_results_df_fname = "sd1_401_75KHz_full_combined_df_2024_07_24.pkl"
     #
-    # pickle_object(
-    #     full_results_df, path=os.path.join(get_pickle_path(), "classifier_results"), file_name=f"full_results_17_09_patent_exp"
+    # full_df = open_full_results_df("full_combined_df_2024_08_09.pkl")
+    # full_df.columns = list(full_df.columns[:5]) + [int(x) for x in full_df.columns[5:]]
+    #
+    # s_param_combinations_list = [["S12", "S13", "S14"], ["S34", "S23", "S42"]]
+    #
+    # freq_hop = mhz_to_hz(100)
+    #
+    # # S21 fist ->
+    #
+    # temp_file_name = full_results_df_fname.split(".pkl")[0] + ".txt"
+    # experiment_plan_file_path = os.path.join(
+    #     get_experiment_plans_folder_path(), f"{temp_file_name}"
     # )
-
-    # open_pickled_object(
-    #     r"C:\Users\js637s.CAMPUS\PycharmProjects\Pico_VNA_Project\pickles\full_results_17_09_patent_exp.pkl"
+    #
+    # if not os.path.exists(experiment_plan_file_path):
+    #     generate_experiment_plan_file(
+    #         sparam_sets=s_param_combinations_list,
+    #         fq_hop=freq_hop,
+    #         fq_list=get_frequency_column_headings_list(full_df),
+    #         experiment_plan_filename=temp_file_name,
+    #         filter_options=[DfFilterOptions.BOTH],
+    #     )
+    # if CONFIRM_TEMP_FILE:
+    #     choice = input(
+    #         f"Experiment will continue with the experiment plan located at: "
+    #         f"\n{experiment_plan_file_path} "
+    #         f"\ntype N to cancel this and generate a new one,"
+    #         f"\nor press any other key to continue...................."
+    #     )
+    #     if choice == "N":
+    #         generate_experiment_plan_file(
+    #             sparam_sets=s_param_combinations_list,
+    #             fq_hop=freq_hop,
+    #             fq_list=get_frequency_column_headings_list(full_df),
+    #             experiment_plan_filename=temp_file_name,
+    #             filter_options=[DfFilterOptions.BOTH],
+    #         )
+    # s_param_combinations_list, freq_hop, mag_or_phase, s_param_to_freq_dict = (
+    #     extract_from_temp_file(experiment_plan_file_path)
     # )
+    #
+    # # #todo need to add svm or dtree label to output dict
+    # full_results_df = test_classifier_for_all_measured_params(
+    #     full_df,
+    #     s_param_to_freq_dict,
+    #     mag_or_phase,
+    #     mhz_to_hz(100),
+    #     experiment_plan_file_path,
+    # )
+    # # # combine dfs
+    # # full_df_fname = os.listdir(os.path.join(get_pickle_path(), "full_dfs"))[0]
+    # # experiment = "watch_small_antenna_1001_140KHz"
+    # # full_results_df = combine_results_and_test(os.path.join(get_data_path(), experiment))
+    # #
+    # # pickle_object(
+    # #     full_results_df, path=os.path.join(get_pickle_path(), "classifier_results"), file_name=f"full_results_17_09_patent_exp"
+    # # )
+    #
+    # # open_pickled_object(
+    # #     r"C:\Users\js637s.CAMPUS\PycharmProjects\Pico_VNA_Project\pickles\full_results_17_09_patent_exp.pkl"
+    # # )
