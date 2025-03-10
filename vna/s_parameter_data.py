@@ -69,9 +69,9 @@ class SParameterData:
         return self.data_frame[self.data_frame["mag_or_phase"] == "phase"]
 
     def get_frequency_column_headings_list(self) -> [Frequency]:
-        return [Frequency(x) for x in self._get_frequency_columns()]
+        return [Frequency(x) for x in self.get_frequency_columns()]
 
-    def _get_frequency_columns(self) -> [int]:
+    def get_frequency_columns(self) -> [int]:
         return [
             x
             for x in self.data_frame.columns.values
@@ -128,16 +128,16 @@ class SParameterData:
         """
         freq_cols: [Frequency] = [
             Frequency(x)
-            for x in self._get_frequency_columns()
+            for x in self.get_frequency_columns()
             if low_frequency.get_freq_hz() <= x <= high_frequency.get_freq_hz()
         ]
         if not freq_cols:
             raise ValueError(
                 f"The frequencies {low_frequency} and {high_frequency} are not in the range of the data"
             )
-        return self._filter_columns_between_frequencies(freq_cols)
+        return self.filter_columns_between_frequencies(filter_frequencies=freq_cols)
 
-    def _filter_columns_between_frequencies(
+    def filter_columns_between_frequencies(
         self, *, filter_frequencies: [Frequency]
     ) -> SParameterData:
         """
@@ -207,8 +207,28 @@ class SParameterData:
                 )
         return new_combined_df
 
+    def get_filtered_df_by_s_param_and_frequency(
+        self,
+        filter_options: DfFilterOptions,
+        low_frequency: Frequency,
+        high_frequency: Frequency,
+    ):
+        if filter_options == DfFilterOptions.PHASE:
+            output_df = self.get_phase_data_frame()
+        if filter_options == DfFilterOptions.MAGNITUDE:
+            output_df = self.get_magnitude_data_frame()
+        else:
+            output_df = self.data_frame
+        output_data = SParameterData(
+            f"{self.label}_{filter_options.value}", output_df
+        ).get_data_frame_between_frequency(low_frequency, high_frequency)
+        return SParameterData(
+            f"{self.label}_{low_frequency.get_freq_mhz()}-{high_frequency.get_freq_mhz()}MHz",
+            output_data.data_frame,
+        )
 
-class Classifier:
+
+class NotClassifier:
     def __init__(self, full_results: SParameterData):
         self.full_results = full_results
         self.filtered_results_dict = None

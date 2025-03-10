@@ -39,7 +39,9 @@ class SkLearnClassificationResults:
 class Classifier(ABC):
 
     @abstractmethod
-    def run_classifier(self):
+    def run_classifier(
+        self, extracted_features: ExtractedFeatures, movement_vector: MovementVector
+    ):
         pass
 
 
@@ -52,23 +54,30 @@ class PicoDecisionTreeClassifier(Classifier):
         self,
         *,
         decision_tree_classifier: DecisionTreeClassifier = DecisionTreeClassifier(),
-        full_data_set: ExtractedFeatures,
-        movement_vector: MovementVector,
         random_state: RandomState = None,
+        train_test_split=0.4,
+        scaler: StandardScaler = StandardScaler(),
     ):
         self.classifier = decision_tree_classifier
-        self.training_data = full_data_set
-        self.movement_vector = movement_vector
         self.random_state = random_state
         self.classification_results: SkLearnClassificationResults = (
             SkLearnClassificationResults()
         )
+        self.train_test_split = train_test_split
+        self.scaler = scaler
 
-    def run_classifier(self):
+    def normailse_data(self, extracted_features: ExtractedFeatures):
+        self.scaler.fit(extracted_features.extracted_features)
+        return self.scaler.transform(extracted_features.extracted_features)
+
+    def run_classifier(
+        self, extracted_features: ExtractedFeatures, movement_vector: MovementVector
+    ):
+        normailsed_data = self.normailse_data(extracted_features)
         training_data, test_data, training_labels, test_labels = train_test_split(
-            self.training_data.extracted_features,
-            self.movement_vector.movement_vector,
-            test_size=0.4,
+            normailsed_data,
+            movement_vector.movement_vector,
+            test_size=self.train_test_split,
             random_state=self.random_state,
         )
 
@@ -84,26 +93,30 @@ class SupportVectorClassifier(Classifier):
         self,
         *,
         svc_classifier: SVC = SVC(),
-        full_data_set: ExtractedFeatures,
-        movement_vector: MovementVector,
         scaler: StandardScaler = StandardScaler(),
         random_state: RandomState = None,
+        train_test_split=0.4,
     ):
         self.classifier: SVC = svc_classifier
-        self.training_data = full_data_set
-        self.movement_vector = movement_vector
         self.classification_results: SkLearnClassificationResults = (
             SkLearnClassificationResults()
         )
         self.scaler = scaler
-        self.data_transformed_flag = False
         self.random_state = random_state
+        self.train_test_split = train_test_split
 
-    def run_classifier(self):
+    def normailse_data(self, extracted_features: ExtractedFeatures):
+        self.scaler.fit(extracted_features.extracted_features)
+        return self.scaler.transform(extracted_features.extracted_features)
+
+    def run_classifier(
+        self, extracted_features: ExtractedFeatures, movement_vector: MovementVector
+    ):
+        normailsed_features = self.normailse_data(extracted_features)
 
         training_data, test_data, training_labels, test_labels = train_test_split(
-            self.training_data.extracted_features,
-            self.movement_vector.movement_vector,
+            normailsed_features,
+            movement_vector.movement_vector,
             test_size=0.4,
             random_state=self.random_state,
         )

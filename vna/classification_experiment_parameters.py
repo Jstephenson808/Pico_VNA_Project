@@ -10,6 +10,7 @@ from s_parameter_combination_list import SParameterCombinationsList
 from VNA_enums import DfFilterOptions, DataFrameCols
 
 from movement_vector import MovementVector
+from vna.classifier import Classifier
 
 
 class ClassificationExperimentParameters:
@@ -20,6 +21,7 @@ class ClassificationExperimentParameters:
         s_param_combinations_list: SParameterCombinationsList,
         s_param_measurement_options: DfFilterOptions,
         freq_hop: Frequency,
+        classifiers_to_test: [Classifier],
     ):
         self.s_param_data: SParameterData = s_param_data
         self.s_param_combinations_list: SParameterCombinationsList = (
@@ -33,6 +35,7 @@ class ClassificationExperimentParameters:
             self.s_param_data.get_full_data_frame()
         )
         self.test_data_frames_dict: Dict[str, SParameterData] = self.create_test_dict()
+        self.classifiers_to_test = classifiers_to_test
 
     def create_test_dict(self) -> Dict[str, SParameterData]:
         """

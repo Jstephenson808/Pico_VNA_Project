@@ -5,6 +5,8 @@ from s_parameter_data import SParameterData
 from frequency import Frequency
 
 from feature_extractor import FeatureExtractor
+from vna.classifier import Classifier
+from vna.feature_extractor import ExtractedFeatures
 
 
 class ClassificationExperimentLowerLevel:
@@ -14,11 +16,13 @@ class ClassificationExperimentLowerLevel:
         test_label: str,
         frequency_hop: Frequency,
         feature_extractor: FeatureExtractor,
+        classifiers_to_test: [Classifier],
     ):
         self.s_param_data_under_test: SParameterData = s_param_data_under_test
         self.test_label: str = test_label
         self.frequency_hop: Frequency = frequency_hop
         self.feature_extractor: FeatureExtractor = feature_extractor
+        self.classifiers_to_test: list[Classifier] = classifiers_to_test
 
         # todo this needs to be in a lower class for experiment
 
@@ -41,7 +45,6 @@ class ClassificationExperimentLowerLevel:
         )
 
         max_frequency: Frequency = s_param_data.get_maximum_frequency()
-        f1_scores = {}
 
         while high_frequency <= max_frequency:
             self.print_fq_hop(high_frequency, self.test_label, low_frequency)
@@ -69,17 +72,8 @@ class ClassificationExperimentLowerLevel:
 
             # now need to do the test
 
-            result, fname = feature_extract_test_filtered_data_frame(
-                data_frame_fq_range_filtered, movement_vector, fname=fq_label
-            )
-            f1_scores[fq_label] = extract_report_dictionary_from_test_results(result)
-            low_frequency += frequency_hop
-            high_frequency += frequency_hop
-        return pd.DataFrame.from_dict(
-            f1_scores,
-            orient="index",
-            columns=[x for x in result.keys() if "report" in x],
-        )
+            for classifier in self.classifiers_to_test:
+                classifier()
 
     def print_fq_hop(
         self, high_frequency: Frequency, label: str, low_frequency: Frequency
@@ -103,15 +97,23 @@ class ClassificationExperiment:
         experiment_parameters: ClassificationExperimentParameters,
         feature_extractor: FeatureExtractor = None,
     ):
-        self.experiment_parameters = experiment_parameters
-        self.experiment_results = ClassificationExperimentResults()
-        self.feature_extractor = feature_extractor
+        self.experiment_parameters: ClassificationExperimentParameters = (
+            experiment_parameters
+        )
+        self.experiment_results: ClassificationExperimentResults = (
+            ClassificationExperimentResults()
+        )
+        self.feature_extractor: FeatureExtractor = feature_extractor
 
     def run_experiment(self):
         # this is per freq hop -> I think this should be how it works,
         # higher class handles the freq windowing etc
-        if self.feature_extractor:
-            self.feature_extractor.extract_features()
+
+        # first need to split data according to fq/s_param plan
+
+        # extract features
+
+        return
 
     def test_classifier_from_df_dict(self) -> ClassificationExperimentResults:
         """
@@ -120,18 +122,14 @@ class ClassificationExperiment:
         full_results_df = None
         for (
             label,
-            data_frame,
+            s_param_data_under_test,
         ) in self.experiment_parameters.test_data_frames_dict.items():
             print(f"testing {label}")
-            test_for_this_s_param_combination = ClassificationExperimentLowerLevel()
-            result_df = test_data_frame_classifier_frequency_window_with_report(
-                data_frame, label, frequency_hop=frequency_hop
+            classification_for_this_test = ClassificationExperimentLowerLevel(
+                s_param_data_under_test=s_param_data_under_test,
+                test_label=label,
+                frequency_hop=self.experiment_parameters.freq_hop,
+                feature_extractor=self.feature_extractor,
             )
-            full_results_df = pd.concat((full_results_df, result_df))
+
         return ClassificationExperimentResults(full_results_df)
-
-
-class ClassificationExperimentResults:
-
-    def __init__(self, results_df: pd.DataFrame = None):
-        self.results_df = results_df
