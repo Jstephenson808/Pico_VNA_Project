@@ -9,13 +9,16 @@ from vna.VNA_utils import (
     open_pickled_object,
     open_full_results_df,
     get_pickle_path,
-    convert_magnitude_rows_to_db, get_experiment_plans_folder_path, get_frequency_column_headings_list,
+    convert_magnitude_rows_to_db,
+    get_experiment_plans_folder_path,
+    get_frequency_column_headings_list,
 )
 from vna.VNA_enums import (
     SParam2Port,
     MagnitudeOrPhase,
     DfFilterOptions,
-    ConfusionMatrixKey, SParam,
+    ConfusionMatrixKey,
+    SParam,
 )
 from vna.VNA_utils import (
     open_pickled_object_in_pickle_folder,
@@ -38,8 +41,11 @@ from vna.ml_model import (
     extract_confusion_matrix_from_results,
     get_full_results_df_from_classifier_pkls,
 )
-from vna.single_gesture_classifier import test_classifier_for_all_measured_params, generate_experiment_plan_file, \
-    extract_from_temp_file
+from vna.single_gesture_classifier import (
+    test_classifier_for_all_measured_params,
+    generate_experiment_plan_file,
+    extract_from_temp_file,
+)
 from vna.touchstoneConverter import TouchstoneConverter
 
 target_sparam = "gloveExperiment_S21"
@@ -147,6 +153,7 @@ def plot_3d_plots(results_df, s_param, mag_or_phase):
 def get_s_param_data(results_df, s_param):
     return results_df[results_df["s_param"] == s_param]
 
+
 if __name__ == "__main__":
     EXPERIMENT_NAME = "glove_gesture_experiment_2_201pts_75reps_150M_400M_11ges"
 
@@ -166,12 +173,32 @@ if __name__ == "__main__":
             file_name=EXPERIMENT_NAME,
         )
 
-    results_df = results_df.loc[:, ~results_df.columns.duplicated()]
+    reps_25 = results_df[results_df["id"].str.contains("25_reps")]
+    reps_50 = results_df[results_df["id"].str.contains("50_reps")]
+    results_df = pd.concat(
+        [reps_25.dropna(axis="columns"), reps_50.dropna(axis="columns")]
+    ).reset_index(drop=True)
+    results_df["label"] = (
+        results_df["label"].str.replace("_25_reps_", "_").str.replace("_50_reps_", "_")
+    )
+    pickle_object(
+        results_df,
+        folder_path=get_pickle_path(),
+        file_name="glove_gesture_experiment_2_201pts_75reps_150M_400M_11ges",
+    )
+
     label = "gloveExperiment2"
 
-    s_param_combinations_list = [["S11"], ["S21"],  ["S21", "S11"], ["S21", "S31", "S41"], ["S21", "S31"], ["S21", "S41"]]
+    s_param_combinations_list = [
+        ["S11"],
+        ["S21"],
+        ["S21", "S11"],
+        ["S21", "S31", "S41"],
+        ["S21", "S31"],
+        ["S21", "S41"],
+    ]
     phase_mag = [DfFilterOptions.MAGNITUDE, DfFilterOptions.PHASE, DfFilterOptions.BOTH]
-    fq_hops = [mhz_to_hz(i) for i in range(10,21,4)]
+    fq_hops = [mhz_to_hz(i) for i in range(10, 21, 4)]
 
     for fq_hop in fq_hops:
         temp_file_name = EXPERIMENT_NAME + f"_{hz_to_mhz(fq_hop)}MHz" + ".txt"
@@ -207,7 +234,10 @@ if __name__ == "__main__":
         )
 
         full_results_df = test_classifier_for_all_measured_params(
-            results_df, s_param_to_freq_dict, fq_hop=freq_hop, experiment_plan_path=temp_file_name
+            results_df,
+            s_param_to_freq_dict,
+            fq_hop=freq_hop,
+            experiment_plan_path=temp_file_name,
         )
         # combine dfs
         # full_df_fname = os.listdir(os.path.join(get_pickle_path(), "full_dfs"))[0]
@@ -215,9 +245,10 @@ if __name__ == "__main__":
         # full_results_df = combine_results_and_test(os.path.join(get_data_path(), experiment))
 
         pickle_object(
-            full_results_df, folder_path=os.path.join(get_pickle_path(), "classifier_results"), file_name=f"{label}_{fq_hop}MHz_results.pkl"
+            full_results_df,
+            folder_path=os.path.join(get_pickle_path(), "classifier_results"),
+            file_name=f"{label}_{fq_hop}MHz_results.pkl",
         )
-
 
     # plot_confusion_matrix(target_s_param="gloveExperiment_S21")
     # results_df = open_pickled_object_in_pickle_folder(
@@ -291,7 +322,6 @@ if __name__ == "__main__":
     # bar_graph_accuracy_comparison(magnitude_s21)
     # bar_graph_accuracy_comparison(magnitude_s21_s31_s41)
 
-
     # results_without_repeat = open_pickled_object_in_pickle_folder(
     #     "glove_experiment_singles_only.pkl"
     # )
@@ -352,8 +382,6 @@ if __name__ == "__main__":
     # #             target_frequency=mhz_to_hz(200),
     # #         )
 
-
-
-        #
-        # s11 = full_data_frame.query("id == 'liquid_metal_glove_6ges_same_gesture_10time_2412181543' & s_parameter == 'S11' & label == 'liquid_metal_glove_6ges_same_gesture_10time_1' & mag_or_phase == 'magnitude'")
-        # full_data_frame.query("")
+    #
+    # s11 = full_data_frame.query("id == 'liquid_metal_glove_6ges_same_gesture_10time_2412181543' & s_parameter == 'S11' & label == 'liquid_metal_glove_6ges_same_gesture_10time_1' & mag_or_phase == 'magnitude'")
+    # full_data_frame.query("")

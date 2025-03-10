@@ -43,6 +43,19 @@ class TouchstoneConverter:
         experiment_names_string = ("_").join(self.get_experiment_names())
         pickle_object(self.output_data_frame, file_name=experiment_names_string)
 
+    def get_experiment_df_from_name(self, experiment_name):
+        return self.output_data_frame[
+            self.output_data_frame["id"].str.contains(experiment_name)
+        ]
+
+    def fix_na_columns(self):
+        results_df = pd.DataFrame
+        for experiment_name in self.get_experiment_names():
+            experiment_df = self.get_experiment_df_from_name(experiment_name)
+            experiment_df = experiment_df.dropna(axis="columns")
+            results_df = pd.concat([results_df, experiment_df]).reset_index(drop=True)
+        return results_df
+
     def extract_all_touchstone_data_to_dataframe(self):
         print("Started Conversion")
         for experiment_folder in self.experiment_folders:
@@ -53,6 +66,7 @@ class TouchstoneConverter:
             self.output_data_frame = retype_str_fq_columns_to_int(
                 self.output_data_frame
             )
+        self.fix_na_columns()
 
 
 # class ExperimentFolder(ABC):
