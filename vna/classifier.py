@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 
+from numpy.random import RandomState
 from sklearn.metrics import classification_report, confusion_matrix
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
@@ -52,11 +53,13 @@ class PicoDecisionTreeClassifier(Classifier):
         *,
         decision_tree_classifier: DecisionTreeClassifier = DecisionTreeClassifier(),
         full_data_set: ExtractedFeatures,
-        movement_vector: MovementVector
+        movement_vector: MovementVector,
+        random_state: RandomState = None,
     ):
         self.classifier = decision_tree_classifier
         self.training_data = full_data_set
         self.movement_vector = movement_vector
+        self.random_state = random_state
         self.classification_results: SkLearnClassificationResults = (
             SkLearnClassificationResults()
         )
@@ -66,6 +69,7 @@ class PicoDecisionTreeClassifier(Classifier):
             self.training_data.extracted_features,
             self.movement_vector.movement_vector,
             test_size=0.4,
+            random_state=self.random_state,
         )
 
         self.classifier = self.classifier.fit(training_data, training_labels)
@@ -82,9 +86,10 @@ class SupportVectorClassifier(Classifier):
         svc_classifier: SVC = SVC(),
         full_data_set: ExtractedFeatures,
         movement_vector: MovementVector,
-        scaler: StandardScaler = StandardScaler()
+        scaler: StandardScaler = StandardScaler(),
+        random_state: RandomState = None,
     ):
-        self.classifier = svc_classifier
+        self.classifier: SVC = svc_classifier
         self.training_data = full_data_set
         self.movement_vector = movement_vector
         self.classification_results: SkLearnClassificationResults = (
@@ -92,6 +97,7 @@ class SupportVectorClassifier(Classifier):
         )
         self.scaler = scaler
         self.data_transformed_flag = False
+        self.random_state = random_state
 
     def run_classifier(self):
 
@@ -99,9 +105,10 @@ class SupportVectorClassifier(Classifier):
             self.training_data.extracted_features,
             self.movement_vector.movement_vector,
             test_size=0.4,
+            random_state=self.random_state,
         )
 
-        self.classifier = self.classifier.fit(training_data, training_labels)
+        self.classifier: SVC = self.classifier.fit(training_data, training_labels)
         test_results = self.classifier.predict(test_data, test_labels)
         self.classification_results.process_test_results(
             test_results=test_results, test_labels=test_labels
