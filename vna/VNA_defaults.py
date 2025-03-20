@@ -1,5 +1,5 @@
 ROOT_FOLDER = "Pico_VNA_Project"
-#ROOT_FOLDER = "picosdk-picovna-python-examples"
+# ROOT_FOLDER = "picosdk-picovna-python-examples"
 
 # Folder names
 CALIBRATION_FOLDER = "calibrations"
@@ -18,3 +18,7 @@ DATA_FOLDER = "data"
 GRAPH_FOLDER = "graphs"
 CSV_FOLDER = "csvs"
 TOUCHSTONES_FOLDER = "touchstones"
+
+# VISA defaults
+NI_VISA_DLL_PATH = r"C:\Windows\System32\nivisa64.dll"
+VNA_VISA_ADDRESS_USB = "USB0::0xF4EC::0x1700::SNA5XCED5R0097::INSTR"

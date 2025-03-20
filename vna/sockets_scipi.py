@@ -1,9 +1,6 @@
-from email.quoprimime import header_length
-
-from numba.np.arrayobj import np_repeat_impl_repeats_scaler
-
 from vna.scipiCommands import get_corrected_data_array, SParam
 from timeit import default_timer as timer
+
 
 scpi_commands = [
     ":CALCulate1:PARameter1:DEFine S11",
@@ -79,14 +76,16 @@ def receive_binary_data(sock, num_points, number_of_ports):
     #         raise ValueError("Socket closed before full data received.")
     #     binary_data += chunk
 
-    if len(binary_data.strip()) != expected_bytes:
+    # don't use .strip()
+    binary_data = binary_data[:-1]
+    if len(binary_data) != expected_bytes:
 
         print(
-            f"Received {len(binary_data.strip())} bytes (Expected {expected_bytes})"
+            f"Received {len(binary_data)} bytes (Expected {expected_bytes})"
         )  # Debugging info
 
     # Convert binary to float array
-    data = struct.unpack(f"{num_floats}d", binary_data.strip())
+    data = struct.unpack(f"{num_floats}d", binary_data)
     s_matrix = np.array(data).reshape(number_of_ports, num_points, 2)
 
     return s_matrix
