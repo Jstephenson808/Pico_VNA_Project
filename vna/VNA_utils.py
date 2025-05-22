@@ -377,11 +377,17 @@ def extract_random_single_gesture_for_each_experiment_to_df(
 
 def coalesce_duplicate_columns(df: pd.DataFrame) -> pd.DataFrame:
     duplicate_cols = df.columns[df.columns.duplicated()].unique()
+    new_cols = {}
 
     for col in duplicate_cols:
         cols_with_name = df.loc[:, df.columns == col]
         combined = cols_with_name.bfill(axis=1).iloc[:, 0]
-        df = df.drop(columns=cols_with_name.columns)
-        df[col] = combined
+        new_cols[col] = combined
+
+    # Drop all duplicates at once
+    df = df.drop(columns=[col for col in df.columns if col in duplicate_cols])
+
+    # Combine all at once to avoid fragmentation
+    df = pd.concat([df, pd.DataFrame(new_cols, index=df.index)], axis=1)
 
     return df

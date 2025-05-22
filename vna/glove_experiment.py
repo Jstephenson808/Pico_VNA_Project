@@ -3,6 +3,8 @@ import os
 import pandas as pd
 import random
 
+import matplotlib as mpl
+
 from sklearn.metrics import confusion_matrix
 
 from vna.VNA_defaults import CONFIRM_TEMP_FILE
@@ -217,7 +219,9 @@ if __name__ == "__main__":
     TOUCHSTONE_FOLDER_PATH = r"C:\Users\2573758S\OneDrive - University of Glasgow\PhD\Experiments\Glove Gesture Experiment\Touchstones\Experiment 2"
     RESULTS_WITHOUT_REPEATS_PKL_FNAME = "glove_experiment_singles_only.pkl"
 
-    MAGNITUDE_REPEAT_FNAME = r"glove_experiment_results_correct.pkl"
+    SAVE_TO_FILE = True
+
+    MAGNITUDE_REPEAT_FNAME = r"glove_gesture_experiment_2_201pts_75reps_150M_400M_11ges"
     low_freq = mhz_to_hz(118)
     high_freq = mhz_to_hz(350)
     percent_of_result_to_plot = 20
@@ -241,21 +245,30 @@ if __name__ == "__main__":
     time_series_to_3d_plot = filter_results_df_between_times(
         results_df, start_time, end_time
     )
-    cols_to_drop = list(
-        filter(lambda x: (low_freq > x) | (x > high_freq), results_df.columns[5:])
-    )
     time_series_to_3d_plot = coalesce_duplicate_columns(time_series_to_3d_plot)
-    time_series_to_3d_plot.drop(cols_to_drop, axis=DfAxis.ROW, inplace=True)
-    #
-    for label, df in time_series_to_3d_plot.groupby("id"):
-        for sparam in SParam:
-            plot_3d_plots(
-                df,
-                sparam,
-                MagnitudeOrPhase.Magnitude,
-                save_to_file=True,
-                experiment_label=label,
-            )
+
+    cols_to_drop = list(
+        filter(
+            lambda x: (low_freq > x) | (x > high_freq),
+            time_series_to_3d_plot.columns[5:],
+        )
+    )
+    time_series_to_3d_plot.drop(cols_to_drop, axis=DfAxis.COLUMN, inplace=True)
+
+    for sparam in SParam:
+        figures = plot_3d_plots(
+            time_series_to_3d_plot,
+            sparam,
+            MagnitudeOrPhase.Magnitude,
+            save_to_file=SAVE_TO_FILE,
+            experiment_label="Glove Experiment",
+        )
+
+        for figure in figures:
+            if SAVE_TO_FILE:
+                mpl.pyplot.close(figure)
+            else:
+                figure.show()
 
     results_without_repeat = open_pickled_object_in_pickle_folder(
         RESULTS_WITHOUT_REPEATS_PKL_FNAME
@@ -288,7 +301,7 @@ if __name__ == "__main__":
 
     # plot time series plots
 
-    experiment_name = "2412181557_liquid_metal_glove_6ges_25rps"
+    experiment_name = "2412181557_liquid_metal_glove_6ges_25reps"
     gesture_repeated = full_data_frame.query(f"id == '{experiment_name}'")
 
     for target_s_param in target_s_params:
