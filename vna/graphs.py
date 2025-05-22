@@ -1,51 +1,45 @@
+import os
 import random
-from cProfile import label
+from datetime import datetime
 from itertools import product
 
+import matplotlib
 import numpy as np
 import pandas as pd
-import matplotlib
-from matplotlib import colors, cm, ticker
+from matplotlib import ticker
 from matplotlib.axes import Axes
 from matplotlib.cm import get_cmap
-from matplotlib.pyplot import ylabel
+from matplotlib.figure import Figure
+from mpl_toolkits.mplot3d.art3d import Line3DCollection
 from sklearn.metrics import ConfusionMatrixDisplay
-
-from ml_model import (
-    extract_full_results_to_df,
-    get_results_from_classifier_pkls,
-    get_full_results_df_from_classifier_pkls,
-    filter_cols_between_fq_range,
-)
-from vna.VNA_enums import SParam2Port, SParam
-
-matplotlib.use("TkAgg")
-from VNA_utils import (
-    get_full_results_df_path,
-    reorder_data_frame_columns,
-    get_touchstones_path,
-    ghz_to_hz,
-    get_frequency_column_headings_list,
-    hz_to_ghz,
-    convert_magnitude_to_db,
-    hz_to_mhz,
-)
-
-from VNA_enums import (
-    ConfusionMatrixKey,
-    DataFrameCols,
-    MeasurementKey,
-    MagnitudeOrPhase,
-)
-from VNA_utils import pickle_object, open_pickled_object
-import os
 import seaborn as sns
 import matplotlib.pyplot as plt
 import matplotlib.ticker as mticker
 from skrf.io import touchstone
 from skrf import plotting, Network
 
+from vna.VNA_defaults import DEFAULT_FIGURE_SIZE, DEFAULT_FILE_TYPE, DEFAULT_COLOUR_MAP
+
+matplotlib.use("TkAgg")
 sns.set_theme(style="whitegrid", font_scale=2)
+
+from vna.VNA_utils import (
+    convert_magnitude_rows_to_db,
+    ghz_to_hz,
+    get_frequency_column_headings_list,
+    hz_to_ghz,
+    convert_magnitude_to_db,
+    hz_to_mhz,
+    open_pickled_object,
+    get_graph_path,
+)
+from vna.VNA_enums import (
+    ConfusionMatrixKey,
+    DataFrameCols,
+    MeasurementKey,
+    MagnitudeOrPhase,
+    SParam,
+)
 
 
 def svm_vs_dt_strip_plot(results_df: pd.DataFrame):
@@ -833,58 +827,149 @@ def find_nearest_frequency(full_df, target_frequency_hz):
     return array[idx]
 
 
+def create_data_normaliser(data_to_normalise):
+    """
+    Takes in a data series to plot and returns an object which will normalise any data to
+    that range
+    Args:
+        data_to_normalise:
+        Data series or array which contains the data to be normalised
+    Returns:
+
+    """
+    max_value = data_to_normalise.max().max()
+    min_value = data_to_normalise.min().min()
+    return matplotlib.colors.Normalize(vmin=min_value, vmax=max_value)
+
+
 def plot_3d_time_series(
     data_frame_to_plot: pd.DataFrame,
-    seaborn_style="darkgrid",
+    c_map_name=DEFAULT_COLOUR_MAP,
+    fig_size=DEFAULT_FIGURE_SIZE,
+    file_output_path=None,
+    file_output_flag=False,
+    fname=None,
+    experiment_label=None,
+    filetype=DEFAULT_FILE_TYPE,
 ):
-    # at some point I want to make these vary with respect to magnitude
-    s_parameter = data_frame_to_plot["s_parameter"][0]
+    """
+    Plots a 3D time series from a results dataframe.
 
-    gesture = data_frame_to_plot["label"][0].split("_")[-1]
+    Args:
+        data_frame_to_plot: DataFrame with the data to plot.
+        seaborn_style: Optional seaborn style to use for the plot.
+        fig_size: Size of the figure.
+
+    Returns:
+        fig: The generated Matplotlib figure object.
+    """
+
+    cmap = matplotlib.colormaps[c_map_name]
+
+    s_parameter = data_frame_to_plot["s_parameter"].iloc[0]
+    gesture = data_frame_to_plot["label"].iloc[0].split("_")[-1]
 
     group = data_frame_to_plot.iloc[:, 4:].groupby("time")
-
-    # sns.set_style(seaborn_style, {"axes.grid": False})
     frequency_cols = list(
         map(int, map(hz_to_mhz, list(data_frame_to_plot.columns[5:])))
     )
 
-    # this is iterated over to place the lines in the 3rd D
     plotting_indexes = np.linspace(0, data_frame_to_plot["time"].max(), len(group))
     time = data_frame_to_plot["time"]
     times_normalized = time - time.min()
 
-    ax = plt.figure().add_subplot(projection="3d")
+    fig = plt.figure(figsize=fig_size)
+    ax = fig.add_subplot(projection="3d")
 
-    norm = colors.Normalize(vmin=min(plotting_indexes), vmax=max(plotting_indexes))
-    cmap = cm.viridis  # Choose a colormap (you can try 'plasma', 'inferno', etc.)
+    data_to_plot = data_frame_to_plot.iloc[:, 5:]
+    data_normaliser = create_data_normaliser(data_to_plot)
 
-    i = 0
+    # For collecting axis limits
+    all_frequency, all_magnitude, all_times = [], [], []
+
     for plotting_index, (group_name, df) in reversed(
         list(zip(plotting_indexes, group))
     ):
-        y = df.iloc[:, 1:].values[0]
+        magnitude_value = df.iloc[:, 1:].values[0]
+        magnitude_array = np.asarray(magnitude_value)
+        frequency_array = np.asarray(frequency_cols)
 
-        color = cmap(norm(plotting_index))
-        ax.plot(
-            frequency_cols,
-            y,
-            zs=plotting_index,
-            color=color,
-            zdir="x",
-            label=f"{group_name}s",
+        # Create consecutive segments
+        points = np.array([frequency_array, magnitude_array]).T.reshape(-1, 1, 2)
+        segments_2d = np.concatenate([points[:-1], points[1:]], axis=1)
+
+        # Convert to 3D segments at fixed z
+        z_value = plotting_index
+        segments_3d = []
+        for seg in segments_2d:
+            seg3d = np.column_stack(
+                (
+                    np.full(seg.shape[0], z_value),  # X = Time
+                    seg[:, 0],  # Y = Frequency
+                    seg[:, 1],  # Z = Magnitude/Phase
+                )
+            )
+            segments_3d.append(seg3d)
+        segments_3d = np.array(segments_3d)
+
+        # Color per segment based on midpoint of y-values
+        magnitude_segment_mids = 0.5 * (magnitude_array[:-1] + magnitude_array[1:])
+        color_values = cmap(data_normaliser(magnitude_segment_mids))
+
+        # Create and add collection
+        line_collection = Line3DCollection(
+            segments_3d, colors=color_values, linewidths=2
         )
+        ax.add_collection3d(line_collection)
 
-    ax.set_xlabel("Time (s)", labelpad=30)
+        # Collect points for setting limits
+        all_frequency.extend(frequency_array)
+        all_magnitude.extend(magnitude_array)
+        all_times.extend([z_value] * len(frequency_array))
+
+    # After all lines, set manual limits
+    ax.set_ylim(min(all_frequency), max(all_frequency))
+    ax.set_zlim(min(all_magnitude), max(all_magnitude))
+    ax.set_xlim(min(all_times), max(all_times))
+
     ax.set_ylabel("Frequency (MHz)", labelpad=15)
-    ax.set_zlabel(f"|{s_parameter}|", labelpad=15)
-    ax.set_title(f"|{s_parameter}| \n Gesture {gesture}", y=0.95)
-    ax.yaxis.set_major_locator(ticker.MaxNLocator(nbins=5))
+    ax.set_zlabel(
+        (
+            "Magnitude"
+            if data_frame_to_plot["mag_or_phase"].iloc[0]
+            == MagnitudeOrPhase.Magnitude.value
+            else "Phase (°)"
+        ),
+        labelpad=15,
+    )
+    ax.set_xlabel("Time (s)", labelpad=15)
+
+    measured_value = data_frame_to_plot["mag_or_phase"].iloc[0]
+    if measured_value == MagnitudeOrPhase.Magnitude.value:
+        ax.set_title(f"{c_map_name}|{s_parameter}| \n Gesture {gesture}", y=0.95)
+    else:
+        ax.set_title(f"Phase {s_parameter}\n Gesture {gesture}", y=0.95)
 
     ax.invert_xaxis()
     ax.set_box_aspect([8, 5, 3])
     ax.view_init(elev=20, azim=30, roll=0)
-    plt.show()
+    ax.yaxis.set_major_locator(ticker.MaxNLocator(nbins=5))
+
+    plt.tight_layout()
+
+    if file_output_flag:
+        if fname is None:
+            fname = f"{datetime.now().strftime('%Y_%m_%d_%H_%M_%S')}-{s_parameter}-{measured_value}-{gesture}-{c_map_name}.{filetype}"
+        if file_output_path is None:
+            file_output_path = get_graph_path()
+        if experiment_label:
+            file_output_path = os.path.join(file_output_path, experiment_label)
+            os.makedirs(file_output_path, exist_ok=True)
+        file_output_path = os.path.join(file_output_path, s_parameter)
+        os.makedirs(file_output_path, exist_ok=True)
+        plt.savefig(os.path.join(file_output_path, fname), format=filetype)
+
+    return fig
 
 
 def scale_3d_plot(ax: Axes, x_scale=1, y_scale=1, z_scale=1) -> Axes:
@@ -906,37 +991,171 @@ def scale_3d_plot(ax: Axes, x_scale=1, y_scale=1, z_scale=1) -> Axes:
     return ax
 
 
+def plot_3d_plots(
+    results_df: pd.DataFrame,
+    s_param: SParam,
+    mag_or_phase: MagnitudeOrPhase,
+    cmap="Blues",
+    save_to_file: bool = False,
+    experiment_label=None,
+    filetype="svg",
+) -> [Figure]:
+
+    # df passing is by reference so make a copy
+    results_df = results_df.copy(deep=True)
+    figures: [Figure] = []
+    results_df = convert_magnitude_rows_to_db(results_df)
+    experiments = results_df["label"].unique()
+
+    output_df = None
+    for experiment in experiments:
+        # get all the same label experiments -> this means the same gesture
+        same_gesture = results_df[
+            (results_df["label"] == experiment)
+            & (results_df["s_parameter"] == s_param.value)
+            & (results_df["mag_or_phase"] == mag_or_phase.value)
+        ]
+
+        single_gesture = same_gesture[
+            same_gesture["id"] == random.choice(same_gesture["id"].unique())
+        ]
+        # output will contain one unique gesture capture for each
+        output_df: pd.DataFrame = pd.concat(
+            [output_df, single_gesture], ignore_index=True
+        )
+
+    for val, single_gesture_df in output_df.groupby("label"):
+
+        single_gesture_df = single_gesture_df.reset_index(drop=True)
+        chosen_gesture = single_gesture_df["label"][0].split("_")[-1]
+        stop_index = 100
+
+        group = single_gesture_df.iloc[:, 4:stop_index].groupby("time")
+        figures.append(
+            plot_3d_time_series(
+                single_gesture_df,
+                c_map_name=cmap,
+                file_output_flag=save_to_file,
+                experiment_label=experiment_label,
+                filetype=filetype,
+            )
+        )
+
+    return figures
+
+
+def plot_time_series(
+    data_frame_to_plot,
+    target_s_params,
+    gestures_to_plot,
+    experiment_label,
+    target_frequency,
+):
+
+    data_frame_to_plot = convert_magnitude_rows_to_db(data_frame_to_plot)
+
+    for target_s_param in target_s_params:
+        plot_multiple_gestures_on_time_series(
+            data_frame=data_frame_to_plot,
+            experiment_label=experiment_label,
+            gestures=gestures_to_plot,
+            target_s_param=target_s_param,
+            mag_or_phase=MagnitudeOrPhase.Magnitude,
+            target_frequency=target_frequency,
+        )
+
+
+def get_s_param_data(results_df, s_param):
+    return results_df[results_df["s_param"] == s_param]
+
+
+def three_dplottest():
+
+    fig = plt.figure(figsize=(14, 9))
+    ax = fig.add_subplot(projection="3d")
+
+    # Test data: simple 3D line
+    x = [1, 2, 3]
+    y = [4, 5, 6]
+    z = [7, 8, 9]
+
+    # Create segments (3 points)
+    segments = np.array([[[1, 4, 7], [2, 5, 8]], [[2, 5, 8], [3, 6, 9]]])
+
+    for i in range(10):
+        # Create line collection (with color)
+        line_collection = Line3DCollection(segments, colors="blue", linewidths=2)
+        # Add the collection to the axis
+        ax.add_collection3d(line_collection)
+        segments += 1
+
+    # Set limits
+    ax.set_xlim(0, 10)
+    ax.set_ylim(0, 17)
+    ax.set_zlim(6, 20)
+
+    # Show plot
+    plt.show()
+
+
 if __name__ == "__main__":
-    sns.set(rc={"xtick.bottom": True, "ytick.left": True}, font_scale=2)
-    pkl_classifier_folder = r"C:\Users\2573758S\PycharmProjects\Pico_VNA_Project\pickles\classifiers\smd_3_patent_exp"
+    from matplotlib import colormaps
 
-    full_df = open_pickled_object(
-        r"C:\Users\2573758S\PycharmProjects\Pico_VNA_Project\pickles\full_dfs\17_09_patent_exp_combined_df.pkl"
+    data_capture_df = open_pickled_object(
+        r"C:\Users\2573758S\OneDrive - University of Glasgow\PhD\Experiments\Patent_exp\Data Capture\17_09_patent_exp_combined_df.pkl"
     )
-
-    confusion_matrix_option = ConfusionMatrixKey.FULL_SVM.value
-    results_df = open_pickled_object(
-        r"C:\Users\2573758S\PycharmProjects\Pico_VNA_Project\pickles\full_classification_results\smd_3_patent_exp.pkl"
-    )
-    accuracy_df = results_df[(results_df["gesture"] == "accuracy")]
-    accuracy_df = accuracy_df.sort_values(by="f1-score", ascending=False)
-    mag_df = accuracy_df[accuracy_df["type"] == "magnitude"]
-    top_magnitude = mag_df.iloc[0]
-    filtered_df_s_param = full_df[
-        full_df["s_parameter"].isin(top_magnitude["s_param"].split("_"))
+    data_capture_df.columns = list(data_capture_df.columns[:5]) + [
+        int(val) for val in list(data_capture_df.columns[5:])
+    ]
+    s_param_test = [
+        SParam.S11,
     ]
 
-    filtered_df_fq_range = filter_cols_between_fq_range(
-        filtered_df_s_param,
-        ghz_to_hz(float(top_magnitude["low_frequency"])),
-        ghz_to_hz(float(top_magnitude["high_frequency"])),
-    )
-    confusion_matrix_dict = get_full_results_df_from_classifier_pkls(
-        pkl_classifier_folder, extract="confusion_matrix"
-    )
-    display_confusion_matrix_for_top_n_values(
-        full_df, results_df, confusion_matrix_dict
-    )
+    # three_dplottest()
+    for colour in list(colormaps):
+        for param in s_param_test:
+            plot_3d_plots(
+                data_capture_df[
+                    data_capture_df["label"] == "single_liquidAntennaSM3_A"
+                ],
+                param,
+                MagnitudeOrPhase.Magnitude,
+                cmap=colour,
+                save_to_file=True,
+                experiment_label="cmap_test",
+                filetype="png",
+            )
+
+    # sns.set(rc={"xtick.bottom": True, "ytick.left": True}, font_scale=2)
+    # pkl_classifier_folder = r"C:\Users\2573758S\PycharmProjects\Pico_VNA_Project\pickles\classifiers\smd_3_patent_exp"
+    #
+    # full_df = open_pickled_object(
+    #     r"C:\Users\2573758S\PycharmProjects\Pico_VNA_Project\pickles\full_dfs\17_09_patent_exp_combined_df.pkl"
+    # )
+    #
+    # confusion_matrix_option = ConfusionMatrixKey.FULL_SVM.value
+    # results_df = open_pickled_object(
+    #     r"C:\Users\2573758S\PycharmProjects\Pico_VNA_Project\pickles\full_classification_results\smd_3_patent_exp.pkl"
+    # )
+    # accuracy_df = results_df[(results_df["gesture"] == "accuracy")]
+    # accuracy_df = accuracy_df.sort_values(by="f1-score", ascending=False)
+    # mag_df = accuracy_df[accuracy_df["type"] == "magnitude"]
+    # top_magnitude = mag_df.iloc[0]
+    # filtered_df_s_param = full_df[
+    #     full_df["s_parameter"].isin(top_magnitude["s_param"].split("_"))
+    # ]
+    #
+    # filtered_df_fq_range = filter_cols_between_fq_range(
+    #     filtered_df_s_param,
+    #     ghz_to_hz(float(top_magnitude["low_frequency"])),
+    #     ghz_to_hz(float(top_magnitude["high_frequency"])),
+    # )
+    # confusion_matrix_dict = get_full_results_df_from_classifier_pkls(
+    #     pkl_classifier_folder, extract="confusion_matrix"
+    # )
+    # display_confusion_matrix_for_top_n_values(
+    #     full_df, results_df, confusion_matrix_dict
+    # )
 
     # pickle_object(results_df, path=r'C:\Users\2573758S\PycharmProjects\Pico_VNA_Project\pickles\full_classification_results', file_name='smd_3_patent_exp.pkl')
     #

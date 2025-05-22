@@ -2,15 +2,19 @@ import os
 
 import numpy
 
-from VNA_utils import pickle_object, open_pickled_object, get_label_from_pkl_path
+from vna.VNA_utils import pickle_object, open_pickled_object, get_label_from_pkl_path
 
 os.environ["OMP_NUM_THREADS"] = "1"
 os.environ["MKL_NUM_THREADS"] = "1"
 os.environ["OPENBLAS_NUM_THREADS"] = "1"
 
-from VNA_enums import DataFrameCols, SParam2Port, DateFormats
-from VNA_utils import get_pickle_path, get_classifiers_path, reorder_data_frame_columns
-from VNA_data import VnaData
+from vna.VNA_enums import DataFrameCols, SParam2Port, DateFormats
+from vna.VNA_utils import (
+    get_pickle_path,
+    get_classifiers_path,
+    reorder_data_frame_columns,
+)
+from vna.VNA_data import VnaData
 
 import pickle
 import pandas as pd
