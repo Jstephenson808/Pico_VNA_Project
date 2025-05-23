@@ -991,7 +991,7 @@ def scale_3d_plot(ax: Axes, x_scale=1, y_scale=1, z_scale=1) -> Axes:
     return ax
 
 
-def plot_3d_plots(
+def plot_3d_plots_for_all_gestures_for_sparam(
     results_df: pd.DataFrame,
     s_param: SParam,
     mag_or_phase: MagnitudeOrPhase,
@@ -1114,7 +1114,7 @@ if __name__ == "__main__":
     # three_dplottest()
     for colour in list(colormaps):
         for param in s_param_test:
-            plot_3d_plots(
+            plot_3d_plots_for_all_gestures_for_sparam(
                 data_capture_df[
                     data_capture_df["label"] == "single_liquidAntennaSM3_A"
                 ],

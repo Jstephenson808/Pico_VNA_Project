@@ -4,6 +4,7 @@ import pandas as pd
 import random
 
 import matplotlib as mpl
+from pygments.lexers import go
 
 from sklearn.metrics import confusion_matrix
 
@@ -38,7 +39,7 @@ from vna.graphs import (
     display_confusion_matrix_for_top_n_values,
     bar_graph_accuracy_comparison,
     get_s_param_data,
-    plot_3d_plots,
+    plot_3d_plots_for_all_gestures_for_sparam,
 )
 from vna.ml_model import (
     get_full_results_df_from_classifier_pkls,
@@ -211,6 +212,82 @@ def run_classification_from_results():
         )
 
 
+def drop_columns_between_frequency(
+    data_capture_data_frame, low_freq, high_freq
+) -> pd.DataFrame:
+    cols_to_drop = list(
+        filter(
+            lambda x: (low_freq > x) | (x > high_freq),
+            data_capture_data_frame.columns[5:],
+        )
+    )
+    return data_capture_data_frame.drop(cols_to_drop, axis=DfAxis.COLUMN)
+
+
+def process_data_frame_to_3d_plot(
+    data_capture_data_frame,
+    low_freq,
+    high_freq,
+    start_time,
+    end_time,
+    coalesce_duplicates=True,
+) -> pd.DataFrame:
+
+    # This is default behaviour and should be done in almost all cases
+    if coalesce_duplicates:
+        time_series_to_3d_plot = coalesce_duplicate_columns(data_capture_data_frame)
+
+    time_series_to_3d_plot = filter_results_df_between_times(
+        time_series_to_3d_plot, start_time, end_time
+    )
+
+    time_series_to_3d_plot = drop_columns_between_frequency(
+        time_series_to_3d_plot, low_freq, high_freq
+    )
+    return time_series_to_3d_plot
+
+
+def plot_3d_plots(
+    data_capture_df: pd.DataFrame,
+    start_time,
+    end_time,
+    low_freq,
+    high_freq,
+    magnitude_or_phase: [MagnitudeOrPhase] = None,
+    sparams_to_plot: [SParam] = None,
+):
+    if sparams_to_plot is None:
+        sparams_to_plot = list(SParam)
+
+    if magnitude_or_phase is None:
+        magnitude_or_phase = list(MagnitudeOrPhase)
+
+    time_series_to_3d_plot = process_data_frame_to_3d_plot(
+        data_capture_df,
+        low_freq,
+        high_freq,
+        start_time,
+        end_time,
+        coalesce_duplicates=True,
+    )
+
+    for sparam in sparams_to_plot:
+        for measurement in magnitude_or_phase:
+            figures = plot_3d_plots_for_all_gestures_for_sparam(
+                time_series_to_3d_plot,
+                sparam,
+                measurement,
+                save_to_file=SAVE_TO_FILE,
+                experiment_label="Glove Experiment",
+            )
+
+            for figure in figures:
+                if SAVE_TO_FILE:
+                    mpl.pyplot.close(figure)
+                else:
+                    figure.show()
+
+
 if __name__ == "__main__":
 
     CLASSIFIER_RESULTS_PATH = r"C:\Users\js637s.CAMPUS\PycharmProjects\Pico_VNA_Project\pickles\classifier_results"
@@ -238,37 +315,6 @@ if __name__ == "__main__":
     # run_classification_from_results()
 
     # plot_confusion_matrix(target_s_param=confusion_matrix_target_parameter)
-
-    # 3d plots
-    results_df = open_pickled_object_in_pickle_folder(MAGNITUDE_REPEAT_FNAME)
-
-    time_series_to_3d_plot = filter_results_df_between_times(
-        results_df, start_time, end_time
-    )
-    time_series_to_3d_plot = coalesce_duplicate_columns(time_series_to_3d_plot)
-
-    cols_to_drop = list(
-        filter(
-            lambda x: (low_freq > x) | (x > high_freq),
-            time_series_to_3d_plot.columns[5:],
-        )
-    )
-    time_series_to_3d_plot.drop(cols_to_drop, axis=DfAxis.COLUMN, inplace=True)
-
-    for sparam in SParam:
-        figures = plot_3d_plots(
-            time_series_to_3d_plot,
-            sparam,
-            MagnitudeOrPhase.Magnitude,
-            save_to_file=SAVE_TO_FILE,
-            experiment_label="Glove Experiment",
-        )
-
-        for figure in figures:
-            if SAVE_TO_FILE:
-                mpl.pyplot.close(figure)
-            else:
-                figure.show()
 
     results_without_repeat = open_pickled_object_in_pickle_folder(
         RESULTS_WITHOUT_REPEATS_PKL_FNAME
