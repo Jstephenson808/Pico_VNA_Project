@@ -22,7 +22,13 @@ class ClassificationExperimentParameters:
         s_param_measurement_options: DfFilterOptions,
         freq_hop: Frequency,
         classifiers_to_test: [Classifier],
+        movement_vector: MovementVector = None,
     ):
+        if movement_vector is None:
+            self.movement_vector: MovementVector = MovementVector()
+            self.movement_vector.create_movement_vector_for_single_data_frame(
+                self.s_param_data.get_full_data_frame()
+            )
         self.s_param_data: SParameterData = s_param_data
         self.s_param_combinations_list: SParameterCombinationsList = (
             s_param_combinations_list
@@ -30,10 +36,6 @@ class ClassificationExperimentParameters:
         self.s_param_measurement_options: DfFilterOptions = s_param_measurement_options
         self.freq_hop: Frequency = freq_hop
 
-        self.movement_vector: MovementVector = MovementVector()
-        self.movement_vector.create_movement_vector_for_single_data_frame(
-            self.s_param_data.get_full_data_frame()
-        )
         self.test_data_frames_dict: Dict[str, SParameterData] = self.create_test_dict()
         self.classifiers_to_test = classifiers_to_test
 
