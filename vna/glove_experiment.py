@@ -4,11 +4,11 @@ import pandas as pd
 import random
 
 import matplotlib as mpl
-from pygments.lexers import go
+from matplotlib import pyplot as plt, figure
 
 from sklearn.metrics import confusion_matrix
 
-from vna.VNA_defaults import CONFIRM_TEMP_FILE
+from vna.VNA_defaults import CONFIRM_TEMP_FILE, TRAIN_TEST_SEED_VALUE
 from vna.VNA_utils import (
     open_pickled_object,
     convert_magnitude_rows_to_db,
@@ -22,6 +22,7 @@ from vna.VNA_utils import (
     filter_results_df_between_times,
     extract_random_single_gesture_for_each_experiment_to_df,
     coalesce_duplicate_columns,
+    ghz_to_hz,
 )
 from vna.VNA_enums import (
     MagnitudeOrPhase,
@@ -277,8 +278,8 @@ def plot_3d_plots(
                 time_series_to_3d_plot,
                 sparam,
                 measurement,
-                save_to_file=SAVE_TO_FILE,
-                experiment_label="Glove Experiment",
+                save_to_file=True,
+                experiment_label=experiment_label,
             )
 
             for figure in figures:
@@ -289,77 +290,84 @@ def plot_3d_plots(
 
 
 if __name__ == "__main__":
+    plt.rcParams["font.size"] = 14
+
+    # seed random value for repeatability
+    random.seed(TRAIN_TEST_SEED_VALUE)
 
     CLASSIFIER_RESULTS_PATH = r"C:\Users\js637s.CAMPUS\PycharmProjects\Pico_VNA_Project\pickles\classifier_results"
     PKL_RESULTS_FNAME = "classification_results_glove_experiment"
     EXPERIMENT_NAME = "glove_gesture_experiment_2_201pts_75reps_150M_400M_11ges"
     TOUCHSTONE_FOLDER_PATH = r"C:\Users\2573758S\OneDrive - University of Glasgow\PhD\Experiments\Glove Gesture Experiment\Touchstones\Experiment 2"
     RESULTS_WITHOUT_REPEATS_PKL_FNAME = "glove_experiment_singles_only.pkl"
-
+    FULL_DATA_CAPTURE_A = "glove_experiment_full_data.pkl"
     SAVE_TO_FILE = True
+    COALESCE_DUPLICATE_COLUMNS_IN_DATAFRAME = True
 
-    MAGNITUDE_REPEAT_FNAME = r"glove_gesture_experiment_2_201pts_75reps_150M_400M_11ges"
-    low_freq = mhz_to_hz(118)
-    high_freq = mhz_to_hz(350)
+    GESTURE_EXPERIMENT_CAPTURE_DF = (
+        r"glove_gesture_experiment_2_201pts_75reps_150M_400M_11ges"
+    )
+    low_freq = mhz_to_hz(200)
+    high_freq = mhz_to_hz(370)
     percent_of_result_to_plot = 20
     start_time = 0
     end_time = 7
 
+    time_series_low_freq = mhz_to_hz(270)
+    time_series_high_freq = mhz_to_hz(300)
+
     confusion_matrix_target_parameter = "gloveExperiment_S21"
 
-    label = "gloveExperiment2"
+    experiment_label = "Glove Experiment"
 
     results_df_from_file = combine_classifier_results_dfs(CLASSIFIER_RESULTS_PATH)
     results_from_pkls = open_pickled_object_in_pickle_folder(PKL_RESULTS_FNAME)
+    # results_df_from_file.to_csv("glove_experiment_csv.csv")
+    data_caputre_df = open_pickled_object_in_pickle_folder(
+        GESTURE_EXPERIMENT_CAPTURE_DF
+    )
 
     # run_classification_from_results()
 
-    # plot_confusion_matrix(target_s_param=confusion_matrix_target_parameter)
+    # plot_3d_plots(
+    #     data_caputre_df,
+    #     start_time,
+    #     end_time,
+    #     low_freq,
+    #     high_freq,
+    #     sparams_to_plot=[SParam.S21],
+    #     magnitude_or_phase=[MagnitudeOrPhase.Phase],
+    # )
 
-    results_without_repeat = open_pickled_object_in_pickle_folder(
-        RESULTS_WITHOUT_REPEATS_PKL_FNAME
-    )
+    plot_confusion_matrix(target_s_param=confusion_matrix_target_parameter)
 
-    # results_without_repeat = convert_magnitude_cols_to_db(results_without_repeat)
-    experiments = results_without_repeat[DataFrameCols.ID.value].unique()
-    s_param = SParam.S11
-    mag_or_phase = MagnitudeOrPhase.Magnitude
-
-    single_gesture_for_each_experiment_df = (
-        extract_random_single_gesture_for_each_experiment_to_df(
-            capture_df=results_without_repeat,
-            target_s_param=s_param,
-            mag_or_phase=mag_or_phase,
-        )
-    )
-
-    random_single_gesture_df = single_gesture_for_each_experiment_df[
-        single_gesture_for_each_experiment_df[DataFrameCols.ID.value]
-        == random.choice(
-            single_gesture_for_each_experiment_df[DataFrameCols.ID.value].unique()
-        )
-    ]
-    random_single_gesture_df = random_single_gesture_df.reset_index(drop=True)
-    chosen_gesture = random_single_gesture_df["label"][0].split("_")[-1]
-    stop_index = 100
-
-    group = random_single_gesture_df.iloc[:, 4:stop_index].groupby("time")
-
-    # plot time series plots
-
-    experiment_name = "2412181557_liquid_metal_glove_6ges_25reps"
-    gesture_repeated = full_data_frame.query(f"id == '{experiment_name}'")
-
-    for target_s_param in target_s_params:
-        plot_multiple_gestures_on_time_series(
-            data_frame=gesture_repeated,
-            experiment_label=experiment_name,
-            gestures=gestures,
-            target_s_param=target_s_param,
-            mag_or_phase=MagnitudeOrPhase.Phase,
-            target_frequency=target_frequency,
-            n_random_ids=5,
-        )
+    # target_frequencies = [
+    #     freq
+    #     for freq in get_frequency_column_headings_list(data_caputre_df)
+    #     if time_series_low_freq <= freq <= time_series_high_freq
+    # ]
+    #
+    # # plot time series plots
+    # for target_freq in target_frequencies:
+    #     figs = []
+    #     for target_s_param in [SParam.S11]:
+    #         fig = plot_multiple_gestures_on_time_series(
+    #             data_frame=data_caputre_df,
+    #             experiment_label=experiment_label,
+    #             gestures=list(data_caputre_df["label"].unique()),
+    #             target_s_param=target_s_param,
+    #             mag_or_phase=MagnitudeOrPhase.Magnitude,
+    #             target_frequency=target_freq,
+    #             n_random_ids=1,
+    #             save_to_file=True,
+    #         )
+    #         figs.append(fig)
+    #
+    #     if SAVE_TO_FILE:
+    #         for fig in figs:
+    #             mpl.pyplot.close(fig)
+    #     else:
+    #         plt.show()
 
     # for plot_label in plot_labels:
     #     for target_s_param in target_s_params:
@@ -372,7 +380,20 @@ if __name__ == "__main__":
     #             target_frequency=mhz_to_hz(200),
     #         )
 
-    s11 = full_data_frame.query(
-        "id == 'liquid_metal_glove_6ges_same_gesture_10time_2412181543' & s_parameter == 'S11' & label == 'liquid_metal_glove_6ges_same_gesture_10time_1' & mag_or_phase == 'magnitude'"
-    )
-    full_data_frame.query("")
+# results_without_repeat = open_pickled_object_in_pickle_folder(
+#     RESULTS_WITHOUT_REPEATS_PKL_FNAME
+# )
+#
+# results_without_repeat = convert_magnitude_rows_to_db(results_without_repeat)
+
+# s_param = SParam.S11
+# mag_or_phase = MagnitudeOrPhase.Magnitude
+#
+# single_gesture_for_each_experiment_df = (
+#     extract_random_single_gesture_for_each_experiment_to_df(
+#         capture_df=results_without_repeat,
+#         target_s_param=s_param,
+#         mag_or_phase=mag_or_phase,
+#     )
+# )
+#

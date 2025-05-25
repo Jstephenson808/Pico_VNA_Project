@@ -16,7 +16,7 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 import matplotlib.ticker as mticker
 from skrf.io import touchstone
-from skrf import plotting, Network
+from skrf import plotting, Network, figure
 
 from vna.VNA_defaults import DEFAULT_FIGURE_SIZE, DEFAULT_FILE_TYPE, DEFAULT_COLOUR_MAP
 
@@ -649,10 +649,14 @@ def plot_multiple_gestures_on_time_series(
     mag_or_phase: MagnitudeOrPhase = MagnitudeOrPhase.Magnitude,
     target_frequency,
     n_random_ids=1,
-    c_map_label="viridis",
+    c_map_label=DEFAULT_COLOUR_MAP,
+    filetype=DEFAULT_FILE_TYPE,
+    fname=None,
+    file_output_path=None,
+    save_to_file=False,
 ):
     c_map = get_cmap(c_map_label)
-    plot_labels = [f"{experiment_label}_{gesture}" for gesture in gestures]
+    plot_labels = gestures
     fig, axes = plt.subplots(nrows=len(plot_labels), ncols=1, sharex=True, sharey=True)
     fig.suptitle(
         f"|{target_s_param.value}| Over Time at {hz_to_ghz(target_frequency)} GHz"
@@ -661,6 +665,7 @@ def plot_multiple_gestures_on_time_series(
         axes = axes.flat
     plotted_axes = []
     for i, (plot_label, ax) in enumerate(zip(plot_labels, axes)):
+        indv_figure, indv_axis = plt.subplots(1, 1)
         color = c_map(i / len(plot_labels))
         plotted_axes.append(
             plot_fq_time_series_as_subplot(
@@ -674,6 +679,17 @@ def plot_multiple_gestures_on_time_series(
                 color=color,
             )
         )
+        plot_fq_time_series_as_subplot(
+            indv_axis,
+            data_frame,
+            s_parameter=target_s_param,
+            mag_or_phase=mag_or_phase,
+            label=plot_label,
+            n_random_ids=n_random_ids,
+            target_frequency=target_frequency,
+            color=color,
+        )
+        indv_figure.show()
 
     collected_handles, collected_labels = [], []
     for ax in plotted_axes:
@@ -685,7 +701,21 @@ def plot_multiple_gestures_on_time_series(
     fig.supylabel(f"|{target_s_param.value}|")
     fig.legend(handles=collected_handles, labels=collected_labels)
     # plt.tight_layout()
-    plt.show()
+    if save_to_file:
+        if fname is None:
+            fname = f"{datetime.now().strftime('%Y_%m_%d_%H_%M_%S')}-{target_s_param.value}-{mag_or_phase.value}-{c_map_label}.{filetype}"
+        if file_output_path is None:
+            file_output_path = get_graph_path()
+        if experiment_label:
+            file_output_path = os.path.join(file_output_path, experiment_label)
+            os.makedirs(file_output_path, exist_ok=True)
+        file_output_path = os.path.join(
+            file_output_path, "Time Series", mag_or_phase.value, target_s_param.value
+        )
+        os.makedirs(file_output_path, exist_ok=True)
+        plt.savefig(os.path.join(file_output_path, fname), format=filetype)
+
+    return fig
 
 
 def filter_fq_cols(df, target_frequency):
@@ -851,6 +881,7 @@ def plot_3d_time_series(
     fname=None,
     experiment_label=None,
     filetype=DEFAULT_FILE_TYPE,
+    font_size=14,
 ):
     """
     Plots a 3D time series from a results dataframe.
@@ -863,6 +894,23 @@ def plot_3d_time_series(
     Returns:
         fig: The generated Matplotlib figure object.
     """
+
+    # Set global font size for all text elements
+    plt.rcParams.update(
+        {
+            "font.size": font_size,
+            "axes.titlesize": font_size,
+            "axes.labelsize": font_size,
+            "legend.fontsize": font_size,
+            "xtick.labelsize": font_size,
+            "ytick.labelsize": font_size,
+        }
+    )
+
+    phase_or_mag = data_frame_to_plot["mag_or_phase"].iloc[0]
+
+    if phase_or_mag == MagnitudeOrPhase.Phase.value:
+        data_frame_to_plot.iloc[:, 5:] = data_frame_to_plot.iloc[:, 5:] * 180 / np.pi
 
     cmap = matplotlib.colormaps[c_map_name]
 
@@ -929,13 +977,16 @@ def plot_3d_time_series(
 
     # After all lines, set manual limits
     ax.set_ylim(min(all_frequency), max(all_frequency))
-    ax.set_zlim(min(all_magnitude), max(all_magnitude))
+    # if phase_or_mag == MagnitudeOrPhase.Phase.value:
+    ax.set_zlim(-200, 200)
+    # else:
+    #     ax.set_zlim(min(all_magnitude), max(all_magnitude))
     ax.set_xlim(min(all_times), max(all_times))
 
     ax.set_ylabel("Frequency (MHz)", labelpad=15)
     ax.set_zlabel(
         (
-            "Magnitude"
+            "Magnitude (dB)"
             if data_frame_to_plot["mag_or_phase"].iloc[0]
             == MagnitudeOrPhase.Magnitude.value
             else "Phase (°)"
@@ -946,7 +997,7 @@ def plot_3d_time_series(
 
     measured_value = data_frame_to_plot["mag_or_phase"].iloc[0]
     if measured_value == MagnitudeOrPhase.Magnitude.value:
-        ax.set_title(f"{c_map_name}|{s_parameter}| \n Gesture {gesture}", y=0.95)
+        ax.set_title(f"|{s_parameter}| \n Gesture {gesture}", y=0.95)
     else:
         ax.set_title(f"Phase {s_parameter}\n Gesture {gesture}", y=0.95)
 
@@ -954,9 +1005,7 @@ def plot_3d_time_series(
     ax.set_box_aspect([8, 5, 3])
     ax.view_init(elev=20, azim=30, roll=0)
     ax.yaxis.set_major_locator(ticker.MaxNLocator(nbins=5))
-
-    plt.tight_layout()
-
+    ax.zaxis.set_major_locator(ticker.MaxNLocator(nbins=7))
     if file_output_flag:
         if fname is None:
             fname = f"{datetime.now().strftime('%Y_%m_%d_%H_%M_%S')}-{s_parameter}-{measured_value}-{gesture}-{c_map_name}.{filetype}"
@@ -965,9 +1014,11 @@ def plot_3d_time_series(
         if experiment_label:
             file_output_path = os.path.join(file_output_path, experiment_label)
             os.makedirs(file_output_path, exist_ok=True)
-        file_output_path = os.path.join(file_output_path, s_parameter)
+        file_output_path = os.path.join(file_output_path, measured_value, s_parameter)
         os.makedirs(file_output_path, exist_ok=True)
-        plt.savefig(os.path.join(file_output_path, fname), format=filetype)
+        plt.savefig(
+            os.path.join(file_output_path, fname), format=filetype, transparent=True
+        )
 
     return fig
 
@@ -995,10 +1046,10 @@ def plot_3d_plots_for_all_gestures_for_sparam(
     results_df: pd.DataFrame,
     s_param: SParam,
     mag_or_phase: MagnitudeOrPhase,
-    cmap="Blues",
+    cmap=DEFAULT_COLOUR_MAP,
     save_to_file: bool = False,
     experiment_label=None,
-    filetype="svg",
+    filetype=DEFAULT_FILE_TYPE,
 ) -> [Figure]:
 
     # df passing is by reference so make a copy
@@ -1028,9 +1079,8 @@ def plot_3d_plots_for_all_gestures_for_sparam(
 
         single_gesture_df = single_gesture_df.reset_index(drop=True)
         chosen_gesture = single_gesture_df["label"][0].split("_")[-1]
-        stop_index = 100
 
-        group = single_gesture_df.iloc[:, 4:stop_index].groupby("time")
+        group = single_gesture_df.iloc[:, 4:].groupby("time")
         figures.append(
             plot_3d_time_series(
                 single_gesture_df,

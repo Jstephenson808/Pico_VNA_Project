@@ -1,7 +1,7 @@
 import os
 import pickle
 import re
-from random import random
+from random import random, choice
 from time import time, sleep
 
 import numpy as np
@@ -357,7 +357,7 @@ def filter_between_frequency(df, low_frequency, high_frequency):
 def extract_random_single_gesture_for_each_experiment_to_df(
     capture_df: pd.DataFrame, target_s_param: SParam, mag_or_phase: MagnitudeOrPhase
 ) -> pd.DataFrame:
-    experiments = capture_df[DataFrameCols.ID.value].unique()
+    experiments = capture_df[DataFrameCols.LABEL.value].unique()
     output_df = None
     for experiment in experiments:
         # get all the same label experiments -> this means the same gesture
@@ -368,7 +368,7 @@ def extract_random_single_gesture_for_each_experiment_to_df(
         ]
 
         single_gesture = same_gesture[
-            same_gesture["id"] == random.choice(same_gesture["id"].unique())
+            same_gesture["id"] == choice(same_gesture["id"].unique())
         ]
         # output will contain one unique gesture capture for each
         output_df = pd.concat([output_df, single_gesture], ignore_index=True)
