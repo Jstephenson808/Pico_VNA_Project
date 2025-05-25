@@ -7,6 +7,7 @@ from frequency import Frequency
 from feature_extractor import FeatureExtractor
 from vna.classifier import Classifier
 from vna.feature_extractor import ExtractedFeatures
+from vna.movement_vector import MovementVector
 
 
 class FrequencyHopClassification:
@@ -16,6 +17,7 @@ class FrequencyHopClassification:
         test_label: str,
         frequency_hop: Frequency,
         classifiers_to_test: [Classifier],
+        movement_vector: MovementVector,
         feature_extractor: FeatureExtractor | None = None,
         extracted_features: ExtractedFeatures | None = None,
     ):
@@ -25,6 +27,7 @@ class FrequencyHopClassification:
         self.feature_extractor: FeatureExtractor = feature_extractor
         self.classifiers_to_test: list[Classifier] = classifiers_to_test
         self.extracted_features: ExtractedFeatures = extracted_features
+        self.movement_vector: MovementVector = movement_vector
 
         # todo this needs to be in a lower class for experiment
 
@@ -77,9 +80,7 @@ class FrequencyHopClassification:
             # now need to do the test
 
             for classifier in self.classifiers_to_test:
-                classifier.run_classifier(
-                    self.extracted_features,
-                )
+                classifier.run_classifier(self.extracted_features, self.move)
 
     def print_fq_hop(
         self, high_frequency: Frequency, label: str, low_frequency: Frequency
@@ -136,6 +137,7 @@ class ClassificationExperiment:
                 test_label=label,
                 frequency_hop=self.experiment_parameters.freq_hop,
                 feature_extractor=self.feature_extractor,
+                movement_vector=self.experiment_parameters.movement_vector,
             )
 
         return ClassificationExperimentResults(full_results_df)
