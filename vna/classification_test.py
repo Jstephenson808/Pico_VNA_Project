@@ -15,14 +15,16 @@ class ClassificationExperimentLowerLevel:
         s_param_data_under_test: SParameterData,
         test_label: str,
         frequency_hop: Frequency,
-        feature_extractor: FeatureExtractor,
         classifiers_to_test: [Classifier],
+        feature_extractor: FeatureExtractor | None = None,
+        extracted_features: ExtractedFeatures | None = None,
     ):
         self.s_param_data_under_test: SParameterData = s_param_data_under_test
         self.test_label: str = test_label
         self.frequency_hop: Frequency = frequency_hop
         self.feature_extractor: FeatureExtractor = feature_extractor
         self.classifiers_to_test: list[Classifier] = classifiers_to_test
+        self.extracted_features: ExtractedFeatures = extracted_features
 
         # todo this needs to be in a lower class for experiment
 
@@ -65,15 +67,19 @@ class ClassificationExperimentLowerLevel:
             # label for this fq band and test
             fq_label = f"{self.test_label}_{low_frequency.get_freq_ghz()}GHz_{high_frequency.get_freq_ghz()}GHz"
 
-            # extract features from time series
-            fq_range_filtered_df_extracted_features = (
-                self.feature_extractor.extract_features(data_frame_fq_range_filtered)
-            )
+            # if there is a passed feature extractor and
+            if self.feature_extractor and self.extracted_features is None:
+                # extract features from time series
+                self.extracted_features = self.feature_extractor.extract_features(
+                    data_frame_fq_range_filtered
+                )
 
             # now need to do the test
 
             for classifier in self.classifiers_to_test:
-                classifier()
+                classifier.run_classifier(
+                    self.extracted_features,
+                )
 
     def print_fq_hop(
         self, high_frequency: Frequency, label: str, low_frequency: Frequency
