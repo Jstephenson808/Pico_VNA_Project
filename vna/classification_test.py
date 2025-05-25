@@ -9,7 +9,7 @@ from vna.classifier import Classifier
 from vna.feature_extractor import ExtractedFeatures
 
 
-class ClassificationExperimentLowerLevel:
+class FrequencyHopClassification:
     def __init__(
         self,
         s_param_data_under_test: SParameterData,
@@ -131,7 +131,7 @@ class ClassificationExperiment:
             s_param_data_under_test,
         ) in self.experiment_parameters.test_data_frames_dict.items():
             print(f"testing {label}")
-            classification_for_this_test = ClassificationExperimentLowerLevel(
+            classification_for_this_test = FrequencyHopClassification(
                 s_param_data_under_test=s_param_data_under_test,
                 test_label=label,
                 frequency_hop=self.experiment_parameters.freq_hop,
