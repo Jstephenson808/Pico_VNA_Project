@@ -1,9 +1,5 @@
 from typing import Dict
 
-from code.single_gesture_classifier import create_test_dict
-
-from code.frequency import Frequency
-from s_parameter_data import SParameterData
 
 from s_parameter_combination_list import SParameterCombinationsList
 
@@ -11,6 +7,9 @@ from VNA_enums import DfFilterOptions, DataFrameCols
 
 from movement_vector import MovementVector
 from vna.classifier import Classifier
+from vna.single_gesture_classifier import create_test_dict
+from vna.frequency import Frequency
+from vna.s_parameter_data import SParameterData
 
 
 class ClassificationExperimentParameters:
