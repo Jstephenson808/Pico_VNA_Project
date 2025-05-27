@@ -80,7 +80,7 @@ class FrequencyHopClassification:
             # now need to do the test
 
             for classifier in self.classifiers_to_test:
-                classifier.run_classifier(self.extracted_features, self.move)
+                classifier.run_classifier(self.extracted_features, self.movement_vector)
 
     def print_fq_hop(
         self, high_frequency: Frequency, label: str, low_frequency: Frequency
