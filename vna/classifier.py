@@ -38,6 +38,13 @@ class SkLearnClassificationResults:
 
 
 class Classifier(ABC):
+    """
+    All classifiers must implement this interface.
+
+    The design is such that the classifiers hold all the parameters for the calssifaction
+    algorithm and the data for it is injected by the caller. This allows for the same
+    classifier to be reused
+    """
 
     @abstractmethod
     def run_classifier(
@@ -47,9 +54,7 @@ class Classifier(ABC):
 
 
 class PicoDecisionTreeClassifier(Classifier):
-    """
-    By passing in the classifier object the parameters of the classification can be tweaked
-    """
+    """ """
 
     def __init__(
         self,
