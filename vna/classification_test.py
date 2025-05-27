@@ -28,6 +28,12 @@ class FrequencyHopClassification:
         self.classifiers_to_test: list[Classifier] = classifiers_to_test
         self.extracted_features: ExtractedFeatures = extracted_features
         self.movement_vector: MovementVector = movement_vector
+        self.test_minimum_frequency: Frequency = (
+            self.s_param_data_under_test.get_minimum_frequency()
+        )
+        self.test_maximum_frequency: Frequency = (
+            self.s_param_data_under_test.get_maximum_frequency()
+        )
 
         # todo this needs to be in a lower class for experiment
 
@@ -39,48 +45,52 @@ class FrequencyHopClassification:
 
         """
 
-        # unpack parameters for some clarity
-        s_param_data: SParameterData = self.s_param_data_under_test
-
-        low_frequency: Frequency = s_param_data.get_minimum_frequency()
+        low_frequency: Frequency = self.test_minimum_frequency
 
         # jump by frequency hop each time
-        high_frequency: Frequency = (
-            s_param_data.get_minimum_frequency().get_freq_hz() + self.frequency_hop
-        )
+        high_frequency: Frequency = self.calculate_high_frequency(low_frequency)
 
-        max_frequency: Frequency = s_param_data.get_maximum_frequency()
-
-        while high_frequency <= max_frequency:
+        while high_frequency <= self.test_maximum_frequency:
             self.print_fq_hop(high_frequency, self.test_label, low_frequency)
 
             try:
                 data_frame_fq_range_filtered = (
-                    s_param_data.get_data_frame_between_frequency(
+                    self.s_param_data_under_test.get_data_frame_between_frequency(
                         low_frequency, high_frequency
                     )
                 )
+                # why is this here?
             except ValueError as e:
                 print(e)
                 continue
 
             # This fixes the column titles for feature extraction purposes
+            # Should refactor so this does not need to happen or document *why*
             data_frame_fq_range_filtered.make_columns_have_s_param_mag_phase_titles()
 
             # label for this fq band and test
-            fq_label = f"{self.test_label}_{low_frequency.get_freq_ghz()}GHz_{high_frequency.get_freq_ghz()}GHz"
+            fq_label = self.generate_classification_test_label(
+                low_frequency, high_frequency
+            )
 
             # if there is a passed feature extractor and
-            if self.feature_extractor and self.extracted_features is None:
+            if self.feature_extractor and (self.extracted_features is None):
                 # extract features from time series
                 self.extracted_features = self.feature_extractor.extract_features(
                     data_frame_fq_range_filtered
                 )
 
             # now need to do the test
-
             for classifier in self.classifiers_to_test:
                 classifier.run_classifier(self.extracted_features, self.movement_vector)
+
+    def calculate_high_frequency(self, low_frequency: Frequency):
+        return low_frequency + self.frequency_hop
+
+    def generate_classification_test_label(
+        self, low_frequency: Frequency, high_frequency: Frequency
+    ):
+        return f"{self.test_label}_{low_frequency.get_freq_ghz()}GHz_{high_frequency.get_freq_ghz()}GHz"
 
     def print_fq_hop(
         self, high_frequency: Frequency, label: str, low_frequency: Frequency
