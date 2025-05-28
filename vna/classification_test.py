@@ -1,3 +1,7 @@
+from __future__ import annotations
+
+from abc import ABC, abstractclassmethod, abstractmethod
+
 import pandas as pd
 
 from classification_experiment_parameters import ClassificationExperimentParameters
@@ -8,6 +12,13 @@ from feature_extractor import FeatureExtractor
 from vna.classifier import Classifier
 from vna.feature_extractor import ExtractedFeatures
 from vna.movement_vector import MovementVector
+
+
+class ClassificationTestStratergy(ABC):
+
+    @abstractmethod
+    def run_classification(self) -> ClassificationExperimentResults:
+        pass
 
 
 class FrequencyHopClassification:

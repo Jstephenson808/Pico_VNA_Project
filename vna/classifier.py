@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 
+import numpy as np
 from numpy.random import RandomState
 from sklearn.metrics import classification_report, confusion_matrix
 from sklearn.model_selection import train_test_split
@@ -41,7 +42,7 @@ class Classifier(ABC):
     """
     All classifiers must implement this interface.
 
-    The design is such that the classifiers hold all the parameters for the calssifaction
+    The design is such that the classifiers hold all the parameters for the classifaction
     algorithm and the data for it is injected by the caller. This allows for the same
     classifier to be reused
     """
@@ -65,6 +66,8 @@ class PicoDecisionTreeClassifier(Classifier):
         scaler: StandardScaler = StandardScaler(),
     ):
         self.classifier = decision_tree_classifier
+        if random_state is None:
+            random_state = np.random.RandomState()
         self.random_state = random_state
         self.classification_results: SkLearnClassificationResults = (
             SkLearnClassificationResults()
