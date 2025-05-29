@@ -8,7 +8,7 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.svm import SVC
 from sklearn.tree import DecisionTreeClassifier
 
-from vna.VNA_defaults import CLASSIFICATION_TRAIN_TEST_SPLIT_DEFAULT
+from vna.VNA_defaults import DEFAULT_CLASSIFICATION_TRAIN_TEST_SPLIT
 from vna.feature_extractor import ExtractedFeatures
 from vna.movement_vector import MovementVector
 
@@ -62,7 +62,7 @@ class PicoDecisionTreeClassifier(Classifier):
         *,
         decision_tree_classifier: DecisionTreeClassifier = DecisionTreeClassifier(),
         random_state: RandomState = None,
-        train_test_split=CLASSIFICATION_TRAIN_TEST_SPLIT_DEFAULT,
+        train_test_split=DEFAULT_CLASSIFICATION_TRAIN_TEST_SPLIT,
         scaler: StandardScaler = StandardScaler(),
     ):
         self.classifier = decision_tree_classifier
