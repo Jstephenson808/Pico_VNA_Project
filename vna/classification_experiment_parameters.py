@@ -12,7 +12,12 @@ from vna.frequency import Frequency
 from vna.s_parameter_data import SParameterData
 
 
-class ClassificationExperimentParameters:
+class ExperimentParameters:
+    def __init__(self):
+        pass
+
+
+class FrequencyHopClassificationExperimentParameters(ExperimentParameters):
 
     def __init__(
         self,
@@ -23,6 +28,7 @@ class ClassificationExperimentParameters:
         classifiers_to_test: [Classifier],
         movement_vector: MovementVector = None,
     ):
+        super().__init__()
         if movement_vector is None:
             self.movement_vector: MovementVector = MovementVector()
             self.movement_vector.create_movement_vector_for_single_data_frame(

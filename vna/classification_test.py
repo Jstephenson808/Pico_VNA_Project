@@ -3,8 +3,11 @@ from __future__ import annotations
 from abc import ABC, abstractclassmethod, abstractmethod
 
 import pandas as pd
+from sklearn.pipeline import Pipeline
 
-from classification_experiment_parameters import ClassificationExperimentParameters
+from classification_experiment_parameters import (
+    FrequencyHopClassificationExperimentParameters,
+)
 from s_parameter_data import SParameterData
 from frequency import Frequency
 
@@ -122,16 +125,14 @@ class ClassificationExperiment:
 
     def __init__(
         self,
-        experiment_parameters: ClassificationExperimentParameters,
-        feature_extractor: FeatureExtractor = None,
+        experiment_parameters: FrequencyHopClassificationExperimentParameters,
+        pipeline: Pipeline,
     ):
-        self.experiment_parameters: ClassificationExperimentParameters = (
+        self.experiment_parameters: FrequencyHopClassificationExperimentParameters = (
             experiment_parameters
         )
-        self.experiment_results: ClassificationExperimentResults = (
-            ClassificationExperimentResults()
-        )
-        self.feature_extractor: FeatureExtractor = feature_extractor
+        self.experiment_results: ClassificationExperimentResults = None
+        self.pipeline: Pipeline = pipeline
 
     def run_experiment(self):
         # this is per freq hop -> I think this should be how it works,

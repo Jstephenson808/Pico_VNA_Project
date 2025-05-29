@@ -6,7 +6,9 @@ from pandas import DataFrame
 import tsfresh
 from tsfresh import select_features
 from tsfresh.utilities.dataframe_functions import impute
-from classification_experiment_parameters import ClassificationExperimentParameters
+from classification_experiment_parameters import (
+    FrequencyHopClassificationExperimentParameters,
+)
 from VNA_enums import DataFrameCols
 from s_parameter_data import SParameterData
 from feature_extraction_parameters import FeatureExtractionParameters
