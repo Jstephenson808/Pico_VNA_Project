@@ -30,6 +30,7 @@ from vna.VNA_enums import (
     DataFrameCols,
     SParam,
     DfAxis,
+    ConfusionMatrixKey,
 )
 from vna.VNA_utils import (
     open_pickled_object_in_pickle_folder,
@@ -41,6 +42,7 @@ from vna.graphs import (
     bar_graph_accuracy_comparison,
     get_s_param_data,
     plot_3d_plots_for_all_gestures_for_sparam,
+    confusion_matrix_from_single_result,
 )
 from vna.ml_model import (
     get_full_results_df_from_classifier_pkls,
@@ -66,7 +68,11 @@ def convert_touchstones():
     )
 
 
-def plot_confusion_matrix(target_s_param):
+def plot_confusion_matrix_second_experiment(target_s_param):
+    return
+
+
+def plot_confusion_matrix_original_experiment(target_s_param):
     full_data_frame: pd.DataFrame = open_pickled_object_in_pickle_folder(
         "glove_experiment_singles_only.pkl"
     )
@@ -327,6 +333,41 @@ if __name__ == "__main__":
         GESTURE_EXPERIMENT_CAPTURE_DF
     )
 
+    results_df_from_file = open_pickled_object(
+        r"C:\Users\js637s.CAMPUS\PycharmProjects\Pico_VNA_Project\pickles\glove_experiment_2\gloveExperiment2_40000000MHz_results.pkl"
+    )
+    classifier = open_pickled_object(
+        r"C:\Users\js637s.CAMPUS\PycharmProjects\Pico_VNA_Project\pickles\glove_experiment_2\S21_S31_magnitude_0.31_0.39_2025_05_23.pkl"
+    )
+
+    experiment_label = [
+        ("_").join(i.split("_")[:-1])
+        for i in list(classifier["filtered_svm_report"].keys())
+    ][1]
+    labels = [i.split("_")[-1] for i in list(classifier["filtered_svm_report"].keys())][
+        :-3
+    ]
+    confusion_dict = {
+        key: val for key, val in classifier.items() if "confusion_matrix" in key
+    }
+    data = {
+        "label": experiment_label,
+        "classifier": "svm",
+        "full or filtered": "filtered",
+        "type": "magnitude",
+        "s_param": "S21",
+        "low_frequency": "0.31",
+        "high_frequency": "0.39",
+        "gesture": "accuracy",
+    }
+    confusion_matrix_from_single_result(
+        pd.Series(data),
+        labels,
+        confusion_dict,
+        ConfusionMatrixKey.FILTERED_SVM,
+        True,
+        confusion_matrix_key="filtered_svm_confusion_matrix",
+    )
     # run_classification_from_results()
 
     # plot_3d_plots(
@@ -339,7 +380,9 @@ if __name__ == "__main__":
     #     magnitude_or_phase=[MagnitudeOrPhase.Phase],
     # )
 
-    plot_confusion_matrix(target_s_param=confusion_matrix_target_parameter)
+    # plot_confusion_matrix_original_experiment(
+    #     target_s_param=confusion_matrix_target_parameter
+    # )
 
     # target_frequencies = [
     #     freq

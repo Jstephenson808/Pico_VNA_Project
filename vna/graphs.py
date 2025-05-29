@@ -457,14 +457,17 @@ def confusion_matrix_from_single_result(
     confusion_matrix_dict,
     confusion_matrix_option: ConfusionMatrixKey,
     convert_to_percent_of_true_labels=False,
+    confusion_matrix_key=None,
 ) -> None:
 
-    confusion_matrix_key = make_confusion_matrix_dict_string_from_series(
-        single_result_series
-    )
-    confusion_matrix = confusion_matrix_dict[confusion_matrix_key][
-        confusion_matrix_option.value
-    ]
+    if confusion_matrix_key is None:
+        confusion_matrix_key = make_confusion_matrix_dict_string_from_series(
+            single_result_series
+        )
+        confusion_matrix = confusion_matrix_dict[confusion_matrix_key][
+            confusion_matrix_option.value
+        ]
+    confusion_matrix = confusion_matrix_dict[confusion_matrix_key]
     if convert_to_percent_of_true_labels:
         confusion_matrix = np.round(
             confusion_matrix / confusion_matrix.sum(axis=1, keepdims=True) * 100, 0
