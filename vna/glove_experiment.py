@@ -360,14 +360,14 @@ if __name__ == "__main__":
         "high_frequency": "0.39",
         "gesture": "accuracy",
     }
-    confusion_matrix_from_single_result(
-        pd.Series(data),
-        labels,
-        confusion_dict,
-        ConfusionMatrixKey.FILTERED_SVM,
-        True,
-        confusion_matrix_key="filtered_svm_confusion_matrix",
-    )
+    # confusion_matrix_from_single_result(
+    #     pd.Series(data),
+    #     labels,
+    #     confusion_dict,
+    #     ConfusionMatrixKey.FILTERED_SVM,
+    #     True,
+    #     confusion_matrix_key="filtered_svm_confusion_matrix",
+    # )
     # run_classification_from_results()
 
     # plot_3d_plots(

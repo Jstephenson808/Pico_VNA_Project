@@ -467,7 +467,8 @@ def confusion_matrix_from_single_result(
         confusion_matrix = confusion_matrix_dict[confusion_matrix_key][
             confusion_matrix_option.value
         ]
-    confusion_matrix = confusion_matrix_dict[confusion_matrix_key]
+    else:
+        confusion_matrix = confusion_matrix_dict[confusion_matrix_key]
     if convert_to_percent_of_true_labels:
         confusion_matrix = np.round(
             confusion_matrix / confusion_matrix.sum(axis=1, keepdims=True) * 100, 0
@@ -483,9 +484,9 @@ def confusion_matrix_from_single_result(
 
 
 def display_confusion_matrix_for_top_n_values(
-    full_df,
-    results_df,
-    confusion_matrix_dict,
+    full_df: pd.DataFrame,
+    results_df: pd.DataFrame,
+    confusion_matrix_dict: dict,
     confusion_matrix_option=ConfusionMatrixKey.FILTERED_SVM,
     n=1,
     convert_to_percent_of_true_labels=False,
@@ -498,7 +499,7 @@ def display_confusion_matrix_for_top_n_values(
     accuracy_df = results_df[(results_df["gesture"] == "accuracy")]
     accuracy_df = accuracy_df.sort_values(by="f1-score", ascending=False)
     mag_df = accuracy_df[accuracy_df["type"] == "magnitude"]
-    labels = sorted(list(set([label[-1] for label in full_df["label"].unique()])))
+    labels = sorted(list([label.split("_")[-1] for label in full_df["label"].unique()]))
 
     for i in range(n):
         top_magnitude = mag_df.iloc[i]

@@ -1,4 +1,6 @@
 import os
+from pathlib import Path
+from typing import Iterable
 
 import numpy
 
@@ -644,12 +646,16 @@ def extract_gesture_metric_to_df(
 
 
 def extract_full_results_to_df(
-    pickle_fnames, folder_path=get_pickle_path(), extract="report"
+    classifier_output_paths: Iterable[Path],
+    extract="report",
 ) -> pd.DataFrame:
+
     full_results_data_frame = None
-    for fname in pickle_fnames:
-        path = os.path.join(folder_path, fname)
-        print(os.path.basename(path))
+    for path in classifier_output_paths:
+        if not path.exists():
+            print(f"{path} does not exist")
+            continue
+        print(path.name)
         classifier_dict = open_pickled_object(path)
         label = get_label_from_pkl_path(path)
         report_keys = [x for x in classifier_dict.keys() if extract in x]
@@ -675,10 +681,9 @@ def extract_full_results_to_df(
     return full_results_data_frame
 
 
-def extract_confusion_matrix_from_results(pickle_fnames, folder_path=get_pickle_path()):
+def extract_confusion_matrix_from_results(results_path_list: Iterable[Path]):
     confusion_matrix_dict = {}
-    for pickle_fname in pickle_fnames:
-        path = os.path.join(folder_path, pickle_fname)
+    for path in results_path_list:
         classifier_dict = open_pickled_object(path)
         label = get_label_from_pkl_path(path)
         confusion_dict = {

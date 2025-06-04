@@ -1,6 +1,7 @@
 import os
 import pickle
 import re
+from pathlib import Path
 from random import random, choice
 from time import time, sleep
 
@@ -272,7 +273,7 @@ def open_full_results_df(file_name, folder=None) -> pd.DataFrame:
     return open_pickled_object(os.path.join(folder, file_name))
 
 
-def get_label_from_pkl_path(path):
+def get_label_from_pkl_path(path: Path):
     """
     removes .pkl and then date from fname format
     "all_Sparams_magnitude_0.01_0.11_2024_04_02.pkl"
@@ -391,3 +392,7 @@ def coalesce_duplicate_columns(df: pd.DataFrame) -> pd.DataFrame:
     df = pd.concat([df, pd.DataFrame(new_cols, index=df.index)], axis=1)
 
     return df
+
+
+def list_all_pkl_files_from_folder(folder_path: Path) -> [Path]:
+    return list(folder_path.glob("**/*.pkl"))
