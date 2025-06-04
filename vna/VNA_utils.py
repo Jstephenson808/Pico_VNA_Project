@@ -1,12 +1,16 @@
 import os
 import pickle
+from pathlib import Path
 from time import time, sleep
+from typing import Type, TypeVar
 
 import numpy as np
 import pandas as pd
 
 import VNA_exceptions
 import VNA_defaults
+
+T = TypeVar("T")
 
 
 def countdown_timer(seconds):
@@ -155,13 +159,26 @@ def input_movement_label() -> str:
     return label
 
 
-def pickle_object(object_to_pickle,*, path:str, file_name:str):
+def pickle_object(object_to_pickle, *, path: str, file_name: str):
     os.makedirs(path, exist_ok=True)
     if ".pkl" not in file_name[-4:]:
         file_name = f"{file_name}.pkl"
     path = os.path.join(path, file_name)
     with open(path, "wb") as f:
         pickle.dump(object_to_pickle, f)
+
+
+def load_pickled_object_as_type(path: Path, expected_type: Type[T]) -> T:
+    if not path.exists():
+        raise FileNotFoundError(f"The path {path} does not exist")
+
+    try:
+        unpickled_object = open_pickled_object(path)
+    except (pickle.UnpicklingError, EOFError) as e:
+        raise ValueError(f"Could not load a pickle file from {path}: {e}")
+    if not isinstance(unpickled_object, expected_type):
+        raise TypeError(f"Expected {expected_type} but got {type(unpickled_object)}")
+    return unpickled_object
 
 
 def open_pickled_object(path):
@@ -190,6 +207,7 @@ def get_label_from_pkl_path(path):
     "all_Sparams_magnitude_0.01_0.11_2024_04_02.pkl"
     """
     return os.path.basename(path)[::-1].split("_", maxsplit=3)[-1][::-1]
+
 
 def linear_complex_value_to_dB(complex_value):
     return 20 * np.log10(np.abs(complex_value))

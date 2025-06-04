@@ -8,7 +8,7 @@ from sklearn.pipeline import Pipeline
 from classification_experiment_parameters import (
     FrequencyHopClassificationExperimentParameters,
 )
-from s_parameter_data import SParameterData
+from s_parameter_data import SParameterDataPandas
 from frequency import Frequency
 
 from feature_extractor import FeatureExtractor
@@ -27,7 +27,7 @@ class ClassificationTestStratergy(ABC):
 class FrequencyHopClassification:
     def __init__(
         self,
-        s_param_data_under_test: SParameterData,
+        s_param_data_under_test: SParameterDataPandas,
         test_label: str,
         frequency_hop: Frequency,
         classifiers_to_test: [Classifier],
@@ -35,7 +35,7 @@ class FrequencyHopClassification:
         feature_extractor: FeatureExtractor | None = None,
         extracted_features: ExtractedFeatures | None = None,
     ):
-        self.s_param_data_under_test: SParameterData = s_param_data_under_test
+        self.s_param_data_under_test: SParameterDataPandas = s_param_data_under_test
         self.test_label: str = test_label
         self.frequency_hop: Frequency = frequency_hop
         self.feature_extractor: FeatureExtractor = feature_extractor

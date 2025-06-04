@@ -10,7 +10,7 @@ from classification_experiment_parameters import (
     FrequencyHopClassificationExperimentParameters,
 )
 from VNA_enums import DataFrameCols
-from s_parameter_data import SParameterData
+from s_parameter_data import SParameterDataPandas
 from feature_extraction_parameters import FeatureExtractionParameters
 
 
@@ -35,7 +35,9 @@ class ExtractedFeatures:
 class FeatureExtractor(ABC):
 
     @abstractmethod
-    def extract_features(self, s_parameter_data: SParameterData) -> ExtractedFeatures:
+    def extract_features(
+        self, s_parameter_data: SParameterDataPandas
+    ) -> ExtractedFeatures:
         pass
 
 
@@ -52,7 +54,9 @@ class TsFreshFeatureExtractor(FeatureExtractor):
         self.extracted_features: ExtractedFeatures | None = None
         self.selected_features: ExtractedFeatures | None = None
 
-    def extract_features(self, s_parameter_data: SParameterData) -> ExtractedFeatures:
+    def extract_features(
+        self, s_parameter_data: SParameterDataPandas
+    ) -> ExtractedFeatures:
         self.feature_extraction_only(s_parameter_data)
         if self.feature_extraction_parameters.select_features:
             self.select_features()
@@ -61,7 +65,7 @@ class TsFreshFeatureExtractor(FeatureExtractor):
             return self.extracted_features
 
     def feature_extraction_only(
-        self, s_param_data: SParameterData
+        self, s_param_data: SParameterDataPandas
     ) -> ExtractedFeatures:
         data_frame: DataFrame = s_param_data.get_full_data_frame()
         combined_df = data_frame.ffill()

@@ -1,7 +1,7 @@
 from tsfresh import defaults
 
 from VNA_enums import DataFrameCols
-from s_parameter_data import SParameterData
+from s_parameter_data import SParameterDataPandas
 
 
 class FeatureExtractionParameters:
