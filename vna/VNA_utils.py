@@ -1,14 +1,25 @@
 import os
 import pickle
 from pathlib import Path
+from random import choice
 from time import time, sleep
 from typing import Type, TypeVar
+
+import re
+
 
 import numpy as np
 import pandas as pd
 
 import VNA_exceptions
 import VNA_defaults
+from vna.VNA_enums import (
+    ClassificationResultsColumns,
+    ClassificationResultsAccuracy,
+    MagnitudeOrPhase,
+    DataFrameCols,
+)
+from vna.scipiCommands import SParam
 
 T = TypeVar("T")
 
@@ -88,25 +99,31 @@ def get_root_folder_path():
     return path
 
 
-def get_results_path():
+def get_results_path() -> str:
     path = os.path.join(get_root_folder_path(), VNA_defaults.RESULTS_FOLDER)
     os.makedirs(path, exist_ok=True)
     return path
 
 
-def get_data_path():
+def get_graph_path():
+    path = os.path.join(get_results_path(), VNA_defaults.GRAPH_FOLDER)
+    os.makedirs(path, exist_ok=True)
+    return path
+
+
+def get_data_path() -> str:
     path = os.path.join(get_results_path(), VNA_defaults.DATA_FOLDER)
     os.makedirs(path, exist_ok=True)
     return path
 
 
-def get_pickle_path():
+def get_pickle_path() -> str:
     path = os.path.join(get_root_folder_path(), VNA_defaults.PICKLE_FOLDER)
     os.makedirs(path, exist_ok=True)
     return path
 
 
-def get_full_df_path():
+def get_full_df_path() -> str:
     path = os.path.join(get_pickle_path(), VNA_defaults.COMBINED_DF_FOLDER)
     os.makedirs(path, exist_ok=True)
     return path
@@ -201,7 +218,7 @@ def open_full_results_df(file_name, folder=None) -> pd.DataFrame:
     return open_pickled_object(os.path.join(folder, file_name))
 
 
-def get_label_from_pkl_path(path):
+def get_label_from_pkl_path(path: Path):
     """
     removes .pkl and then date from fname format
     "all_Sparams_magnitude_0.01_0.11_2024_04_02.pkl"
@@ -211,3 +228,92 @@ def get_label_from_pkl_path(path):
 
 def linear_complex_value_to_dB(complex_value):
     return 20 * np.log10(np.abs(complex_value))
+
+
+def convert_magnitude_to_db(magnitude_value: float):
+    return 20 * np.log10(magnitude_value)
+
+
+def convert_magnitude_to_db_array(values: np.ndarray) -> np.ndarray:
+    return 20 * np.log10(np.maximum(values, 1e-12))  # avoid log(0)
+
+
+def convert_magnitude_rows_to_db(data_frame: pd.DataFrame):
+    mask = data_frame["mag_or_phase"] == "magnitude"
+    cols = data_frame.columns[5:]
+
+    data_frame.loc[mask, cols] = convert_magnitude_to_db_array(
+        data_frame.loc[mask, cols].to_numpy()
+    )
+
+    return data_frame
+
+
+def extract_captured_gestures_from_results_df(results_df: pd.DataFrame) -> list:
+    return [
+        gesture
+        for gesture in list(results_df[ClassificationResultsColumns.GESTURE].unique())
+        if gesture not in list(ClassificationResultsAccuracy)
+    ]
+
+
+def format_enum_list(items):
+    enum_list = [
+        f"{re.sub(r'[^A-Z0-9]+', '_', item.upper()).strip('_')} = '{item}'"
+        for item in items
+    ]
+    return enum_list
+
+
+def get_list_of_s_params_in_df(df: pd.DataFrame) -> [SParam]:
+    return [SParam[sparam_string] for sparam_string in df["s_parameter"].unique()]
+
+
+def filter_between_frequency(df, low_frequency, high_frequency):
+    columns_to_drop = list(
+        filter(lambda x: (low_frequency > x) | (x > high_frequency), df.columns[5:])
+    )
+    return df.drop(columns_to_drop, axis=1)
+
+
+def extract_random_single_gesture_for_each_experiment_to_df(
+    capture_df: pd.DataFrame, target_s_param: SParam, mag_or_phase: MagnitudeOrPhase
+) -> pd.DataFrame:
+    experiments = capture_df[DataFrameCols.LABEL.value].unique()
+    output_df = None
+    for experiment in experiments:
+        # get all the same label experiments -> this means the same gesture
+        same_gesture = capture_df[
+            (capture_df[DataFrameCols.LABEL.value] == experiment)
+            & (capture_df[DataFrameCols.S_PARAMETER.value] == target_s_param.value)
+            & (capture_df["mag_or_phase"] == mag_or_phase.value)
+        ]
+
+        single_gesture = same_gesture[
+            same_gesture["id"] == choice(same_gesture["id"].unique())
+        ]
+        # output will contain one unique gesture capture for each
+        output_df = pd.concat([output_df, single_gesture], ignore_index=True)
+    return output_df
+
+
+def coalesce_duplicate_columns(df: pd.DataFrame) -> pd.DataFrame:
+    duplicate_cols = df.columns[df.columns.duplicated()].unique()
+    new_cols = {}
+
+    for col in duplicate_cols:
+        cols_with_name = df.loc[:, df.columns == col]
+        combined = cols_with_name.bfill(axis=1).iloc[:, 0]
+        new_cols[col] = combined
+
+    # Drop all duplicates at once
+    df = df.drop(columns=[col for col in df.columns if col in duplicate_cols])
+
+    # Combine all at once to avoid fragmentation
+    df = pd.concat([df, pd.DataFrame(new_cols, index=df.index)], axis=1)
+
+    return df
+
+
+def list_all_pkl_files_from_folder(folder_path: Path) -> [Path]:
+    return list(folder_path.glob("**/*.pkl"))
