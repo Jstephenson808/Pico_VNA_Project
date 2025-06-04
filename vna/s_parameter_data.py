@@ -24,6 +24,7 @@ SParamDataOrSubClass = TypeVar("SParamDataOrSubClass", bound="SParameterData")
 
 
 class SParameterData(Generic[DataFrameType], ABC):
+
     @classmethod
     @abstractmethod
     def open_full_results_df(cls, label: str, path: Path) -> SParamDataOrSubClass:
@@ -39,22 +40,71 @@ class SParameterData(Generic[DataFrameType], ABC):
         self._label: str = label
         self.id: uuid.UUID = uuid.uuid4()
 
+        self.minimum_frequency = self.get_minimum_frequency_from_df()
+        self.maximum_frequency = self.get_maximum_frequency_from_df()
+
+        self.data_frame_split_by_id: [SParameterDataPandas] = None
+
+        self.movement_vector: MovementVector = self.create_movement_vector()
+
+    @property
+    def label(self) -> str:
+        return self._label
+
+    @property
+    def df(self) -> DataFrameType:
+        return self._df
+
     def _make_new_instance(
         self: SParamDataOrSubClass, label: str, df: DataFrameType
     ) -> SParamDataOrSubClass:
+        """
+        Generates a new instance of SParameterData or the subclass if that is what calls it, can
+        be overwritten for other implementations.
+        Args:
+            label: label for the dataframe
+            df: the dataframe which contains the sparameter data
+
+        Returns:
+
+        """
         return self.__class__(label, df)
 
-    @abstractmethod
-    def get_minimum_frequency(self):
-        pass
+    def get_minimum_frequency_from_df(self) -> Frequency:
+        return Frequency(min(self.get_frequency_column_headings_list()))
 
-    @abstractmethod
-    def get_maximum_frequency(self):
-        pass
+    def get_maximum_frequency_from_df(self) -> Frequency:
+        return Frequency(max(self.get_frequency_column_headings_list()))
 
-    @abstractmethod
-    def get_full_data_frame(self):
-        pass
+    def get_minimum_frequency(self) -> Frequency:
+        return self.minimum_frequency
+
+    def get_maximum_frequency(self) -> Frequency:
+        return self.maximum_frequency
+
+    def get_full_data_frame(self) -> pd.DataFrame:
+        return self.df
+
+    def get_data_frame_between_frequency(
+        self, low_frequency: Frequency, high_frequency: Frequency
+    ) -> SParamDataOrSubClass:
+        """
+        Filter the data frame so only the fq window of interest is selected and that the
+        frequencies are in the range of the data frame
+        :param lower_bound: Lower frequency bound
+        :param upper_bound: Higher frequency bound
+        :return: SParameterData object containing just the frequencies
+        """
+        freq_cols: [Frequency] = [
+            Frequency(x)
+            for x in self.get_frequency_columns()
+            if low_frequency.get_freq_hz() <= x <= high_frequency.get_freq_hz()
+        ]
+        if not freq_cols:
+            raise ValueError(
+                f"The frequencies {low_frequency} and {high_frequency} are not in the range of the data"
+            )
+        return self.filter_columns_between_frequencies(filter_frequencies=freq_cols)
 
     @abstractmethod
     def get_magnitude_data_frame(self):
@@ -89,10 +139,6 @@ class SParameterData(Generic[DataFrameType], ABC):
     @abstractmethod
     def filter_columns_between_frequencies(self, filter_frequencies):
         """
-        To account for the mix of titles, this regex is used. It will match
-        any of the column headings and then also the list of column frequencies
-        that you pass in, returning a SParameterData object.
-
         This is a helper method for get_data_frame_between_frequency()
         :param filter_frequencies: List of Frequency objects which you want to filter by
         :return: SParameterData object with the filtered frequencies
@@ -126,6 +172,10 @@ class SParameterData(Generic[DataFrameType], ABC):
     ):
         pass
 
+    @abstractmethod
+    def convert_frequency_columns_to_int_type(self):
+        pass
+
 
 class SParameterDataPandas(SParameterData[pd.DataFrame]):
 
@@ -144,44 +194,23 @@ class SParameterDataPandas(SParameterData[pd.DataFrame]):
 
     def __init__(self, label: str, data_frame: pd.DataFrame):
         super().__init__(label, data_frame)
-
-        self._df.columns = self.convert_frequency_columns_to_int_type()
-        self.minimum_frequency = self.get_minimum_frequency_from_df()
-        self.maximum_frequency = self.get_maximum_frequency_from_df()
-
-        self.data_frame_split_by_id: [SParameterDataPandas] = None
-
-        self.movement_vector: MovementVector = self.create_movement_vector()
-
-    def convert_frequency_columns_to_int_type(self):
-        return list(self._df.columns[:5]) + [int(x) for x in self._df.columns[5:]]
-
-    def get_minimum_frequency_from_df(self) -> Frequency:
-        return Frequency(min(self.get_frequency_column_headings_list()))
-
-    def get_maximum_frequency_from_df(self) -> Frequency:
-        return Frequency(max(self.get_frequency_column_headings_list()))
+        # need to just make sure df columns are int not string type because of old impls
+        self.df.columns = self.convert_frequency_columns_to_int_type()
 
     def __str__(self) -> str:
         return f"Data containing: {self.label}, UUID: {self.id}"
 
     def __repr__(self) -> str:
-        return f"SParameterData({self.label}, {self._df}) UUID: {self.id}"
+        return f"SParameterData({self.label}, {self.df}) UUID: {self.id}"
 
-    def get_minimum_frequency(self) -> Frequency:
-        return self.minimum_frequency
-
-    def get_maximum_frequency(self) -> Frequency:
-        return self.maximum_frequency
-
-    def get_full_data_frame(self) -> pd.DataFrame:
-        return self._df
+    def convert_frequency_columns_to_int_type(self):
+        return list(self.df.columns[:5]) + [int(x) for x in self.df.columns[5:]]
 
     def get_magnitude_data_frame(self) -> pd.DataFrame:
-        return self._df[self._df["mag_or_phase"] == "magnitude"]
+        return self.df[self.df["mag_or_phase"] == "magnitude"]
 
     def get_phase_data_frame(self) -> pd.DataFrame:
-        return self._df[self._df["mag_or_phase"] == "phase"]
+        return self.df[self.df["mag_or_phase"] == "phase"]
 
     def get_frequency_column_headings_list(self) -> [Frequency]:
         return [Frequency(x) for x in self.get_frequency_columns()]
@@ -189,7 +218,7 @@ class SParameterDataPandas(SParameterData[pd.DataFrame]):
     def get_frequency_columns(self) -> [int]:
         return [
             x
-            for x in self._df.columns.values
+            for x in self.df.columns.values
             if isinstance(x, int) or isinstance(x, np.int64)
         ]
 
@@ -206,11 +235,11 @@ class SParameterDataPandas(SParameterData[pd.DataFrame]):
             List of SParameterData objects split, also adds list to self.data_frame_split_by_id
 
         """
-        if self._df is None:
+        if self.df is None:
             raise ArgumentError("Data frame can't be None")
 
         # Get the unique IDs
-        unique_ids = self._df[DataFrameCols.ID.value].unique()
+        unique_ids = self.df[DataFrameCols.ID.value].unique()
 
         # Initialize a list to store the smaller DataFrames
         split_dfs_by_id = []
@@ -221,7 +250,7 @@ class SParameterDataPandas(SParameterData[pd.DataFrame]):
             chunk_ids = unique_ids[i : i + ids_per_split]
 
             # Filter the original DataFrame for those IDs
-            smaller_df = self._df[self._df[DataFrameCols.ID.value].isin(chunk_ids)]
+            smaller_df = self.df[self.df[DataFrameCols.ID.value].isin(chunk_ids)]
             label = f"{self.label} split {i}/{len(unique_ids)//ids_per_split}"
 
             data_object = SParameterDataPandas(label, smaller_df)
@@ -230,27 +259,6 @@ class SParameterDataPandas(SParameterData[pd.DataFrame]):
 
         self.data_frame_split_by_id = split_dfs_by_id
         return split_dfs_by_id
-
-    def get_data_frame_between_frequency(
-        self, low_frequency: Frequency, high_frequency: Frequency
-    ) -> SParameterDataPandas:
-        """
-        Filter the data frame so only the fq window of interest is selected and that the
-        frequencies are in the range of the data frame
-        :param lower_bound: Lower frequency bound
-        :param upper_bound: Higher frequency bound
-        :return: SParameterData object containing just the frequencies
-        """
-        freq_cols: [Frequency] = [
-            Frequency(x)
-            for x in self.get_frequency_columns()
-            if low_frequency.get_freq_hz() <= x <= high_frequency.get_freq_hz()
-        ]
-        if not freq_cols:
-            raise ValueError(
-                f"The frequencies {low_frequency} and {high_frequency} are not in the range of the data"
-            )
-        return self.filter_columns_between_frequencies(filter_frequencies=freq_cols)
 
     def filter_columns_between_frequencies(
         self, *, filter_frequencies: [Frequency]
@@ -269,12 +277,12 @@ class SParameterDataPandas(SParameterData[pd.DataFrame]):
             pattern += "|" + "|".join(
                 f"^{frequency.get_freq_hz()}$" for frequency in filter_frequencies
             )
-        filtered_df = self._df.filter(regex=pattern, axis=1)
+        filtered_df = self.df.filter(regex=pattern, axis=1)
         new_label = (
             self.label
             + f"filtered between {filter_frequencies[0].get_freq_hz()}Hz and {filter_frequencies[-1].get_freq_hz()}Hz"
         )
-        return SParameterDataPandas(filtered_df, label=new_label)
+        return SParameterDataPandas(data_frame=filtered_df, label=new_label)
 
     def create_movement_vector(self) -> MovementVector:
         """
@@ -283,10 +291,10 @@ class SParameterDataPandas(SParameterData[pd.DataFrame]):
             Movement vector object
 
         """
-        if self._df is None:
+        if self.df is None:
             raise ArgumentError("Data frame can't be None")
 
-        return MovementVector.create_movement_vector_for_single_data_frame(df=self._df)
+        return MovementVector.create_movement_vector_for_single_data_frame(df=self.df)
 
     def make_columns_have_s_param_mag_phase_titles(self) -> SParameterDataPandas:
         """
@@ -295,7 +303,7 @@ class SParameterDataPandas(SParameterData[pd.DataFrame]):
         Returns:
 
         """
-        data_frame = self._df
+        data_frame = self.df
         freq_cols = [val for val in data_frame.columns.values if isinstance(val, int)]
         grouped_data = data_frame.groupby(
             ["mag_or_phase", DataFrameCols.S_PARAMETER.value]
@@ -331,7 +339,7 @@ class SParameterDataPandas(SParameterData[pd.DataFrame]):
         if filter_options == DfFilterOptions.MAGNITUDE:
             output_df = self.get_magnitude_data_frame()
         else:
-            output_df = self._df
+            output_df = self.df
         output_data = SParameterDataPandas(
             f"{self.label}_{filter_options.value}", output_df
         ).get_data_frame_between_frequency(low_frequency, high_frequency)
