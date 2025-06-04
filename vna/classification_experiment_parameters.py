@@ -32,7 +32,7 @@ class FrequencyHopClassificationExperimentParameters(ExperimentParameters):
         if movement_vector is None:
             self.movement_vector: MovementVector = MovementVector()
             self.movement_vector.create_movement_vector_for_single_data_frame(
-                self.s_param_data.get_full_data_frame()
+                self.s_param_data.data_frame
             )
         self.s_param_data: SParameterData = s_param_data
         self.s_param_combinations_list: SParameterCombinationsList = (

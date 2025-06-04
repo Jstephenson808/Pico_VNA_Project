@@ -43,10 +43,10 @@ class FrequencyHopClassification:
         self.extracted_features: ExtractedFeatures = extracted_features
         self.movement_vector: MovementVector = movement_vector
         self.test_minimum_frequency: Frequency = (
-            self.s_param_data_under_test.get_minimum_frequency()
+            self.s_param_data_under_test.minimum_frequency
         )
         self.test_maximum_frequency: Frequency = (
-            self.s_param_data_under_test.get_maximum_frequency()
+            self.s_param_data_under_test.maximum_frequency
         )
 
         # todo this needs to be in a lower class for experiment
