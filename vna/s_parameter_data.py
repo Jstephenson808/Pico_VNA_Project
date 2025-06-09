@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-import pickle
-from abc import ABCMeta, abstractmethod, ABC
+import re
+from abc import abstractmethod, ABC
 from pathlib import Path
-from typing import Union, TypeVar, Generic, Self
+from typing import Generic, Self
 
 import numpy as np
 
@@ -11,16 +11,14 @@ import uuid
 from argparse import ArgumentError
 
 import pandas as pd
-import polars as pl
 
-from VNA_utils import open_pickled_object
 from VNA_enums import DataFrameCols, DfFilterOptions
-from movement_vector import MovementVector
+from movement_vector import MovementVectorPandas
 from frequency import Frequency
+from vna.VNA_enums import DfAxis
+from vna.VNA_types import DataFrameType, SParamDataOrSubClass, GroupBy
 from vna.VNA_utils import load_pickled_object_as_type
-
-DataFrameType = TypeVar("DataFrameType", pd.DataFrame, pl.DataFrame)
-SParamDataOrSubClass = TypeVar("SParamDataOrSubClass", bound="SParameterData")
+from vna.movement_vector import MovementVector
 
 
 class SParameterData(Generic[DataFrameType], ABC):
@@ -108,6 +106,15 @@ class SParameterData(Generic[DataFrameType], ABC):
             )
         return self.filter_columns_between_frequencies(filter_frequencies=freq_cols)
 
+    def generate_new_label(self, new_label: str) -> str:
+        if new_label is None or (new_label.casefold() == self.label.casefold()):
+            new_label = self.label
+        if new_label.contains(self.label):
+            pass
+        else:
+            new_label = f"{self.label} {new_label}"
+        return new_label
+
     @abstractmethod
     def get_magnitude_data_frame(self):
         pass
@@ -148,18 +155,7 @@ class SParameterData(Generic[DataFrameType], ABC):
         pass
 
     @abstractmethod
-    def get_data_frame_between_frequency(self, low_frequency, high_frequency) -> Self:
-        """
-        Filter the data frame so only the fq window of interest is selected and that the
-        frequencies are in the range of the data frame
-        :param lower_bound: Lower frequency bound
-        :param upper_bound: Higher frequency bound
-        :return: SParameterData object containing just the frequencies
-        """
-        pass
-
-    @abstractmethod
-    def create_movement_vector(self):
+    def create_movement_vector(self) -> MovementVector:
         """
         Creates a movement vector which maps each unique ID to its associated gesture for classification
         Returns:
@@ -176,6 +172,26 @@ class SParameterData(Generic[DataFrameType], ABC):
 
     @abstractmethod
     def convert_frequency_columns_to_int_type(self):
+        pass
+
+    @abstractmethod
+    def group_by_id(self) -> GroupBy:
+        pass
+
+    @abstractmethod
+    def group_by_passthrough(self, *args, **kwargs):
+        """
+        This method is for a passthrough to the impl specific groupby function
+        It is provided as a convience method and is not generic
+        """
+        pass
+
+    @abstractmethod
+    def create_column(self, column_name: str, value):
+        pass
+
+    @abstractmethod
+    def zero_ref_times(self):
         pass
 
 
@@ -264,6 +280,21 @@ class SParameterDataPandas(SParameterData[pd.DataFrame]):
         self.data_frame_split_by_id = split_dfs_by_id
         return split_dfs_by_id
 
+    def get_string_column_titles_regex(self):
+        return re.compile(rf"^id$|^label$|^mag_or_phase$|^s_parameter$|^time$")
+
+    def get_freq_cols_regex_from_list(self, freq_list: list[Frequency]) -> re.Pattern:
+        return re.compile(
+            "|" + "|".join(f"^{frequency.get_freq_hz()}$" for frequency in freq_list)
+        )
+
+    def filter_columns_from_regex(self, regex: re.Pattern, new_label: str = None):
+        data_label = self.generate_new_label(new_label)
+
+        filtered_df = self.data_frame.filter(regex=regex.pattern, axis=DfAxis.COLUMN)
+
+        return self._make_new_instance(data_label, filtered_df)
+
     def filter_columns_between_frequencies(
         self, *, filter_frequencies: list[Frequency]
     ) -> Self:
@@ -276,31 +307,27 @@ class SParameterDataPandas(SParameterData[pd.DataFrame]):
         :param filter_frequencies: List of Frequency objects which you want to filter by
         :return: SParameterData object with the filtered frequencies
         """
-        pattern = rf"^id$|^label$|^mag_or_phase$|^s_parameter$|^time$"
-        if filter_frequencies:
-            pattern += "|" + "|".join(
-                f"^{frequency.get_freq_hz()}$" for frequency in filter_frequencies
-            )
-        filtered_df = self.data_frame.filter(regex=pattern, axis=1)
-        new_label = (
-            self.label
-            + f" filtered between {filter_frequencies[0].get_freq_hz()}Hz and {filter_frequencies[-1].get_freq_hz()}Hz"
+        string_cols_regex: re.Pattern = self.get_string_column_titles_regex()
+        freq_cols_regex: re.Pattern = self.get_freq_cols_regex_from_list(
+            filter_frequencies
         )
-        return self._make_new_instance(data_frame=filtered_df, label=new_label)
 
-    def create_movement_vector(self) -> MovementVector:
+        string_and_freq_cols_regex = re.compile(
+            string_cols_regex.pattern + freq_cols_regex.pattern
+        )
+        label_to_add = f" filtered between {filter_frequencies[0].get_freq_hz()}Hz and {filter_frequencies[-1].get_freq_hz()}Hz"
+
+        return self.filter_columns_from_regex(string_and_freq_cols_regex, label_to_add)
+
+    def create_movement_vector(self) -> MovementVectorPandas:
         """
         Creates a movement vector which maps each unique ID to its associated gesture for classification
         Returns:
             Movement vector object
 
         """
-        if self.data_frame is None:
-            raise ArgumentError("Data frame can't be None")
 
-        return MovementVector.create_movement_vector_for_single_data_frame(
-            df=self.data_frame
-        )
+        return MovementVectorPandas.create_movement_vector_for_single_data_frame(self)
 
     def make_columns_have_s_param_mag_phase_titles(self) -> Self:
         """
@@ -355,6 +382,9 @@ class SParameterDataPandas(SParameterData[pd.DataFrame]):
             f"{self.label}_{low_frequency.get_freq_mhz()}-{high_frequency.get_freq_mhz()}MHz",
             output_data.data_frame,
         )
+
+    def group_by_passthrough(self, *args, **kwargs):
+        return self.data_frame.groupby(*args, **kwargs)
 
 
 class NotClassifier:

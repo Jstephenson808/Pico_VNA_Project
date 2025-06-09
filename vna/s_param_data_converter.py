@@ -10,7 +10,7 @@ import pandas as pd
 from natsort import natsorted
 from skrf import Network, Touchstone
 
-from s_parameter_data import SParameterDataPandas
+from s_parameter_data import SParameterDataPandas, SParameterData
 
 from VNA_data import VnaData
 
@@ -19,7 +19,7 @@ from VNA_enums import DataFrameCols, DateFormats
 
 class SParamDataConverter(ABC):
     @abstractmethod
-    def convert_to_s_param_data(self) -> SParameterDataPandas:
+    def convert_to_s_param_data(self) -> SParameterData:
         pass
 
 

@@ -10,7 +10,7 @@ from sklearn.tree import DecisionTreeClassifier
 
 from vna.VNA_defaults import DEFAULT_CLASSIFICATION_TRAIN_TEST_SPLIT
 from vna.feature_extractor import ExtractedFeatures
-from vna.movement_vector import MovementVector
+from vna.movement_vector import MovementVectorPandas
 
 
 class ClassificationResults(ABC):
@@ -49,7 +49,9 @@ class Classifier(ABC):
 
     @abstractmethod
     def run_classifier(
-        self, extracted_features: ExtractedFeatures, movement_vector: MovementVector
+        self,
+        extracted_features: ExtractedFeatures,
+        movement_vector: MovementVectorPandas,
     ):
         pass
 
@@ -80,7 +82,9 @@ class PicoDecisionTreeClassifier(Classifier):
         return self.scaler.transform(extracted_features.extracted_features)
 
     def run_classifier(
-        self, extracted_features: ExtractedFeatures, movement_vector: MovementVector
+        self,
+        extracted_features: ExtractedFeatures,
+        movement_vector: MovementVectorPandas,
     ):
         normailsed_data = self.normailse_data(extracted_features)
         training_data, test_data, training_labels, test_labels = train_test_split(
@@ -119,7 +123,9 @@ class SupportVectorClassifier(Classifier):
         return self.scaler.transform(extracted_features.extracted_features)
 
     def run_classifier(
-        self, extracted_features: ExtractedFeatures, movement_vector: MovementVector
+        self,
+        extracted_features: ExtractedFeatures,
+        movement_vector: MovementVectorPandas,
     ):
         normailsed_features = self.normailse_data(extracted_features)
 

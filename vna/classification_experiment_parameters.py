@@ -5,7 +5,7 @@ from s_parameter_combination_list import SParameterCombinationsList
 
 from VNA_enums import DfFilterOptions, DataFrameCols
 
-from movement_vector import MovementVector
+from movement_vector import MovementVectorPandas
 from vna.classifier import Classifier
 from vna.single_gesture_classifier import create_test_dict
 from vna.frequency import Frequency
@@ -26,11 +26,11 @@ class FrequencyHopClassificationExperimentParameters(ExperimentParameters):
         s_param_measurement_options: DfFilterOptions,
         freq_hop: Frequency,
         classifiers_to_test: [Classifier],
-        movement_vector: MovementVector = None,
+        movement_vector: MovementVectorPandas = None,
     ):
         super().__init__()
         if movement_vector is None:
-            self.movement_vector: MovementVector = MovementVector()
+            self.movement_vector: MovementVectorPandas = MovementVectorPandas()
             self.movement_vector.create_movement_vector_for_single_data_frame(
                 self.s_param_data.data_frame
             )
