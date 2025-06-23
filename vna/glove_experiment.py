@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 
 import pandas as pd
 import random
@@ -8,7 +9,11 @@ from matplotlib import pyplot as plt, figure
 
 from sklearn.metrics import confusion_matrix
 
-from vna.VNA_defaults import CONFIRM_TEMP_FILE, TRAIN_TEST_SEED_VALUE
+from vna.VNA_defaults import (
+    CONFIRM_TEMP_FILE,
+    TRAIN_TEST_SEED_VALUE,
+    DEFAULT_FIGURE_SIZE,
+)
 from vna.VNA_utils import (
     open_pickled_object,
     convert_magnitude_rows_to_db,
@@ -23,6 +28,7 @@ from vna.VNA_utils import (
     extract_random_single_gesture_for_each_experiment_to_df,
     coalesce_duplicate_columns,
     ghz_to_hz,
+    get_graph_path,
 )
 from vna.VNA_enums import (
     MagnitudeOrPhase,
@@ -262,6 +268,11 @@ def plot_3d_plots(
     high_freq,
     magnitude_or_phase: [MagnitudeOrPhase] = None,
     sparams_to_plot: [SParam] = None,
+    title=True,
+    file_output_root: Path = None,
+    experiment_label=None,
+    save_to_file=False,
+    figure_size=DEFAULT_FIGURE_SIZE,
 ):
     if sparams_to_plot is None:
         sparams_to_plot = list(SParam)
@@ -277,38 +288,68 @@ def plot_3d_plots(
         end_time,
         coalesce_duplicates=True,
     )
-
+    sparam: SParam
+    measurement: MagnitudeOrPhase
     for sparam in sparams_to_plot:
         for measurement in magnitude_or_phase:
+            # file_output_path: Path = file_output_root.joinpath(
+            #     measurement.value, sparam.value
+            # )
             figures = plot_3d_plots_for_all_gestures_for_sparam(
                 time_series_to_3d_plot,
                 sparam,
                 measurement,
                 save_to_file=True,
                 experiment_label=experiment_label,
+                title=title,
+                file_output_path=file_output_root,
+                figure_size=figure_size,
             )
 
             for figure in figures:
-                if SAVE_TO_FILE:
+                if save_to_file:
                     mpl.pyplot.close(figure)
                 else:
                     figure.show()
 
 
+def get_experiment_label_from_results_object(classifier: dict):
+    return [
+        ("_").join(i.split("_")[:-1])
+        for i in list(classifier["filtered_svm_report"].keys())
+    ][1]
+
+
 if __name__ == "__main__":
-    plt.rcParams["font.size"] = 14
+    target_sparams_for_3D_time_series = [SParam.S21, SParam.S11, SParam.S31, SParam.S41]
+    target_measurements_for_3d_time_series = [
+        MagnitudeOrPhase.Magnitude,
+        MagnitudeOrPhase.Phase,
+    ]
+    target_measurements_for_3d_time_series = [MagnitudeOrPhase.Phase]
+    target_sparams_for_3D_time_series = [SParam.S11]
+
+    plt.rcParams["font.size"] = 40
 
     # seed random value for repeatability
     random.seed(TRAIN_TEST_SEED_VALUE)
 
-    CLASSIFIER_RESULTS_PATH = r"C:\Users\js637s.CAMPUS\PycharmProjects\Pico_VNA_Project\pickles\classifier_results"
-    PKL_RESULTS_FNAME = "classification_results_glove_experiment"
+    CLASSIFIER_RESULTS_PATH = r"C:\Users\2573758S\OneDrive - University of Glasgow\PhD\Experiments\Glove Gesture Experiment\Pickles\Other Related Pkls"
+    PKL_RESULTS_FNAME = "classification_results_glove_experiment.pkl"
     EXPERIMENT_NAME = "glove_gesture_experiment_2_201pts_75reps_150M_400M_11ges"
     TOUCHSTONE_FOLDER_PATH = r"C:\Users\2573758S\OneDrive - University of Glasgow\PhD\Experiments\Glove Gesture Experiment\Touchstones\Experiment 2"
     RESULTS_WITHOUT_REPEATS_PKL_FNAME = "glove_experiment_singles_only.pkl"
-    FULL_DATA_CAPTURE_A = "glove_experiment_full_data.pkl"
+    FULL_DATA_CAPTURE_A = "glove_gesture_experiment_2_201pts_75reps_150M_400M_11ges.pkl"
     SAVE_TO_FILE = True
     COALESCE_DUPLICATE_COLUMNS_IN_DATAFRAME = True
+
+    OUTPUT_FOLDER_PATH = Path(
+        r"C:\Users\2573758S\OneDrive - University of Glasgow\PhD\Experiments\GLove Gesture Experiment 2\Graphs"
+    )
+
+    BASE_FOLDER = Path(
+        r"C:\Users\2573758S\OneDrive - University of Glasgow\PhD\Experiments\Glove Gesture Experiment\Pickles\Glove Gesture Classification 3 150MHz 350MHz Pkls"
+    )
 
     GESTURE_EXPERIMENT_CAPTURE_DF = (
         r"glove_gesture_experiment_2_201pts_75reps_150M_400M_11ges"
@@ -326,27 +367,28 @@ if __name__ == "__main__":
 
     experiment_label = "Glove Experiment"
 
-    results_df_from_file = combine_classifier_results_dfs(CLASSIFIER_RESULTS_PATH)
-    results_from_pkls = open_pickled_object_in_pickle_folder(PKL_RESULTS_FNAME)
-    # results_df_from_file.to_csv("glove_experiment_csv.csv")
-    data_caputre_df = open_pickled_object_in_pickle_folder(
-        GESTURE_EXPERIMENT_CAPTURE_DF
+    # results_df_from_file = combine_classifier_results_dfs(CLASSIFIER_RESULTS_PATH)
+    original_results_from_pkls_all_gestures = open_pickled_object(
+        Path(
+            rf"C:\Users\2573758S\OneDrive - University of Glasgow\PhD\Experiments\Glove Gesture Experiment\Pickles\Other Related Pkls\{PKL_RESULTS_FNAME}"
+        )
     )
+    # results_df_from_file.to_csv("glove_experiment_csv.csv")
+    data_caputre_df = open_pickled_object(BASE_FOLDER.joinpath(FULL_DATA_CAPTURE_A))
 
     results_df_from_file = open_pickled_object(
-        r"C:\Users\js637s.CAMPUS\PycharmProjects\Pico_VNA_Project\pickles\glove_experiment_2\gloveExperiment2_40000000MHz_results.pkl"
+        r"C:\Users\2573758S\OneDrive - University of Glasgow\PhD\Experiments\GLove Gesture Experiment 2\glove_experiment_2\gloveExperiment2_40000000MHz_results.pkl"
     )
     classifier = open_pickled_object(
-        r"C:\Users\js637s.CAMPUS\PycharmProjects\Pico_VNA_Project\pickles\glove_experiment_2\S21_S31_magnitude_0.31_0.39_2025_05_23.pkl"
+        r"C:\Users\2573758S\OneDrive - University of Glasgow\PhD\Experiments\GLove Gesture Experiment 2\glove_experiment_2\S21_S31_magnitude_0.31_0.39_2025_05_23.pkl"
     )
 
-    experiment_label = [
-        ("_").join(i.split("_")[:-1])
-        for i in list(classifier["filtered_svm_report"].keys())
-    ][1]
-    labels = [i.split("_")[-1] for i in list(classifier["filtered_svm_report"].keys())][
-        :-3
-    ]
+    # target_frequencies = [
+    #     freq
+    #     for freq in get_frequency_column_headings_list(data_caputre_df)
+    #     if time_series_low_freq <= freq <= time_series_high_freq
+    # ]
+
     confusion_dict = {
         key: val for key, val in classifier.items() if "confusion_matrix" in key
     }
@@ -370,26 +412,38 @@ if __name__ == "__main__":
     # )
     # run_classification_from_results()
 
+    plot_3d_plots(
+        data_caputre_df,
+        start_time,
+        end_time,
+        low_freq,
+        high_freq,
+        sparams_to_plot=target_sparams_for_3D_time_series,
+        magnitude_or_phase=target_measurements_for_3d_time_series,
+        file_output_root=OUTPUT_FOLDER_PATH,
+        experiment_label=experiment_label,
+        title=False,
+    )
+
     # plot_3d_plots(
     #     data_caputre_df,
     #     start_time,
     #     end_time,
     #     low_freq,
     #     high_freq,
-    #     sparams_to_plot=[SParam.S21],
-    #     magnitude_or_phase=[MagnitudeOrPhase.Phase],
+    #     sparams_to_plot=target_sparams_for_3D_time_series,
+    #     magnitude_or_phase=target_measurements_for_3d_time_series,
+    #     file_output_root=OUTPUT_FOLDER_PATH,
+    #     experiment_label=experiment_label,
+    #     title=True,
     # )
+
+    # os.startfile(OUTPUT_FOLDER_PATH)
 
     # plot_confusion_matrix_original_experiment(
     #     target_s_param=confusion_matrix_target_parameter
     # )
 
-    # target_frequencies = [
-    #     freq
-    #     for freq in get_frequency_column_headings_list(data_caputre_df)
-    #     if time_series_low_freq <= freq <= time_series_high_freq
-    # ]
-    #
     # # plot time series plots
     # for target_freq in target_frequencies:
     #     figs = []

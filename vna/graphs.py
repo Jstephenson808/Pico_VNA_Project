@@ -2,6 +2,7 @@ import os
 import random
 from datetime import datetime
 from itertools import product
+from pathlib import Path
 
 import matplotlib
 import numpy as np
@@ -10,6 +11,7 @@ from matplotlib import ticker
 from matplotlib.axes import Axes
 from matplotlib.cm import get_cmap
 from matplotlib.figure import Figure
+from matplotlib.pyplot import title, colorbar
 from mpl_toolkits.mplot3d.art3d import Line3DCollection
 from sklearn.metrics import ConfusionMatrixDisplay
 import seaborn as sns
@@ -40,6 +42,11 @@ from vna.VNA_enums import (
     MagnitudeOrPhase,
     SParam,
 )
+
+
+def set_graph_svg_text_to_text(rcParams):
+    rcParams["svg.fonttype"] = "none"
+    return rcParams
 
 
 def svm_vs_dt_strip_plot(results_df: pd.DataFrame):
@@ -458,6 +465,11 @@ def confusion_matrix_from_single_result(
     confusion_matrix_option: ConfusionMatrixKey,
     convert_to_percent_of_true_labels=False,
     confusion_matrix_key=None,
+    cmap=DEFAULT_COLOUR_MAP,
+    color_bar=False,
+    show_plot=True,
+    remove_zeroes=True,
+    title=False,
 ) -> None:
 
     if confusion_matrix_key is None:
@@ -474,13 +486,22 @@ def confusion_matrix_from_single_result(
             confusion_matrix / confusion_matrix.sum(axis=1, keepdims=True) * 100, 0
         ).astype(int)
 
-    ConfusionMatrixDisplay(confusion_matrix, display_labels=labels).plot()
-    plt.title(
-        f'Confusion Matrix Using {single_result_series["classifier"].title()} classifier \n'
-        f'Between {single_result_series["low_frequency"]} and {single_result_series["high_frequency"]} GHz'
-    )
-    plt.show()
-    return
+    disp = ConfusionMatrixDisplay(confusion_matrix, display_labels=labels)
+    disp.plot(cmap=cmap, colorbar=color_bar)
+
+    if remove_zeroes:
+        for row in disp.text_:
+            for text_obj in row:
+                if text_obj.get_text() == "0":
+                    text_obj.set_text("")
+    if title:
+        plt.title(
+            f'Confusion Matrix Using {single_result_series["classifier"].title()} classifier \n'
+            f'Between {single_result_series["low_frequency"]} and {single_result_series["high_frequency"]} GHz'
+        )
+    if show_plot:
+        plt.show()
+    return plt
 
 
 def display_confusion_matrix_for_top_n_values(
@@ -879,43 +900,50 @@ def create_data_normaliser(data_to_normalise):
 def plot_3d_time_series(
     data_frame_to_plot: pd.DataFrame,
     c_map_name=DEFAULT_COLOUR_MAP,
-    fig_size=DEFAULT_FIGURE_SIZE,
+    figure_size=DEFAULT_FIGURE_SIZE,
+    title=True,
     file_output_path=None,
     file_output_flag=False,
-    fname=None,
+    file_name=None,
     experiment_label=None,
     filetype=DEFAULT_FILE_TYPE,
-    font_size=14,
+    font_size=None,
+    full_phase_axis=True,
 ):
     """
     Plots a 3D time series from a results dataframe.
 
     Args:
+        experiment_label:
         data_frame_to_plot: DataFrame with the data to plot.
         seaborn_style: Optional seaborn style to use for the plot.
-        fig_size: Size of the figure.
+        figure_size: Size of the figure.
 
     Returns:
         fig: The generated Matplotlib figure object.
     """
 
-    # Set global font size for all text elements
-    plt.rcParams.update(
-        {
-            "font.size": font_size,
-            "axes.titlesize": font_size,
-            "axes.labelsize": font_size,
-            "legend.fontsize": font_size,
-            "xtick.labelsize": font_size,
-            "ytick.labelsize": font_size,
-        }
-    )
+    if font_size:
+        # Set global font size for all text elements
+        plt.rcParams.update(
+            {
+                "font.size": font_size,
+                "axes.titlesize": font_size,
+                "axes.labelsize": font_size,
+                "legend.fontsize": font_size,
+                "xtick.labelsize": font_size,
+                "ytick.labelsize": font_size,
+            }
+        )
 
+    # add function and assert inside
     phase_or_mag = data_frame_to_plot["mag_or_phase"].iloc[0]
 
+    # create function within dataframe class
     if phase_or_mag == MagnitudeOrPhase.Phase.value:
         data_frame_to_plot.iloc[:, 5:] = data_frame_to_plot.iloc[:, 5:] * 180 / np.pi
 
+    # function
     cmap = matplotlib.colormaps[c_map_name]
 
     s_parameter = data_frame_to_plot["s_parameter"].iloc[0]
@@ -930,7 +958,7 @@ def plot_3d_time_series(
     time = data_frame_to_plot["time"]
     times_normalized = time - time.min()
 
-    fig = plt.figure(figsize=fig_size)
+    fig = plt.figure(figsize=figure_size)
     ax = fig.add_subplot(projection="3d")
 
     data_to_plot = data_frame_to_plot.iloc[:, 5:]
@@ -981,10 +1009,10 @@ def plot_3d_time_series(
 
     # After all lines, set manual limits
     ax.set_ylim(min(all_frequency), max(all_frequency))
-    # if phase_or_mag == MagnitudeOrPhase.Phase.value:
-    ax.set_zlim(-200, 200)
-    # else:
-    #     ax.set_zlim(min(all_magnitude), max(all_magnitude))
+    if (phase_or_mag == MagnitudeOrPhase.Phase.value) and full_phase_axis:
+        ax.set_zlim(-200, 200)
+    else:
+        ax.set_zlim(min(all_magnitude), max(all_magnitude))
     ax.set_xlim(min(all_times), max(all_times))
 
     ax.set_ylabel("Frequency (MHz)", labelpad=15)
@@ -997,31 +1025,44 @@ def plot_3d_time_series(
         ),
         labelpad=15,
     )
-    ax.set_xlabel("Time (s)", labelpad=15)
+    ax.set_xlabel("Time (s)", labelpad=25)
 
     measured_value = data_frame_to_plot["mag_or_phase"].iloc[0]
-    if measured_value == MagnitudeOrPhase.Magnitude.value:
-        ax.set_title(f"|{s_parameter}| \n Gesture {gesture}", y=0.95)
-    else:
-        ax.set_title(f"Phase {s_parameter}\n Gesture {gesture}", y=0.95)
+    if title:
+        if measured_value == MagnitudeOrPhase.Magnitude.value:
+            ax.set_title(f"|{s_parameter}| \n Gesture {gesture}", y=0.95)
+        else:
+            ax.set_title(f"Phase {s_parameter}\n Gesture {gesture}", y=0.95)
 
     ax.invert_xaxis()
+
     ax.set_box_aspect([8, 5, 3])
     ax.view_init(elev=20, azim=30, roll=0)
     ax.yaxis.set_major_locator(ticker.MaxNLocator(nbins=5))
     ax.zaxis.set_major_locator(ticker.MaxNLocator(nbins=7))
+    # fig.set_constrained_layout(True)
+    if title:
+        title_label = "title"
+    else:
+        title_label = "no_title"
     if file_output_flag:
-        if fname is None:
-            fname = f"{datetime.now().strftime('%Y_%m_%d_%H_%M_%S')}-{s_parameter}-{measured_value}-{gesture}-{c_map_name}.{filetype}"
+        if file_name is None:
+            file_name: str = (
+                f"{datetime.now().strftime('%Y_%m_%d_%H_%M_%S')}-{s_parameter}-{measured_value}-{gesture}-{c_map_name}-{title_label}.{filetype}"
+            )
         if file_output_path is None:
             file_output_path = get_graph_path()
         if experiment_label:
-            file_output_path = os.path.join(file_output_path, experiment_label)
+            file_output_path = os.path.join(
+                file_output_path, experiment_label, "Graphs"
+            )
             os.makedirs(file_output_path, exist_ok=True)
-        file_output_path = os.path.join(file_output_path, measured_value, s_parameter)
+        file_output_path = os.path.join(
+            file_output_path, "3D Time Series", title_label, measured_value, s_parameter
+        )
         os.makedirs(file_output_path, exist_ok=True)
         plt.savefig(
-            os.path.join(file_output_path, fname), format=filetype, transparent=True
+            os.path.join(file_output_path, file_name), format=filetype, transparent=True
         )
 
     return fig
@@ -1054,6 +1095,9 @@ def plot_3d_plots_for_all_gestures_for_sparam(
     save_to_file: bool = False,
     experiment_label=None,
     filetype=DEFAULT_FILE_TYPE,
+    title=True,
+    file_output_path: Path = None,
+    figure_size=DEFAULT_FIGURE_SIZE,
 ) -> [Figure]:
 
     # df passing is by reference so make a copy
@@ -1092,6 +1136,9 @@ def plot_3d_plots_for_all_gestures_for_sparam(
                 file_output_flag=save_to_file,
                 experiment_label=experiment_label,
                 filetype=filetype,
+                title=title,
+                file_output_path=file_output_path,
+                figure_size=figure_size,
             )
         )
 

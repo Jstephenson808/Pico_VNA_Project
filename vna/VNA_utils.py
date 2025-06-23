@@ -217,24 +217,30 @@ def filter_results_df_between_times(
     ]
 
 
+def test_fix_pkl_filename(file_name: str) -> str:
+    file_name = str(file_name)
+    if not file_name.endswith(".pkl"):
+        file_name += ".pkl"
+    return file_name
+
+
 def pickle_object(
-    object_to_pickle, *, folder_path: str = get_pickle_path(), file_name: str
+    object_to_pickle, *, folder_path: Path = get_pickle_path(), file_name: str
 ):
     os.makedirs(folder_path, exist_ok=True)
-    if ".pkl" not in file_name[-4:]:
-        file_name = f"{file_name}.pkl"
+    file_name = test_fix_pkl_filename(file_name)
     folder_path = os.path.join(folder_path, file_name)
     with open(folder_path, "wb") as f:
         pickle.dump(object_to_pickle, f)
 
 
 def open_pickled_object_in_pickle_folder(file_name: str):
-    if not file_name.endswith(".pkl"):
-        file_name += ".pkl"
+    file_name = test_fix_pkl_filename(file_name)
     return open_pickled_object(os.path.join(get_pickle_path(), file_name))
 
 
 def open_pickled_object(path):
+    path = test_fix_pkl_filename(path)
     with open(path, "rb") as f:
         unpickled = pickle.load(f)
     return unpickled
