@@ -223,9 +223,9 @@ magnitude_s21 = get_s_param_data(magnitude_only, "S21")
 magnitude_s31 = get_s_param_data(magnitude_only, "S31")
 magnitude_s21_s31_s41 = get_s_param_data(magnitude_only, "S21_S31_S41")
 
-bar_graph_accuracy_comparison(magnitude_s11)
-bar_graph_accuracy_comparison(magnitude_s21)
-bar_graph_accuracy_comparison(magnitude_s21_s31_s41)
+# bar_graph_accuracy_comparison(magnitude_s11)
+# bar_graph_accuracy_comparison(magnitude_s21)
+# bar_graph_accuracy_comparison(magnitude_s21_s31_s41)
 
 
 # results_without_repeat = open_pickled_object_in_pickle_folder(

@@ -258,12 +258,13 @@ class VNA:
                     id=start_time.strftime(DateFormats.CURRENT.value),
                 )
                 measurement_number += 1
-                if measurement_number % save_interval == 0:
-                    print(f"Saving at {elapsed_time}")
-                    self.output_data.dict_list_to_df()
-                    self.output_data.data_frame.to_csv(
-                        self.output_data.csv_path, index=False
-                    )
+                if save_interval is not None:
+                    if measurement_number % save_interval == 0:
+                        print(f"Saving at {elapsed_time}")
+                        self.output_data.dict_list_to_df()
+                        self.output_data.data_frame.to_csv(
+                            self.output_data.csv_path, index=False
+                        )
             print(f"Saving at end of run")
             self.output_data.dict_list_to_df()
             self.output_data.data_frame.to_csv(self.output_data.csv_path, index=False)

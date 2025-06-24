@@ -90,6 +90,12 @@ def get_results_path() -> str:
     return path
 
 
+def get_labels_path() -> str:
+    path = os.path.join(get_results_path(), VNA_defaults.LABELS_FOLDER)
+    os.makedirs(path, exist_ok=True)
+    return path
+
+
 def get_data_path() -> str:
     path = os.path.join(get_results_path(), VNA_defaults.DATA_FOLDER)
     os.makedirs(path, exist_ok=True)

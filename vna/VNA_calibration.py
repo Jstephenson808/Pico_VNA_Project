@@ -1,7 +1,11 @@
 import os
 import re
+
+import numpy as np
+
 from VNA_utils import get_calibration_path
 from VNA_exceptions import NotValidCalibrationFileException
+
 
 class VnaCalibration:
     """
@@ -22,25 +26,23 @@ class VnaCalibration:
         if not re.match(pattern, line):
             raise NotValidCalibrationFileException(f"Not a valid calibration: {line}")
 
-
-    def __init__(
-        self,
-        calibration_path: os.path
-    ):
+    def __init__(self, calibration_path: os.path):
         self.calibration_path = calibration_path
         self.number_of_points = None
         self.low_freq_hz = None
         self.high_freq_hz = None
         self.fq_hop = None
+        self.frequency_list = None
         self.extract_npoints_fq_range()
+        self.calculate_frequency_list()
 
     def verify_file_is_cal(self):
         """
         tests provided file path for the correctly formatted .cal file
         :return:
         """
-        sweep_plan_pattern = r'^(\d+,\d+,\d+,\d+,\d+,\d+)$'
-        with open(self.calibration_path, 'r') as calibration_txt:
+        sweep_plan_pattern = r"^(\d+,\d+,\d+,\d+,\d+,\d+)$"
+        with open(self.calibration_path, "r") as calibration_txt:
             lines = calibration_txt.readlines()
             self.validate_line(lines[2], sweep_plan_pattern)
 
@@ -50,17 +52,24 @@ class VnaCalibration:
         :return: updates the class attrs with read values, throws exception if cal file is invalid
         """
         self.verify_file_is_cal()
-        with open(self.calibration_path, 'r') as calibration_txt:
+        with open(self.calibration_path, "r") as calibration_txt:
             lines = calibration_txt.readlines()
-            sweep_plan_list = lines[2].strip().split(',')
-            self.number_of_points = sweep_plan_list[0]
-            self.low_freq_hz = sweep_plan_list[3]
-            self.high_freq_hz = sweep_plan_list[4]
-            self.fq_hop = sweep_plan_list[5]
+            sweep_plan_list = lines[2].strip().split(",")
+            self.number_of_points = int(sweep_plan_list[0])
+            self.low_freq_hz = int(sweep_plan_list[3])
+            self.high_freq_hz = int(sweep_plan_list[4])
+            self.fq_hop = int(sweep_plan_list[5])
+
+    def calculate_frequency_list(self):
+        self.frequency_list = np.linspace(
+            self.low_freq_hz, self.high_freq_hz, self.number_of_points
+        )
 
 
-if __name__ == '__main__':
-    calibration_path = os.path.join(get_calibration_path(),
-                                    "MiniCirc_3dBm_MiniCirc1m_10Mto5G_Rankine506_27Dec23_75kHz_3dBm_401pts.cal")
+if __name__ == "__main__":
+    calibration_path = os.path.join(
+        get_calibration_path(),
+        "MiniCirc_3dBm_MiniCirc1m_10Mto5G_Rankine506_27Dec23_75kHz_3dBm_401pts.cal",
+    )
 
     calib = VnaCalibration(calibration_path)
