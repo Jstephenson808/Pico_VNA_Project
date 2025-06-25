@@ -412,18 +412,18 @@ if __name__ == "__main__":
     # )
     # run_classification_from_results()
 
-    plot_3d_plots(
-        data_caputre_df,
-        start_time,
-        end_time,
-        low_freq,
-        high_freq,
-        sparams_to_plot=target_sparams_for_3D_time_series,
-        magnitude_or_phase=target_measurements_for_3d_time_series,
-        file_output_root=OUTPUT_FOLDER_PATH,
-        experiment_label=experiment_label,
-        title=False,
-    )
+    # plot_3d_plots(
+    #     data_caputre_df,
+    #     start_time,
+    #     end_time,
+    #     low_freq,
+    #     high_freq,
+    #     sparams_to_plot=target_sparams_for_3D_time_series,
+    #     magnitude_or_phase=target_measurements_for_3d_time_series,
+    #     file_output_root=OUTPUT_FOLDER_PATH,
+    #     experiment_label=experiment_label,
+    #     title=False,
+    # )
 
     # plot_3d_plots(
     #     data_caputre_df,
