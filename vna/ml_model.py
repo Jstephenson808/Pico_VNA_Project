@@ -1,6 +1,8 @@
 import os
+from pathlib import Path
 
 import numpy
+from pandas import DataFrame
 
 from VNA_utils import pickle_object, open_pickled_object, get_label_from_pkl_path
 
@@ -252,6 +254,51 @@ def split_data_frame_into_id_chunks(
 
     return split_dfs_by_id
 
+def get_measurement_info_from_feature_columns(feature_col_title: str) -> (str, str):
+    measurement = feature_col_title.split('_')[0]
+    s_param = get_sparam_from_feature_col_title(feature_col_title)
+    return measurement, s_param
+
+def get_unique_sparams_in_features(feature_df):
+    return list(set([get_sparam_from_feature_col_title(title) for title in list(feature_df.columns)]))
+
+def get_sparam_from_feature_col_title(feature_col_title):
+    s_param = feature_col_title.split('_')[1]
+    return s_param
+
+
+
+def compose_data(extracted_features, feature_vector, split_percentages_train):
+    s_params_in_features = get_unique_sparams_in_features(extracted_features)
+    filtered_dict = {
+        s_param: extracted_features.loc[:, extracted_features.columns.str.contains(s_param)]
+        for s_param in s_params_in_features
+    }
+
+    x_train_list = []
+    x_test_list = []
+    y_train_list = []
+    y_test_list = []
+
+    for s_param, s_param_data_frame in filtered_dict.items():
+        print(f"{s_param}: {split_percentages_train[s_param]}")
+        X_train, X_test, y_train, y_test = train_test_split(s_param_data_frame, feature_vector, train_size=split_percentages_train[s_param])
+
+        x_train_list.append(X_train)
+        x_test_list.append(X_test)
+        y_train_list.append(
+            y_train
+        )
+        y_test_list.append(y_test)
+
+    X_train_combined = pd.concat(x_train_list, axis=1)
+    X_test_combined = pd.concat(x_test_list, axis=1)
+    y_train_combined = y_train_list[0]
+    y_test_combined = y_test_list[0]
+
+    return X_train_combined, X_test_combined, y_train_combined, y_test_combined
+
+
 
 def extract_features_and_test(
         full_data_frame,
@@ -260,6 +307,8 @@ def extract_features_and_test(
         n_jobs=defaults.N_PROCESSES,
         ids_per_split=0,
         random_seed=None,
+        compose_data_dict=None,
+        test=False
 ):
     combined_df = full_data_frame.ffill()
     # s_params_mapping = {s.value:index+1 for index, s in enumerate(SParam)}
@@ -291,9 +340,29 @@ def extract_features_and_test(
     # print(feature_vector.head())
     features_filtered = select_features(extracted, feature_vector)
 
-    X_full_train, X_full_test, y_train, y_test = train_test_split(
-        extracted, feature_vector, test_size=0.4, random_state=random_seed
-    )
+    compose_data_dict = {'S41': 0.8, 'S21': 0.1}
+    if compose_data_dict:
+        X_full_train, X_full_test, y_train, y_test = compose_data(extracted, feature_vector, compose_data_dict)
+    else:
+        X_full_train, X_full_test, y_train, y_test = train_test_split(
+            extracted, feature_vector, test_size=0.4, random_state=random_seed
+        )
+
+    print(f"X_full_train.shape: {X_full_train.shape}")
+    print(f"X_full_test.shape: {X_full_test.shape}")
+
+    data_directory: Path = Path(r'C:\Users\2573758S\Desktop\save_data')
+    X_full_train_test.to_pickle(data_directory.joinpath(f'{('_').join([param for param in compose_data_dict.keys()])}_x_train_new.pkl'))
+    X_full_train.to_pickle(data_directory.joinpath(f'{('_').join([param for param in compose_data_dict.keys()])}_x_train_old.pkl'))
+
+    X_full_test_test.to_pickle(data_directory.joinpath(f'{('_').join([param for param in compose_data_dict.keys()])}_x_test_new.pkl'))
+    X_full_test.to_pickle(data_directory.joinpath(f'{('_').join([param for param in compose_data_dict.keys()])}_x_test_old.pkl'))
+
+    y_test_test.to_pickle(data_directory.joinpath(f'{('_').join([param for param in compose_data_dict.keys()])}_y_test_new.pkl'))
+    y_test.to_pickle(data_directory.joinpath(f'{('_').join([param for param in compose_data_dict.keys()])}_y_test.pkl'))
+
+    y_train_test.to_pickle(data_directory.joinpath(f'{('_').join([param for param in compose_data_dict.keys()])}_y_train_new.pkl'))
+    y_train.to_pickle(data_directory.joinpath(f'{('_').join([param for param in compose_data_dict.keys()])}_y_train.pkl'))
 
     scaler_full_dt = StandardScaler()
     X_full_train_scaled = scaler_full_dt.fit_transform(X_full_train)

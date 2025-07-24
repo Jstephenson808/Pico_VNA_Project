@@ -188,18 +188,14 @@ if __name__ == "__main__":
         file_name="glove_gesture_experiment_2_201pts_75reps_150M_400M_11ges",
     )
 
-    results_df_2 = filter_cols_between_fq_range(results_df, mhz_to_hz(200), mhz_to_hz(350))
+    results_df_2 = filter_cols_between_fq_range(results_df, mhz_to_hz(250), mhz_to_hz(300))
     fq_hops = [mhz_to_hz(150)]
     gestures_to_remove = ['8']
 
     results_df_list = [results_df_2[~results_df_2['label'].str.endswith(gestures_to_remove)] for gestures_to_remove in gestures_to_remove]
     EXPERIMENT_NAME = "glove_gesture_experiment_201pts_75reps_10ges_150M_450M_ORIG_windowed_250M_300M"
     s_parameter_sets = [
-        [SParam.S11],
-        [SParam.S11, SParam.S21],
-        [SParam.S21],
-        [SParam.S21, SParam.S41],
-        [SParam.S21, SParam.S31, SParam.S41]
+        [SParam.S21, SParam.S41]
     ]
 
     s_param_combinations_list = [[sparam.value for sparam in sub_set] for sub_set in s_parameter_sets]
@@ -214,7 +210,6 @@ if __name__ == "__main__":
         label = f"{labels[i]}_{hz_to_mhz(fq_hop)}MHz"
         results_df = results_df_list[i]
         temp_file_name = f"{label}.txt"
-        temp_file_name = '2025_07_17_19_11_15_glove_gesture_experiment_201pts_75reps_10ges_150M_450M_ORIG_windowed_250M_300M_remove_8_phase_150.0MHz.txt'
         experiment_plan_file_path = os.path.join(
             get_experiment_plans_folder_path(), f"{temp_file_name}"
         )

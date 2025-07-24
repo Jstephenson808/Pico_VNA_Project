@@ -67,8 +67,8 @@ def test_data_frame_classifier_frequency_window_with_report(
     low_frequency, high_frequency = min_frequency, min_frequency + frequency_hop
 
     f1_scores = {}
-
-    while high_frequency <= max_frequency:
+    result = None
+    while (high_frequency <= max_frequency) or (result is None):
         print_fq_hop(high_frequency, label, low_frequency)
 
         #
@@ -83,9 +83,10 @@ def test_data_frame_classifier_frequency_window_with_report(
             random_seed=random_seed,
         )
         classified_data_label = " ".join(label.rsplit("_", 1) + [f"{low_frequency}"])
-        open_experiment_plan_and_delete_classified_data(
-            experiment_plan_path, classified_data_label
-        )
+        if experiment_plan_path:
+            open_experiment_plan_and_delete_classified_data(
+                experiment_plan_path, classified_data_label
+            )
         f1_scores[fq_label] = extract_report_dictionary_from_test_results(result)
         low_frequency += frequency_hop
         high_frequency += frequency_hop
@@ -278,7 +279,7 @@ def generate_experiment_plan_file(
             while (current_freq + fq_hop) <= max_freq:
                 current_freq += fq_hop
                 f.write(f"{('_').join(sparam_set)} {filter_option} {current_freq}\n")
-
+            f.write(f"{('_').join(sparam_set)} {filter_option} {current_freq+ fq_hop}\n")
 
 def test_classifier_for_all_measured_params(
     combined_df: pd.DataFrame,
