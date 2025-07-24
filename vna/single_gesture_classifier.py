@@ -99,7 +99,7 @@ def print_fq_hop(high_frequency, label, low_frequency):
 
 
 def test_classifier_from_df_dict(
-    df_dict: {}, frequency_hop=mhz_to_hz(100), experiment_plan_path=None,
+    df_dict: {}, experiment_label, frequency_hop=mhz_to_hz(100), experiment_plan_path=None,
 ) -> pd.DataFrame:
     """
     This returns a report and save classifier to pkl path
@@ -215,9 +215,13 @@ def create_test_dict(
     for set_name_filter, freq_plan in s_param_to_freq_dict.items():
         set_name, filter_type = set_name_filter.split(" ")
         sparam_set = set_name.split("_")
-
+        try:
+            freq_plan = get_list_of_in_bounds_fq(combined_df, min(freq_plan), max(freq_plan) + freq_plan[1] - freq_plan[0])
+        except IndexError:
+            freq_plan = get_list_of_in_bounds_fq(combined_df, min(freq_plan),
+                                                 max(freq_plan))
         # Filter for magnitude if specified or 'both'
-        if filter_type in ["both", "magnitude"]:
+        if filter_type in ["magnitude"]:
             filtered_all_sparams_magnitude = filter_columns(
                 all_Sparams_magnitude, freq_plan
             )
@@ -226,7 +230,7 @@ def create_test_dict(
             ]
 
         # Filter for phase if specified or 'both'
-        if filter_type in ["both", "phase"]:
+        if filter_type in ["phase"]:
             filtered_all_sparams_phase = filter_columns(all_Sparams_phase, freq_plan)
             filtered_df_dict[f"{set_name}_phase"] = filtered_all_sparams_phase[
                 all_Sparams_phase[DataFrameCols.S_PARAMETER.value].isin(sparam_set)
@@ -270,9 +274,10 @@ def generate_experiment_plan_file(
             min_freq = min(fq_list)
             max_freq = max(fq_list)
             current_freq = min_freq
-            while (current_freq + fq_hop) < max_freq:
-                f.write(f"{('_').join(sparam_set)} {filter_option} {current_freq}\n")
+            f.write(f"{('_').join(sparam_set)} {filter_option} {current_freq}\n")
+            while (current_freq + fq_hop) <= max_freq:
                 current_freq += fq_hop
+                f.write(f"{('_').join(sparam_set)} {filter_option} {current_freq}\n")
 
 
 def test_classifier_for_all_measured_params(
@@ -280,6 +285,7 @@ def test_classifier_for_all_measured_params(
     s_param_to_freq_dict,
     fq_hop,
     experiment_plan_path,
+    experiment_label
 ) -> pd.DataFrame:
     """
     return report
@@ -291,6 +297,7 @@ def test_classifier_for_all_measured_params(
 
     return test_classifier_from_df_dict(
         filtered_df_dict,
+        experiment_label=experiment_label,
         frequency_hop=fq_hop,
         experiment_plan_path=experiment_plan_path,
     )
@@ -320,14 +327,16 @@ def extract_from_temp_file(file_path):
     s_param_to_freq_dict = {}
     for line in lines:
         s_params, mag_or_phase, frequency = line.strip().split(" ")
+        frequency = int(frequency)
         s_param_filter_string = f"{s_params} {mag_or_phase}"
         s_param_set.add(s_params)
         mag_or_phase_set.add(DfFilterOptions(mag_or_phase))
-        freq_set.add(int(frequency))
+        freq_set.add(frequency)
         if s_param_filter_string not in s_param_to_freq_dict:
             s_param_to_freq_dict[s_param_filter_string] = [frequency]
         else:
             s_param_to_freq_dict[s_param_filter_string].append(frequency)
+
     frequency_hop = int(mean([b - a for a, b in pairwise(sorted(list(freq_set)))]))
     s_param_list = [s_params.split("_") for s_params in list(s_param_set)]
     if (DfFilterOptions.BOTH in mag_or_phase_set) or (len(mag_or_phase_set) > 1):

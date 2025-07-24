@@ -1,4 +1,5 @@
 import os
+from datetime import datetime
 
 import numpy as np
 import pandas as pd
@@ -11,14 +12,14 @@ from vna.VNA_utils import (
     get_pickle_path,
     convert_magnitude_rows_to_db,
     get_experiment_plans_folder_path,
-    get_frequency_column_headings_list,
+    get_frequency_column_headings_list, ghz_to_hz,
 )
 from vna.VNA_enums import (
     SParam2Port,
     MagnitudeOrPhase,
     DfFilterOptions,
     ConfusionMatrixKey,
-    SParam,
+    SParam, DateFormats,
 )
 from vna.VNA_utils import (
     open_pickled_object_in_pickle_folder,
@@ -39,7 +40,7 @@ from vna.ml_model import (
     fix_measurement_column,
     extract_full_results_to_df,
     extract_confusion_matrix_from_results,
-    get_full_results_df_from_classifier_pkls,
+    get_full_results_df_from_classifier_pkls, filter_cols_between_fq_range,
 )
 from vna.single_gesture_classifier import (
     test_classifier_for_all_measured_params,
@@ -155,7 +156,7 @@ def get_s_param_data(results_df, s_param):
 
 
 if __name__ == "__main__":
-    EXPERIMENT_NAME = "glove_gesture_experiment_2_201pts_75reps_150M_400M_11ges"
+    EXPERIMENT_NAME = "glove_gesture_experiment_2_201pts_75reps_150M_400M_11ges.pkl"
 
     try:
         results_df = open_pickled_object_in_pickle_folder(EXPERIMENT_NAME)
@@ -187,21 +188,33 @@ if __name__ == "__main__":
         file_name="glove_gesture_experiment_2_201pts_75reps_150M_400M_11ges",
     )
 
-    label = "gloveExperiment2"
+    results_df_2 = filter_cols_between_fq_range(results_df, mhz_to_hz(200), mhz_to_hz(350))
+    fq_hops = [mhz_to_hz(150)]
+    gestures_to_remove = ['8']
 
-    s_param_combinations_list = [
-        ["S11"],
-        ["S21"],
-        ["S21", "S11"],
-        ["S21", "S31", "S41"],
-        ["S21", "S31"],
-        ["S21", "S41"],
+    results_df_list = [results_df_2[~results_df_2['label'].str.endswith(gestures_to_remove)] for gestures_to_remove in gestures_to_remove]
+    EXPERIMENT_NAME = "glove_gesture_experiment_201pts_75reps_10ges_150M_450M_ORIG_windowed_250M_300M"
+    s_parameter_sets = [
+        [SParam.S11],
+        [SParam.S11, SParam.S21],
+        [SParam.S21],
+        [SParam.S21, SParam.S41],
+        [SParam.S21, SParam.S31, SParam.S41]
     ]
-    phase_mag = [DfFilterOptions.MAGNITUDE, DfFilterOptions.PHASE, DfFilterOptions.BOTH]
-    fq_hops = [mhz_to_hz(i) for i in range(10, 21, 4)]
 
-    for fq_hop in fq_hops:
-        temp_file_name = EXPERIMENT_NAME + f"_{hz_to_mhz(fq_hop)}MHz" + ".txt"
+    s_param_combinations_list = [[sparam.value for sparam in sub_set] for sub_set in s_parameter_sets]
+
+    phase_mag = [DfFilterOptions.PHASE, DfFilterOptions.MAGNITUDE]
+
+    labels = [f"{EXPERIMENT_NAME}_remove_{gesture_to_remove}_{phase_mag[0].value}" for gesture_to_remove in gestures_to_remove]
+    # results_df = open_pickled_object(r"C:\Users\2573758S\PycharmProjects\Pico_VNA_Project\pickles\classifier_results\gloveExperiment2_100000000MHz_results.pkl")
+    # results_2 = open_pickled_object(r"C:\Users\2573758S\PycharmProjects\Pico_VNA_Project\pickles\classifier_results\gloveExperiment2_80000000MHz_results.pkl")
+
+    for i, fq_hop in enumerate(fq_hops):
+        label = f"{labels[i]}_{hz_to_mhz(fq_hop)}MHz"
+        results_df = results_df_list[i]
+        temp_file_name = f"{label}.txt"
+        temp_file_name = '2025_07_17_19_11_15_glove_gesture_experiment_201pts_75reps_10ges_150M_450M_ORIG_windowed_250M_300M_remove_8_phase_150.0MHz.txt'
         experiment_plan_file_path = os.path.join(
             get_experiment_plans_folder_path(), f"{temp_file_name}"
         )
@@ -229,6 +242,8 @@ if __name__ == "__main__":
                     experiment_plan_filename=temp_file_name,
                     filter_options=phase_mag,
                 )
+        else:
+            print('No confirmation requested will proceed as normal')
         s_param_combinations_list, freq_hop, mag_or_phase, s_param_to_freq_dict = (
             extract_from_temp_file(experiment_plan_file_path)
         )
@@ -237,7 +252,8 @@ if __name__ == "__main__":
             results_df,
             s_param_to_freq_dict,
             fq_hop=freq_hop,
-            experiment_plan_path=temp_file_name,
+            experiment_plan_path=experiment_plan_file_path,
+            experiment_label=label
         )
         # combine dfs
         # full_df_fname = os.listdir(os.path.join(get_pickle_path(), "full_dfs"))[0]
@@ -247,7 +263,7 @@ if __name__ == "__main__":
         pickle_object(
             full_results_df,
             folder_path=os.path.join(get_pickle_path(), "classifier_results"),
-            file_name=f"{label}_{fq_hop}MHz_results.pkl",
+            file_name=f"{datetime.now().strftime(DateFormats.CURRENT.value)}_{label}_{fq_hop}MHz_results.pkl",
         )
 
     # plot_confusion_matrix(target_s_param="gloveExperiment_S21")
