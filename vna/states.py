@@ -7,27 +7,50 @@ from vna.VNA_calibration import VnaCalibration
 from vna.VNA_enums import MeasureSParam, TwoPortSParams
 from vna.s_parameter_data import SParameterData
 
-# Placeholder for the next state
+from datetime import timedelta
+import pandas as pd
+from vna.state_machine import State
+from vna.vna_experiment import VNAExperiment
+from vna.VNA import VNA
+from vna.VNA_data import VnaData
+from vna.VNA_calibration import VnaCalibration
+from vna.VNA_enums import MeasureSParam, TwoPortSParams, DataFrameCols
+from vna.s_parameter_data import SParameterData
+from vna.ml_pipeline import create_ml_pipeline
+
 class FeatureExtractionState(State):
     def execute(self, experiment_data: VNAExperiment) -> None:
         print("Executing Feature Extraction...")
-        # In a real implementation, this would process experiment_data.raw_data
-        # and populate experiment_data.processed_features
+        # In a real pipeline, you would load your training data here.
+        # For this example, we'll use the captured data as both the
+        # training data and the data to be predicted.
+        
+        # The pipeline needs a target series (y) for fitting.
+        # We'll create a dummy target series.
+        df = experiment_data.raw_data.data_frame
+        y_train = pd.Series(df[DataFrameCols.LABEL.value].unique(), index=df[DataFrameCols.ID.value].unique())
+
+        # The pipeline also needs the main data (X) for fitting.
+        X_train = pd.DataFrame(index=df[DataFrameCols.ID.value].unique())
+
+        # Create the pipeline
+        pipeline = create_ml_pipeline(timeseries_container=df)
+
+        # Fit the pipeline
+        print("Fitting the ML pipeline...")
+        pipeline.fit(X_train, y_train)
+
+        # Now, let's predict on the same data (for demonstration)
+        print("Making predictions...")
+        predictions = pipeline.predict(X_train)
+
+        experiment_data.classification_result = predictions[0] # Example
+
         self.state_machine.transition_to(ClassificationState())
 
-# Placeholder for the classification state
 class ClassificationState(State):
     def execute(self, experiment_data: VNAExperiment) -> None:
         print("Executing Classification...")
-        # This would use experiment_data.processed_features to classify the gesture
-        # and populate experiment_data.classification_result
-        experiment_data.classification_result = "Example Gesture"
-        self.state_machine.transition_to(EndState())
-
-# Final state to end the process
-class EndState(State):
-    def execute(self, experiment_data: VNAExperiment) -> None:
-        print("Workflow finished.")
         print(f"Classification Result: {experiment_data.classification_result}")
         self.state_machine.transition_to(None) # Stop the machine
 
