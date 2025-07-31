@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 from abc import abstractmethod, ABC
 from pathlib import Path
-from typing import Generic, Self
+from typing import Generic, Self, Optional
 
 import numpy as np
 
@@ -41,7 +41,7 @@ class SParameterData(Generic[DataFrameType], ABC):
         self._minimum_frequency: Frequency = self.get_minimum_frequency_from_df()
         self._maximum_frequency: Frequency = self.get_maximum_frequency_from_df()
 
-        self.data_frame_split_by_id: [SParameterDataPandas] = None
+        self.data_frame_split_by_id: Optional[DataFrameType] = None
 
         self.movement_vector: MovementVector = self.create_movement_vector()
 
