@@ -1,12 +1,13 @@
 from abc import ABC, abstractmethod
 from datetime import timedelta
 import pandas as pd
+from pathlib import Path
 
-from vna.s_parameter_data import SParameterData
-from vna.PicoVNA2 import PicoVNA2
-from vna.VNA_data import VnaData
-from vna.VNA_calibration import VnaCalibration
-from vna.VNA_enums import MeasureSParam, TwoPortSParams
+from .s_parameter_data import SParameterData
+from .PicoVNA2 import PicoVNA2
+from .VNA_data import VnaData
+from .VNA_calibration import VnaCalibration
+from .VNA_enums import MeasureSParam, TwoPortSParams
 
 
 class DataSource(ABC):
@@ -55,10 +56,6 @@ class VNADatasource(DataSource):
         return SParameterData(df)
 
 
-from pathlib import Path
-from vna.s_parameter_data import SParameterData, SParameterDataPandas
-
-
 class FileDataSource(DataSource):
     """
     A data source that reads data from a file.
@@ -70,6 +67,6 @@ class FileDataSource(DataSource):
 
     def read(self, experiment_data) -> SParameterData:
         print(f"Reading from File DataSource: {self.file_path}")
-        return SParameterDataPandas.open_full_results_df(
+        return SParameterData.open_full_results_df(
             label=self.label, path=self.file_path
         )
