@@ -1,47 +1,44 @@
 from __future__ import annotations
 
 import re
-from abc import abstractmethod, ABC
-from pathlib import Path
-from typing import Generic, Self, Optional
-
-import numpy as np
-
 import uuid
 from argparse import ArgumentError
+from pathlib import Path
+from typing import Self, Optional
 
+import numpy as np
 import pandas as pd
+from pandas.core.groupby import DataFrameGroupBy
 
-from VNA_enums import DataFrameCols, DfFilterOptions
-from movement_vector import MovementVectorPandas
-from frequency import Frequency
-from vna.VNA_enums import DfAxis
-from vna.VNA_types import DataFrameType, SParamDataOrSubClass, GroupBy
+from vna.VNA_enums import DataFrameCols, DfFilterOptions, DfAxis
 from vna.VNA_utils import load_pickled_object_as_type
-from vna.movement_vector import MovementVector
+from vna.frequency import Frequency
+from vna.movement_vector import MovementVector, MovementVectorPandas
 
 
-class SParameterData(Generic[DataFrameType], ABC):
-
+class SParameterData:
     @classmethod
-    @abstractmethod
-    def open_full_results_df(cls, label: str, path: Path) -> SParamDataOrSubClass:
+    def open_full_results_df(cls, label: str, path: Path) -> Self:
         """
         Opens a .pkl data frame from pathlib.Path provided
-        :param path: the pathlib.Path object represting a path to a dataframe
+        :param path: the pathlib.Path object representing a path to a dataframe
         :return: SParameterData or subclass object
         """
-        pass
+        data_frame: pd.DataFrame = load_pickled_object_as_type(path, pd.DataFrame)
+        return cls(label, data_frame)
 
-    def __init__(self, label: str, data_frame: DataFrameType):
-        self._data_frame: DataFrameType = data_frame
+    def __init__(self, label: str, data_frame: pd.DataFrame):
+        self._data_frame: pd.DataFrame = data_frame
         self._label: str = label
         self.id: uuid.UUID = uuid.uuid4()
+
+        # need to just make sure df columns are int not string type because of old impls
+        self._data_frame.columns = self.convert_frequency_columns_to_int_type()
 
         self._minimum_frequency: Frequency = self.get_minimum_frequency_from_df()
         self._maximum_frequency: Frequency = self.get_maximum_frequency_from_df()
 
-        self.data_frame_split_by_id: Optional[DataFrameType] = None
+        self.data_frame_split_by_id: Optional[list[SParameterData]] = None
 
         self.movement_vector: MovementVector = self.create_movement_vector()
 
@@ -50,7 +47,7 @@ class SParameterData(Generic[DataFrameType], ABC):
         return self._label
 
     @property
-    def data_frame(self) -> DataFrameType:
+    def data_frame(self) -> pd.DataFrame:
         return self._data_frame
 
     @property
@@ -61,18 +58,21 @@ class SParameterData(Generic[DataFrameType], ABC):
     def maximum_frequency(self) -> Frequency:
         return self._maximum_frequency
 
-    def _make_new_instance(
-        self: SParamDataOrSubClass, label: str, data_frame: DataFrameType
-    ) -> SParamDataOrSubClass:
+    def __str__(self) -> str:
+        return f"Data containing: {self.label}, UUID: {self.id}"
+
+    def __repr__(self) -> str:
+        return f"SParameterData({self.label}, {self.data_frame}) UUID: {self.id}"
+
+    def _make_new_instance(self, label: str, data_frame: pd.DataFrame) -> Self:
         """
-        Generates a new instance of SParameterData or the subclass if that is what calls it, can
-        be overwritten for other implementations.
+        Generates a new instance of SParameterData.
         Args:
             label: label for the dataframe
             data_frame: the dataframe which contains the sparameter data
 
         Returns:
-
+            A new SParameterData instance.
         """
         return self.__class__(label, data_frame)
 
@@ -109,122 +109,11 @@ class SParameterData(Generic[DataFrameType], ABC):
     def generate_new_label(self, new_label: str) -> str:
         if new_label is None or (new_label.casefold() == self.label.casefold()):
             new_label = self.label
-        if new_label.contains(self.label):
+        if self.label in new_label:
             pass
         else:
             new_label = f"{self.label} {new_label}"
         return new_label
-
-    @abstractmethod
-    def get_magnitude_data_frame(self):
-        pass
-
-    @abstractmethod
-    def get_phase_data_frame(self):
-        pass
-
-    @abstractmethod
-    def get_frequency_columns(self):
-        pass
-
-    @abstractmethod
-    def get_frequency_column_headings_list(self):
-        pass
-
-    @abstractmethod
-    def split_data_frame_into_n_id_chunks(self, ids_per_split: int) -> list[Self]:
-        """
-        Splits the full data frame into a list of SParameterData objects containing at most ids_per_split
-        objects, this is for feature extraction
-        Args:
-            ids_per_split: the max number of ids per split
-
-        Returns:
-            List of SParameterData objects split, also adds list to self.data_frame_split_by_id
-
-        """
-        pass
-
-    @abstractmethod
-    def filter_columns_between_frequencies(self, filter_frequencies):
-        """
-        This is a helper method for get_data_frame_between_frequency()
-        :param filter_frequencies: List of Frequency objects which you want to filter by
-        :return: SParameterData object with the filtered frequencies
-        """
-        pass
-
-    @abstractmethod
-    def create_movement_vector(self) -> MovementVector:
-        """
-        Creates a movement vector which maps each unique ID to its associated gesture for classification
-        Returns:
-            Movement vector object
-
-        """
-        pass
-
-    @abstractmethod
-    def get_filtered_df_by_s_param_and_frequency(
-        self, filter_options, low_frequency, high_frequency
-    ):
-        pass
-
-    @abstractmethod
-    def convert_frequency_columns_to_int_type(self):
-        pass
-
-    @abstractmethod
-    def group_by_id(self) -> GroupBy:
-        pass
-
-    @abstractmethod
-    def group_by_passthrough(self, *args, **kwargs):
-        """
-        This method is for a passthrough to the impl specific groupby function
-        It is provided as a convience method and is not generic
-        """
-        pass
-
-    @abstractmethod
-    def create_column(self, column_name: str, value):
-        pass
-
-    @abstractmethod
-    def zero_ref_times(self):
-        pass
-
-
-class SParameterDataPandas(SParameterData[pd.DataFrame]):
-
-    @classmethod
-    def open_full_results_df(cls, label: str, path: Path) -> Self:
-        """
-        Opens a .pkl data frame within the folder provided, if folder arg is none
-        then the default folder is used
-        :param file_name: the file name of the target data frame
-        :param folder: the folder of the data frame
-        :return: data frame
-        """
-
-        data_frame: pd.DataFrame = load_pickled_object_as_type(path, pd.DataFrame)
-        return SParameterDataPandas(label, data_frame)
-
-    def __init__(self, label: str, data_frame: pd.DataFrame):
-        super().__init__(label, data_frame)
-        # need to just make sure df columns are int not string type because of old impls
-        self.data_frame.columns = self.convert_frequency_columns_to_int_type()
-
-    def __str__(self) -> str:
-        return f"Data containing: {self.label}, UUID: {self.id}"
-
-    def __repr__(self) -> str:
-        return f"SParameterData({self.label}, {self.data_frame}) UUID: {self.id}"
-
-    def convert_frequency_columns_to_int_type(self):
-        return list(self.data_frame.columns[:5]) + [
-            int(x) for x in self.data_frame.columns[5:]
-        ]
 
     def get_magnitude_data_frame(self) -> pd.DataFrame:
         return self.data_frame[self.data_frame["mag_or_phase"] == "magnitude"]
@@ -232,15 +121,15 @@ class SParameterDataPandas(SParameterData[pd.DataFrame]):
     def get_phase_data_frame(self) -> pd.DataFrame:
         return self.data_frame[self.data_frame["mag_or_phase"] == "phase"]
 
-    def get_frequency_column_headings_list(self) -> [Frequency]:
-        return [Frequency(x) for x in self.get_frequency_columns()]
-
-    def get_frequency_columns(self) -> [int]:
+    def get_frequency_columns(self) -> list[int]:
         return [
             x
             for x in self.data_frame.columns.values
             if isinstance(x, int) or isinstance(x, np.int64)
         ]
+
+    def get_frequency_column_headings_list(self) -> list[Frequency]:
+        return [Frequency(x) for x in self.get_frequency_columns()]
 
     def split_data_frame_into_n_id_chunks(self, ids_per_split: int) -> list[Self]:
         """
@@ -262,47 +151,28 @@ class SParameterDataPandas(SParameterData[pd.DataFrame]):
         # Initialize a list to store the smaller DataFrames
         split_dfs_by_id = []
 
-        # Split into chunks of 3 IDs each
+        # Split into chunks of n IDs each
         for i in range(0, len(unique_ids), ids_per_split):
-            # Get the current chunk of 3 IDs
+            # Get the current chunk of n IDs
             chunk_ids = unique_ids[i : i + ids_per_split]
 
             # Filter the original DataFrame for those IDs
             smaller_df = self.data_frame[
                 self.data_frame[DataFrameCols.ID.value].isin(chunk_ids)
             ]
-            label = f"{self.label} split {i}/{len(unique_ids)//ids_per_split}"
+            label = f"{self.label} split {i}/{len(unique_ids) // ids_per_split}"
 
-            data_object = SParameterDataPandas(label, smaller_df)
+            data_object = self._make_new_instance(label, smaller_df)
             # Append the resulting DataFrame to the list
             split_dfs_by_id.append(data_object)
 
         self.data_frame_split_by_id = split_dfs_by_id
         return split_dfs_by_id
 
-    def get_string_column_titles_regex(self):
-        return re.compile(rf"^id$|^label$|^mag_or_phase$|^s_parameter$|^time$")
-
-    def get_freq_cols_regex_from_list(self, freq_list: list[Frequency]) -> re.Pattern:
-        return re.compile(
-            "|" + "|".join(f"^{frequency.get_freq_hz()}$" for frequency in freq_list)
-        )
-
-    def filter_columns_from_regex(self, regex: re.Pattern, new_label: str = None):
-        data_label = self.generate_new_label(new_label)
-
-        filtered_df = self.data_frame.filter(regex=regex.pattern, axis=DfAxis.COLUMN)
-
-        return self._make_new_instance(data_label, filtered_df)
-
     def filter_columns_between_frequencies(
-        self, *, filter_frequencies: list[Frequency]
+        self, filter_frequencies: list[Frequency]
     ) -> Self:
         """
-        To account for the mix of titles, this regex is used. It will match
-        any of the column headings and then also the list of column frequencies
-        that you pass in, returning a SParameterData object.
-
         This is a helper method for get_data_frame_between_frequency()
         :param filter_frequencies: List of Frequency objects which you want to filter by
         :return: SParameterData object with the filtered frequencies
@@ -313,21 +183,98 @@ class SParameterDataPandas(SParameterData[pd.DataFrame]):
         )
 
         string_and_freq_cols_regex = re.compile(
-            string_cols_regex.pattern + freq_cols_regex.pattern
+            string_cols_regex.pattern + "|" + freq_cols_regex.pattern
         )
         label_to_add = f" filtered between {filter_frequencies[0].get_freq_hz()}Hz and {filter_frequencies[-1].get_freq_hz()}Hz"
 
         return self.filter_columns_from_regex(string_and_freq_cols_regex, label_to_add)
 
-    def create_movement_vector(self) -> MovementVectorPandas:
+    def create_movement_vector(self) -> MovementVector:
         """
         Creates a movement vector which maps each unique ID to its associated gesture for classification
         Returns:
             Movement vector object
 
         """
-
         return MovementVectorPandas.create_movement_vector_for_single_data_frame(self)
+
+    def get_filtered_df_by_s_param_and_frequency(
+        self,
+        filter_options: DfFilterOptions,
+        low_frequency: Frequency,
+        high_frequency: Frequency,
+    ) -> Self:
+        if filter_options == DfFilterOptions.PHASE:
+            output_df = self.get_phase_data_frame()
+        elif filter_options == DfFilterOptions.MAGNITUDE:
+            output_df = self.get_magnitude_data_frame()
+        else:
+            output_df = self.data_frame
+
+        # Create a new SParameterData object to chain the next operation
+        temp_data_object = self._make_new_instance(
+            f"{self.label}_{filter_options.value}", output_df
+        )
+
+        # Now call get_data_frame_between_frequency on the new object
+        filtered_by_freq_object = temp_data_object.get_data_frame_between_frequency(
+            low_frequency, high_frequency
+        )
+
+        # Create the final object with a descriptive label
+        final_label = f"{self.label}_{filter_options.value}_{low_frequency.get_freq_mhz()}-{high_frequency.get_freq_mhz()}MHz"
+        return self._make_new_instance(
+            final_label, filtered_by_freq_object.data_frame
+        )
+
+    def convert_frequency_columns_to_int_type(self) -> list:
+        # Assuming first 5 columns are metadata, which seems to be the case from the original code.
+        # This might need to be more robust.
+        return list(self.data_frame.columns[:5]) + [
+            int(x) for x in self.data_frame.columns[5:]
+        ]
+
+    def group_by_id(self) -> DataFrameGroupBy:
+        return self.data_frame.groupby(DataFrameCols.ID.value)
+
+    def group_by_passthrough(self, *args, **kwargs) -> DataFrameGroupBy:
+        """
+        This method is for a passthrough to the pandas groupby function.
+        """
+        return self.data_frame.groupby(*args, **kwargs)
+
+    def create_column(self, column_name: str, value):
+        # This is not ideal, as it modifies the dataframe in place.
+        # A better implementation would return a new SParameterData object.
+        self.data_frame[column_name] = value
+
+    def zero_ref_times(self):
+        # This is not ideal, as it modifies the dataframe in place.
+        # A better implementation would return a new SParameterData object.
+        self.data_frame[
+            DataFrameCols.TIME.value
+        ] = self.data_frame.groupby(DataFrameCols.ID.value)[
+            DataFrameCols.TIME.value
+        ].transform(
+            lambda x: x - x.min()
+        )
+
+    def get_string_column_titles_regex(self) -> re.Pattern:
+        return re.compile(rf"^id$|^label$|^mag_or_phase$|^s_parameter$|^time$")
+
+    def get_freq_cols_regex_from_list(self, freq_list: list[Frequency]) -> re.Pattern:
+        return re.compile(
+            "|".join(f"^{frequency.get_freq_hz()}$" for frequency in freq_list)
+        )
+
+    def filter_columns_from_regex(
+        self, regex: re.Pattern, new_label: str = None
+    ) -> Self:
+        data_label = self.generate_new_label(new_label)
+        filtered_df = self.data_frame.filter(
+            regex=regex.pattern, axis=DfAxis.COLUMN.value
+        )
+        return self._make_new_instance(data_label, filtered_df)
 
     def make_columns_have_s_param_mag_phase_titles(self) -> Self:
         """
@@ -336,8 +283,8 @@ class SParameterDataPandas(SParameterData[pd.DataFrame]):
         Returns:
 
         """
-        data_frame = self.data_frame
-        freq_cols = [val for val in data_frame.columns.values if isinstance(val, int)]
+        data_frame = self.data_frame.copy()  # Avoid modifying the original dataframe
+        freq_cols = self.get_frequency_columns()
         grouped_data = data_frame.groupby(
             ["mag_or_phase", DataFrameCols.S_PARAMETER.value]
         )
@@ -363,32 +310,9 @@ class SParameterDataPandas(SParameterData[pd.DataFrame]):
             label=f"{self.label} for feature extraction", data_frame=new_combined_df
         )
 
-    def get_filtered_df_by_s_param_and_frequency(
-        self,
-        filter_options: DfFilterOptions,
-        low_frequency: Frequency,
-        high_frequency: Frequency,
-    ):
-        if filter_options == DfFilterOptions.PHASE:
-            output_df = self.get_phase_data_frame()
-        if filter_options == DfFilterOptions.MAGNITUDE:
-            output_df = self.get_magnitude_data_frame()
-        else:
-            output_df = self.data_frame
-        output_data = SParameterDataPandas(
-            f"{self.label}_{filter_options.value}", output_df
-        ).get_data_frame_between_frequency(low_frequency, high_frequency)
-        return SParameterDataPandas(
-            f"{self.label}_{low_frequency.get_freq_mhz()}-{high_frequency.get_freq_mhz()}MHz",
-            output_data.data_frame,
-        )
-
-    def group_by_passthrough(self, *args, **kwargs):
-        return self.data_frame.groupby(*args, **kwargs)
-
 
 class NotClassifier:
-    def __init__(self, full_results: SParameterDataPandas):
+    def __init__(self, full_results: SParameterData):
         self.full_results = full_results
         self.filtered_results_dict = None
 
@@ -410,12 +334,15 @@ class NotClassifier:
         # Initialize the dictionary to store filtered dataframes
         self.filtered_results_dict = {}
 
+        all_Sparams_magnitude = None
+        all_Sparams_phase = None
+
         # Check the filter type and set which columns to filter
         if filter_type in [DfFilterOptions.BOTH, DfFilterOptions.MAGNITUDE]:
             all_Sparams_magnitude = results_data_frame[
                 results_data_frame["mag_or_phase"] == "magnitude"
             ]
-        if filter_type in [DfFilterOptions.BOTH, DfFilterOptions.MAGNITUDE]:
+        if filter_type in [DfFilterOptions.BOTH, DfFilterOptions.PHASE]:
             all_Sparams_phase = results_data_frame[
                 results_data_frame["mag_or_phase"] == "phase"
             ]
@@ -425,7 +352,10 @@ class NotClassifier:
             set_name = f"{('_').join(sparam_set)}"
 
             # Filter for magnitude if specified or 'both'
-            if filter_type in [DfFilterOptions.BOTH, DfFilterOptions.MAGNITUDE]:
+            if filter_type in [
+                DfFilterOptions.BOTH,
+                DfFilterOptions.MAGNITUDE,
+            ] and all_Sparams_magnitude is not None:
                 self.filtered_results_dict[f"{set_name}_magnitude"] = (
                     all_Sparams_magnitude[
                         all_Sparams_magnitude[DataFrameCols.S_PARAMETER.value].isin(
@@ -435,7 +365,10 @@ class NotClassifier:
                 )
 
             # Filter for phase if specified or 'both'
-            if filter_type in [DfFilterOptions.BOTH, DfFilterOptions.MAGNITUDE]:
+            if filter_type in [
+                DfFilterOptions.BOTH,
+                DfFilterOptions.PHASE,
+            ] and all_Sparams_phase is not None:
                 self.filtered_results_dict[f"{set_name}_phase"] = all_Sparams_phase[
                     all_Sparams_phase[DataFrameCols.S_PARAMETER.value].isin(sparam_set)
                 ]
@@ -446,3 +379,4 @@ class NotClassifier:
                 ]
 
         return self.filtered_results_dict
+
