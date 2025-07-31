@@ -1,24 +1,24 @@
-from VNA_calibration import VnaCalibration
-from VNA_data import VnaData
+from .VNA_calibration import VnaCalibration
+from .VNA_data import VnaData
 
 import os
 import win32com.client
 
 from datetime import datetime, timedelta
 
-from VNA_enums import (
+from .VNA_enums import (
     MeasurementFormat,
     TwoPortSParams,
     MeasureSParam,
     DateFormats,
 )
-from VNA_exceptions import (
+from .VNA_exceptions import (
     VNAError,
 
 )
 
 
-from VNA_utils import (
+from .VNA_utils import (
     get_data_path,
     get_root_folder_path,
     countdown_timer,
