@@ -329,7 +329,7 @@ if __name__ == "__main__":
     target_measurements_for_3d_time_series = [MagnitudeOrPhase.Phase]
     target_sparams_for_3D_time_series = [SParam.S11]
 
-    plt.rcParams["font.size"] = 40
+    plt.rcParams["font.size"] = 20
 
     # seed random value for repeatability
     random.seed(TRAIN_TEST_SEED_VALUE)
@@ -402,14 +402,15 @@ if __name__ == "__main__":
         "high_frequency": "0.39",
         "gesture": "accuracy",
     }
-    # confusion_matrix_from_single_result(
-    #     pd.Series(data),
-    #     labels,
-    #     confusion_dict,
-    #     ConfusionMatrixKey.FILTERED_SVM,
-    #     True,
-    #     confusion_matrix_key="filtered_svm_confusion_matrix",
-    # )
+    labels = "test"
+    confusion_matrix_from_single_result(
+        pd.Series(data),
+        labels,
+        confusion_dict,
+        ConfusionMatrixKey.FILTERED_SVM,
+        True,
+        confusion_matrix_key="filtered_svm_confusion_matrix",
+    )
     # run_classification_from_results()
 
     # plot_3d_plots(

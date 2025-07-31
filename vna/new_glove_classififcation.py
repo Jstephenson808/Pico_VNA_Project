@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from vna.VNA_enums import SParam, MagnitudeOrPhase
+from vna.VNA_enums import SParam, MagnitudeOrPhase, ConfusionMatrixKey
 from vna.VNA_utils import mhz_to_hz, open_pickled_object, pickle_object
 from vna.glove_experiment import (
     plot_confusion_matrix_original_experiment,
@@ -12,6 +12,7 @@ from vna.glove_experiment import (
 from vna.graphs import (
     display_confusion_matrix_for_top_n_values,
     set_graph_svg_text_to_text,
+    confusion_matrix_from_single_result,
 )
 from vna.ml_model import (
     extract_confusion_matrix_from_results,
@@ -234,15 +235,23 @@ if __name__ == "__main__":
         "high_frequency": "0.39",
         "gesture": "accuracy",
     }
-    # confusion_matrix_from_single_result(
-    #     pd.Series(data),
-    #     labels,
-    #     confusion_dict,
-    #     ConfusionMatrixKey.FILTERED_SVM,
-    #     True,
-    #     confusion_matrix_key="filtered_svm_confusion_matrix",
-    # )
-    # run_classification_from_results()
+    labels = ["1", "2", "3", "A", "B", "C", "I", "ILY", "L", "Y"]
+    for label, confusion_matrix in confusion_matrix_dict_remove_8.items():
+        label_list = label.split("_")
+        data["s_param"] = label_list[0]
+        data["type"] = label_list[1]
+        data["low_frequency"] = label_list[2]
+        data["high_frequency"] = label_list[3]
+        confusion_matrix_from_single_result(
+            pd.Series(data),
+            labels,
+            confusion_matrix,
+            ConfusionMatrixKey.FILTERED_SVM,
+            convert_to_percent_of_true_labels=True,
+            confusion_matrix_key="filtered_svm_confusion_matrix",
+            title=True,
+            title_value=label,
+        )
 
     # plot_3d_plots(
     #     data_caputre_df,

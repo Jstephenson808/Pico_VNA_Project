@@ -770,12 +770,12 @@ def fix_measurement_column(results_df: pd.DataFrame) -> pd.DataFrame:
     return results_df
 
 
-def get_full_results_df_from_classifier_pkls(folder_path, extract="report"):
-    fnames = os.listdir(folder_path)
+def get_full_results_df_from_classifier_pkls(folder_path: Path, extract="report"):
+    folder_paths = folder_path.iterdir()
     if extract == "confusion_matrix":
-        return extract_confusion_matrix_from_results(fnames, folder_path)
+        return extract_confusion_matrix_from_results(folder_paths)
     else:
-        return extract_full_results_to_df(fnames, folder_path, extract)
+        return extract_full_results_to_df(folder_paths, extract)
 
 
 if __name__ == "__main__":

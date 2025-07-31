@@ -7,6 +7,7 @@ from pathlib import Path
 import matplotlib
 import numpy as np
 import pandas as pd
+from IPython.core.pylabtools import figsize
 from matplotlib import ticker
 from matplotlib.axes import Axes
 from matplotlib.cm import get_cmap
@@ -470,6 +471,8 @@ def confusion_matrix_from_single_result(
     show_plot=True,
     remove_zeroes=True,
     title=False,
+    save=False,
+    title_value=None,
 ) -> None:
 
     if confusion_matrix_key is None:
@@ -487,7 +490,10 @@ def confusion_matrix_from_single_result(
         ).astype(int)
 
     disp = ConfusionMatrixDisplay(confusion_matrix, display_labels=labels)
-    disp.plot(cmap=cmap, colorbar=color_bar)
+    disp.plot(
+        cmap=cmap,
+        colorbar=color_bar,
+    )
 
     if remove_zeroes:
         for row in disp.text_:
@@ -495,10 +501,17 @@ def confusion_matrix_from_single_result(
                 if text_obj.get_text() == "0":
                     text_obj.set_text("")
     if title:
-        plt.title(
-            f'Confusion Matrix Using {single_result_series["classifier"].title()} classifier \n'
-            f'Between {single_result_series["low_frequency"]} and {single_result_series["high_frequency"]} GHz'
-        )
+        if title_value:
+            plt.title(f"{title_value}")
+        else:
+            plt.title(
+                f'Confusion Matrix Using {single_result_series["s_param"]} {single_result_series["type"].title()} \n'
+                f'Between {single_result_series["low_frequency"]} and {single_result_series["high_frequency"]} GHz'
+            )
+
+    if save:
+        plt.savefig(f"{title_value}.svg", format="svg")
+
     if show_plot:
         plt.show()
     return plt
