@@ -1,4 +1,4 @@
-from enum import Enum
+from enum import Enum, StrEnum, IntEnum
 
 
 class MeasurementKey(Enum):
@@ -44,20 +44,6 @@ class MagnitudeOrPhase(Enum):
     Phase = "phase"
 
 
-class MeasureSParam(Enum):
-    S11 = "S11"
-    S21 = "S21"
-    S11_S21 = "S11+S21"
-    ALL = "All"
-
-
-class SParam2Port(Enum):
-    S11 = "S11"
-    S12 = "S12"
-    S22 = "S22"
-    S21 = "S21"
-
-
 class MeasurementFormat(Enum):
     LOGMAG = "logmag"
     PHASE = "phase"
@@ -68,6 +54,12 @@ class MeasurementFormat(Enum):
     TIME_DOMAIN = "td"
 
 
+class ClassificationResultsAccuracy(StrEnum):
+    WEIGHTED_AVERAGE = "weighted avg"
+    MACRO_AVERAGE = "macro avg"
+    ACCURACY = "accuracy"
+
+
 class DataFrameCols(Enum):
     TIME = "time"
     S_PARAMETER = "s_parameter"
@@ -76,6 +68,33 @@ class DataFrameCols(Enum):
     PHASE = "phase"
     LABEL = "label"
     ID = "id"
+
+
+class ClassificationResultsColumns(StrEnum):
+    LABEL = "label"
+    CLASSIFIER = "classifier"
+    FULL_OR_FILTERED = "full or filtered"
+    TYPE = "type"
+    S_PARAM = "s_param"
+    LOW_FREQUENCY = "low_frequency"
+    HIGH_FREQUENCY = "high_frequency"
+    GESTURE = "gesture"
+    PRECISION = "precision"
+    RECALL = "recall"
+
+
+class SParam2Port(Enum):
+    S11 = "S11"
+    S12 = "S12"
+    S22 = "S22"
+    S21 = "S21"
+
+
+class MeasureSParam(Enum):
+    S11 = "S11"
+    S21 = "S21"
+    S11_S21 = "S11+S21"
+    ALL = "All"
 
 
 class SParam(Enum):
@@ -102,3 +121,12 @@ class SnP(Enum):
     S2P = "S2P"
     S3P = "S3P"
     S4P = "S4P"
+
+
+class DfAxis(IntEnum):
+    ROW = 0
+    COLUMN = 1
+
+
+if __name__ == "__main__":
+    pass

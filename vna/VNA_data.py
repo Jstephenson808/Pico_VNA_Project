@@ -10,9 +10,9 @@ import matplotlib
 
 matplotlib.use("TkAgg")
 from matplotlib import pyplot as plt
-from VNA_enums import DataFrameCols, DateFormats, SParam2Port, MeasurementFormat
-from VNA_exceptions import NotValidCSVException, NotValidSParamException
-from VNA_utils import (
+from vna.VNA_enums import DataFrameCols, DateFormats, SParam2Port, MeasurementFormat
+from vna.VNA_exceptions import NotValidCSVException, NotValidSParamException
+from vna.VNA_utils import (
     get_root_folder_path,
     hz_to_ghz,
     ghz_to_hz,
@@ -29,11 +29,18 @@ class VnaData:
     """
 
     @staticmethod
+    def convert_frequency_columns_to_int(data_frame: pd.DataFrame) -> pd.DataFrame:
+        data_frame.columns = list(data_frame.columns[:5]) + [
+            int(val) for val in list(data_frame.columns[5:])
+        ]
+        return data_frame
+
+    @staticmethod
     def test_file_name(filename) -> bool:
         """
         Tests file name to establish if it's in the correct format
         correct format which is one that contains only words, "-" characters and "." characters
-        :param filename: filename from command line
+        :param filename: filename from command lin
         :return: bool indicating if the fname is formatted correctly
         """
         pattern = r"^[\w\-.]+$"

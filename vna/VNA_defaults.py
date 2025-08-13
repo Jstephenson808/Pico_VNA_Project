@@ -5,6 +5,10 @@ ROOT_FOLDER = "Pico_VNA_Project"
 CALIBRATION_FOLDER = "calibrations"
 EXPERIMENT_PLANS_FOLDER = "experiment_plans"
 
+SETTINGS_FOLDER = "settings"
+# Joined to SETTINGS_FOLDER
+GRAPH_STYLE_FOLDER = "graph_style"
+
 PICKLE_FOLDER = "pickles"
 # Joined to PICKLE_FOLDER
 CLASSIFIER_FOLDER = "classifiers"
@@ -21,3 +25,11 @@ TOUCHSTONES_FOLDER = "touchstones"
 
 CONFIRM_TEMP_FILE = False
 TRAIN_TEST_SEED_VALUE = 42
+
+# Graph settings
+DEFAULT_COLOUR_MAP = "winter"
+DEFAULT_FIGURE_SIZE = (14, 9)
+DEFAULT_FILE_TYPE = "svg"
+
+# unused
+COALESCE_DUPLICATE_COLUMNS_IN_DATAFRAME = True

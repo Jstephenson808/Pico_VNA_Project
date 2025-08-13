@@ -31,7 +31,7 @@ class VNA:
     @staticmethod
     def file_label_input() -> str:
         """
-        gets file input labeland tests that it is in the correct format for the file name
+        gets file input label and tests that it is in the correct format for the file name
         :return:
         """
         file_label = input(

@@ -1,12 +1,23 @@
 import os
 import pickle
+import re
+from random import random
 from time import time, sleep
 
 import numpy as np
 import pandas as pd
+import matplotlib as mpl
+import matplotlib.pyplot as plt
 
 import vna.VNA_exceptions as VNA_exceptions
 import vna.VNA_defaults as VNA_defaults
+from vna.VNA_enums import (
+    ClassificationResultsColumns,
+    ClassificationResultsAccuracy,
+    SParam,
+    MagnitudeOrPhase,
+    DataFrameCols,
+)
 
 
 def countdown_timer(seconds):
@@ -90,6 +101,12 @@ def get_results_path() -> str:
     return path
 
 
+def get_graph_path():
+    path = os.path.join(get_results_path(), VNA_defaults.GRAPH_FOLDER)
+    os.makedirs(path, exist_ok=True)
+    return path
+
+
 def get_data_path() -> str:
     path = os.path.join(get_results_path(), VNA_defaults.DATA_FOLDER)
     os.makedirs(path, exist_ok=True)
@@ -126,6 +143,18 @@ def get_classifier_path() -> str:
 
 def get_calibration_path() -> str:
     path = os.path.join(get_root_folder_path(), VNA_defaults.CALIBRATION_FOLDER)
+    os.makedirs(path, exist_ok=True)
+    return path
+
+
+def get_settings_folder_path() -> str:
+    path = os.path.join(get_root_folder_path(), VNA_defaults.SETTINGS_FOLDER)
+    os.makedirs(path, exist_ok=True)
+    return path
+
+
+def get_graph_style_path() -> str:
+    path = os.path.join(get_settings_folder_path(), VNA_defaults.GRAPH_STYLE_FOLDER)
     os.makedirs(path, exist_ok=True)
     return path
 
@@ -178,6 +207,15 @@ def input_movement_label() -> str:
     return label
 
 
+def filter_results_df_between_times(
+    results_df: pd.DataFrame, start_time_seconds, end_time_seconds
+) -> pd.DataFrame:
+    return results_df[
+        (results_df["time"] > start_time_seconds)
+        & (results_df["time"] < end_time_seconds)
+    ]
+
+
 def pickle_object(
     object_to_pickle, *, folder_path: str = get_pickle_path(), file_name: str
 ):
@@ -200,14 +238,25 @@ def open_pickled_object(path):
         unpickled = pickle.load(f)
     return unpickled
 
+
 def save_intermediate_results_df(label, df):
     try:
-        intermediate_results = open_pickled_object(os.path.join(get_pickle_path(), "temp_results", f"{label}.pkl"))
+        intermediate_results = open_pickled_object(
+            os.path.join(get_pickle_path(), "temp_results", f"{label}.pkl")
+        )
         intermediate_results = pd.concat([intermediate_results, df])
-        pickle_object(intermediate_results, folder_path=os.path.join(get_pickle_path(), "temp_results"), file_name=f"{label}.pkl")
+        pickle_object(
+            intermediate_results,
+            folder_path=os.path.join(get_pickle_path(), "temp_results"),
+            file_name=f"{label}.pkl",
+        )
     except FileNotFoundError:
-        pickle_object(df, folder_path=os.path.join(get_pickle_path(), "temp_results"),
-                      file_name=f"{label}.pkl")
+        pickle_object(
+            df,
+            folder_path=os.path.join(get_pickle_path(), "temp_results"),
+            file_name=f"{label}.pkl",
+        )
+
 
 def open_full_results_df(file_name, folder=None) -> pd.DataFrame:
     """
@@ -235,7 +284,110 @@ def convert_magnitude_to_db(magnitude_value: float):
     return 20 * np.log10(magnitude_value)
 
 
+def convert_magnitude_to_db_array(values: np.ndarray) -> np.ndarray:
+    return 20 * np.log10(np.maximum(values, 1e-12))  # avoid log(0)
+
+
 def convert_magnitude_rows_to_db(data_frame: pd.DataFrame):
-    magnitude = data_frame.query("mag_or_phase == 'magnitude'")
-    frequency_values: pd.DataFrame = magnitude.iloc[:, 5:]
-    frequency_values.apply(convert_magnitude_to_db, axis=1)
+    mask = data_frame["mag_or_phase"] == "magnitude"
+    cols = data_frame.columns[5:]
+
+    data_frame.loc[mask, cols] = convert_magnitude_to_db_array(
+        data_frame.loc[mask, cols].to_numpy()
+    )
+
+    return data_frame
+
+
+def extract_captured_gestures_from_results_df(results_df: pd.DataFrame) -> list:
+    return [
+        gesture
+        for gesture in list(results_df[ClassificationResultsColumns.GESTURE].unique())
+        if gesture not in list(ClassificationResultsAccuracy)
+    ]
+
+
+def format_enum_list(items):
+    enum_list = [
+        f"{re.sub(r'[^A-Z0-9]+', '_', item.upper()).strip('_')} = '{item}'"
+        for item in items
+    ]
+    return enum_list
+
+
+def save_graph_style(file_name: str, folder_path: str = None):
+
+    if not file_name.endswith(".mplstyle"):
+        file_name = f"{file_name}.mplstyle"
+
+    if folder_path is None:
+        path = os.path.join(get_graph_style_path(), file_name)
+    else:
+        path = os.path.join(folder_path, file_name)
+        os.makedirs(folder_path, exist_ok=True)
+
+    with open(path, "w") as f:
+        for key in mpl.rcParams:
+            f.write(f"{key} : {mpl.rcParams[key]}\n")
+
+
+def set_graph_style_from_file(file_name: str, folder_path: str = None):
+    if not file_name.endswith(".mplstyle"):
+        raise ValueError(f"Expected a '.mplstyle' file, got '{file_name}' instead.")
+
+    if folder_path is None:
+        path = os.path.join(get_graph_style_path(), file_name)
+    else:
+        path = os.path.join(folder_path, file_name)
+
+    plt.style.use(path)
+
+
+def get_list_of_s_params_in_df(df: pd.DataFrame) -> [SParam]:
+    return [SParam[sparam_string] for sparam_string in df["s_parameter"].unique()]
+
+
+def filter_between_frequency(df, low_frequency, high_frequency):
+    columns_to_drop = list(
+        filter(lambda x: (low_frequency > x) | (x > high_frequency), df.columns[5:])
+    )
+    return df.drop(columns_to_drop, axis=1)
+
+
+def extract_random_single_gesture_for_each_experiment_to_df(
+    capture_df: pd.DataFrame, target_s_param: SParam, mag_or_phase: MagnitudeOrPhase
+) -> pd.DataFrame:
+    experiments = capture_df[DataFrameCols.ID.value].unique()
+    output_df = None
+    for experiment in experiments:
+        # get all the same label experiments -> this means the same gesture
+        same_gesture = capture_df[
+            (capture_df[DataFrameCols.LABEL.value] == experiment)
+            & (capture_df[DataFrameCols.S_PARAMETER.value] == target_s_param.value)
+            & (capture_df["mag_or_phase"] == mag_or_phase.value)
+        ]
+
+        single_gesture = same_gesture[
+            same_gesture["id"] == random.choice(same_gesture["id"].unique())
+        ]
+        # output will contain one unique gesture capture for each
+        output_df = pd.concat([output_df, single_gesture], ignore_index=True)
+    return output_df
+
+
+def coalesce_duplicate_columns(df: pd.DataFrame) -> pd.DataFrame:
+    duplicate_cols = df.columns[df.columns.duplicated()].unique()
+    new_cols = {}
+
+    for col in duplicate_cols:
+        cols_with_name = df.loc[:, df.columns == col]
+        combined = cols_with_name.bfill(axis=1).iloc[:, 0]
+        new_cols[col] = combined
+
+    # Drop all duplicates at once
+    df = df.drop(columns=[col for col in df.columns if col in duplicate_cols])
+
+    # Combine all at once to avoid fragmentation
+    df = pd.concat([df, pd.DataFrame(new_cols, index=df.index)], axis=1)
+
+    return df
