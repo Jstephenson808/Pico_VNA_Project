@@ -23,7 +23,7 @@ class DataSource(ABC):
         pass
 
 
-class VNADatasource(DataSource):
+class PicoVNA2DataSource(DataSource):
     """
     A data source that captures live data from the PicoVNA.
     """

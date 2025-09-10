@@ -4,14 +4,14 @@ import pandas as pd
 from vna.state_machine import StateMachine
 from vna.states import DataCaptureState
 from vna.vna_experiment import VNAExperiment
-from vna.data_sources import VNADatasource, FileDataSource
+from vna.data_sources import PicoVNA2DataSource, FileDataSource
 
 if __name__ == "__main__":
     # 1. Create the main data object for the experiment
     experiment_data = VNAExperiment(
         experiment_id=f"exp_{int(time.time())}",
         timestamp=pd.Timestamp.now(),
-        metadata={"user": "test_user"}
+        metadata={"user": "test_user"},
     )
 
     # 2. Choose your data source
@@ -26,9 +26,8 @@ if __name__ == "__main__":
     #
     # Option B: Load data from a file (for testing/development)
     # Make sure to replace with a real file path
-    data_file = "path/to/your/data.pkl" 
+    data_file = "path/to/your/data.pkl"
     data_source = FileDataSource(file_path=data_file, label="test_from_file")
-
 
     # 3. Define the initial state
     initial_state = DataCaptureState(data_source)
